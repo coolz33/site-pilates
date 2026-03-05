@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  pilates-app:
+    build: .
+    container_name: pilates-app
+    ports:
+      - "5051:5051"
+    env_file:
+      - .env
+    restart: always
+    extra_hosts:
+      - "coolz-nas5:host-gateway"

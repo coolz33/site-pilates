@@ -8,8 +8,35 @@ require('dotenv').config();
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+
+/** Import des modules locaux avec vérification de chemin */
+const routesDir = path.join(__dirname, 'routes');
+console.log("🔍 DIAGNOSTIC DOCKER :");
+console.log("   -- Dossier de travail :", __dirname);
+
+if (fs.existsSync(routesDir)) {
+    const files = fs.readdirSync(routesDir);
+    console.log("   -- ✅ Dossier /routes trouvé. Fichiers présents :", files);
+    if (!files.includes('api.js')) {
+        console.error("   -- ❌ api.js est absent du dossier routes !");
+        process.exit(1);
+    }
+} else {
+    console.error("   -- ❌ Le dossier /routes est INTROUVABLE dans le conteneur !");
+    process.exit(1);
+}
+
 const api = require('./routes/api');
 const pool = require('./database');
+
+// Gestion des erreurs globales pour éviter le crash en boucle sans logs
+process.on('uncaughtException', (err) => {
+    console.error('💥 Erreur non gérée (Uncaught Exception):', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('💥 Promesse non gérée (Unhandled Rejection):', reason);
+});
 
 const PORT = process.env.PORT || 5000;
 
@@ -62,7 +89,8 @@ const server = http.createServer((req, res) => {
 
             fs.readFile(filePath, (error, content) => {
                 if (error) {
-                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    console.error(`--- ❌ Fichier statique introuvable : ${filePath}`);
+                    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
                     res.end(JSON.stringify({ message: 'Fichier ou route non trouvée' }));
                 } else {
                     res.writeHead(200, { 'Content-Type': contentType });
@@ -81,8 +109,17 @@ pool.getConnection()
     })
     .catch(err => {
         console.error('❌ Erreur de connexion à la base de données:', err.message);
+        console.log('💡 Conseil: Vérifiez que DB_HOST dans votre .env n\'est pas "localhost" mais l\'IP de votre NAS.');
     });
 
-server.listen(PORT, () => {
-    console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
+server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+        console.error(`❌ Erreur: Le port ${PORT} est déjà utilisé. Changez PORT dans votre .env`);
+    } else {
+        console.error('❌ Erreur serveur:', e);
+    }
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Serveur démarré sur le port ${PORT}`);
 });

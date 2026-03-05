@@ -1,4 +1,6 @@
-export const API_URL = 'http://localhost:5000/api';
+// En production, on utilise un chemin relatif pour que le navigateur 
+// contacte le NAS sur lequel il a chargé la page.
+export const API_URL = '/api';
 
 export const callGemini = async (prompt) => {
     const apiKey = ""; // Clé injectée par l'environnement

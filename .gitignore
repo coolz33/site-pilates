@@ -1,8 +1,12 @@
-# Dépendances
+# Dépendances (générées localement)
 node_modules/
 
-# Environnement (Contient tes identifiants DB !)
+# Configuration sensible (mots de passe, clés API)
 .env
 
-# Divers
+# Fichiers de configuration de l'IDE (WebStorm)
+.idea/
+
+# Fichiers système
 .DS_Store
+Thumbs.db
