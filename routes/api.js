@@ -378,6 +378,37 @@ const handleRequest = async (req, res) => {
             return send(200, { success: true, message: 'Réservation annulée' });
         }
 
+        // --- ROUTES AI (Proxy sécurisé) ---
+        if (method === 'POST' && path === '/ai/consult') {
+            const { prompt, userId } = req.body;
+            const apiKey = process.env.GEMINI_API_KEY;
+            
+            if (!apiKey) return send(500, { error: 'Clé API non configurée sur le serveur' });
+            if (!prompt) return send(400, { error: 'Prompt vide' });
+
+            // Utilisation de la dernière version Flash (Gemini 2.0 Flash)
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(geminiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            
+            const data = await response.json();
+
+            if (data.error) {
+                console.error("❌ Erreur API Gemini:", data.error.message);
+                let userMessage = "L'assistant rencontre une erreur technique.";
+                if (data.error.code === 429) {
+                    userMessage = "Quota API dépassé (Limite du mode gratuit). Vérifiez votre console Google AI Studio.";
+                }
+                return send(response.status, { success: false, answer: userMessage });
+            }
+
+            const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "Je n'ai pas pu formuler de réponse.";
+            return send(200, { success: true, answer });
+        }
+
         // --- ROUTES SETTINGS ---
         if (method === 'GET' && path === '/settings') {
             const [rows] = await pool.query('SELECT * FROM settings WHERE id = 1');

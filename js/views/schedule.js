@@ -56,6 +56,21 @@ export const scheduleView = (app) => {
                         <button onclick="app.changeWeek(1)" class="p-2 border rounded-full">→</button>
                     </div>
                 </div>
+
+                <!-- Section Assistant IA -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 mb-10">
+                    <h2 class="text-xl font-medium text-stone-800 mb-4 flex items-center gap-2">
+                        ✨ Quel cours est fait pour vous ?
+                    </h2>
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <input type="text" id="ai-prompt" placeholder="Ex: Je cherche un cours dynamique pour renforcer mon dos..." class="flex-1 p-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500">
+                        <button onclick="app.askAi()" class="px-6 py-3 bg-emerald-800 text-white rounded-xl hover:bg-emerald-900 transition flex items-center justify-center gap-2 min-w-[160px]">
+                            ${st.isAiLoading ? '<span class="animate-spin">⏳</span> Recherche...' : 'Demander à l\'IA'}
+                        </button>
+                    </div>
+                    ${st.aiResponse ? `<div class="mt-4 p-4 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-100 animate-fade-in">${st.aiResponse}</div>` : ''}
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-7 gap-4">${daysHtml}</div>
             </div>
         </div>`;

@@ -373,7 +373,7 @@ class PilatesApp {
 
         const fullPrompt = `Tu es un coach de Pilates bienveillant et professionnel. Voici les cours au planning cette semaine dans notre studio :\n${availableClasses}\n\nUn élève te dit : "${promptInput}".\nEn une seule phrase courte et chaleureuse, conseille-lui le cours le plus pertinent de la liste en expliquant rapidement pourquoi. Si aucun cours ne correspond vraiment, propose-lui un cours au hasard en douceur. Ne mets pas de texte en gras.`;
 
-        this.state.aiResponse = await callGemini(fullPrompt);
+        this.state.aiResponse = await callGemini(fullPrompt, this.state.currentUser?.id);
         this.state.isAiLoading = false;
         this.render();
     }
