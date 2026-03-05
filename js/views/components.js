@@ -7,23 +7,23 @@ export const renderNavbar = (app) => {
         <nav class="bg-white shadow-sm sticky top-0 z-50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between h-20">
-                    <div class="flex items-center cursor-pointer" onclick="app.navigate('home')">
+                    <div class="flex items-center cursor-pointer" onclick="app.navigate('accueil')">
                         <span class="text-2xl font-light text-emerald-800 tracking-wider">ÉQUILIBRE<span class="font-semibold">PILATES</span></span>
                     </div>
                     <div class="hidden md:flex items-center space-x-8">
-                        <button onclick="app.navigate('home')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'home' ? 'font-semibold text-emerald-800' : ''}">Accueil</button>
-                        <button onclick="app.navigate('about')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'about' ? 'font-semibold text-emerald-800' : ''}">Le Pilates</button>
-                        <button onclick="app.navigate('schedule')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'schedule' ? 'font-semibold text-emerald-800' : ''}">Planning & Réservation</button>
-                        <button onclick="app.navigate('contact')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'contact' ? 'font-semibold text-emerald-800' : ''}">Contact</button>
+                        <button onclick="app.navigate('accueil')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'accueil' ? 'font-semibold text-emerald-800' : ''}">🏠 Accueil</button>
+                        <button onclick="app.navigate('a-propos')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'a-propos' ? 'font-semibold text-emerald-800' : ''}">✨ Le Pilates</button>
+                        <button onclick="app.navigate('planning')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'planning' ? 'font-semibold text-emerald-800' : ''}">📅 Planning & Réservation</button>
+                        <button onclick="app.navigate('contact')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'contact' ? 'font-semibold text-emerald-800' : ''}">✉️ Contact</button>
                         ${st.currentUser ? `
                         <div class="flex items-center gap-4 border-l pl-6">
-                            <button onclick="app.navigate('profile')" class="text-sm text-stone-600 hover:text-emerald-700 font-medium">Bonjour, ${st.currentUser.firstName}</button>
-                            ${st.currentUser.role === 'admin' ? `<button onclick="app.navigate('admin')" class="text-sm font-medium text-emerald-700 hover:underline">Admin</button>` : ''}
+                            <button onclick="app.navigate('profil')" class="text-sm text-stone-600 hover:text-emerald-700 font-medium">👤 Bonjour, ${st.currentUser.firstName}</button>
+                            ${st.currentUser.role === 'admin' ? `<button onclick="app.navigate('administration')" class="text-sm font-medium text-emerald-700 hover:underline">⚙️ Administration</button>` : ''}
                             <button onclick="app.logout()" class="text-sm text-red-600 hover:text-red-800">Déconnexion</button>
                         </div>` : `
                         <div class="flex items-center gap-4 border-l pl-6">
-                            <button onclick="app.navigate('login')" class="text-sm font-medium text-stone-600 hover:text-emerald-700">Connexion</button>
-                            <button onclick="app.navigate('register')" class="px-4 py-2 bg-emerald-700 text-white text-sm rounded-full hover:bg-emerald-800 transition shadow-sm">S'inscrire</button>
+                            <button onclick="app.navigate('connexion')" class="text-sm font-medium text-stone-600 hover:text-emerald-700">Connexion</button>
+                            <button onclick="app.navigate('inscription')" class="px-4 py-2 bg-emerald-700 text-white text-sm rounded-full hover:bg-emerald-800 transition shadow-sm">S'inscrire</button>
                         </div>`}
                     </div>
                     <div class="flex items-center md:hidden">
@@ -31,7 +31,23 @@ export const renderNavbar = (app) => {
                     </div>
                 </div>
             </div>
-            ${st.isMenuOpen ? `<div class="md:hidden bg-white border-t border-stone-100 px-4 pt-2 pb-6 space-y-2 shadow-lg">...</div>` : ''}
+            ${st.isMenuOpen ? `
+            <div class="md:hidden bg-white border-t border-stone-100 px-4 pt-2 pb-6 space-y-2 shadow-lg flex flex-col">
+                <button onclick="app.navigate('accueil')" class="text-left py-2 text-stone-600 ${st.view === 'accueil' ? 'font-semibold text-emerald-800' : ''}">🏠 Accueil</button>
+                <button onclick="app.navigate('a-propos')" class="text-left py-2 text-stone-600 ${st.view === 'a-propos' ? 'font-semibold text-emerald-800' : ''}">✨ Le Pilates</button>
+                <button onclick="app.navigate('planning')" class="text-left py-2 text-stone-600 ${st.view === 'planning' ? 'font-semibold text-emerald-800' : ''}">📅 Planning & Réservation</button>
+                <button onclick="app.navigate('contact')" class="text-left py-2 text-stone-600 ${st.view === 'contact' ? 'font-semibold text-emerald-800' : ''}">✉️ Contact</button>
+                <div class="border-t border-stone-100 pt-2 mt-2">
+                    ${st.currentUser ? `
+                        <button onclick="app.navigate('profil')" class="block py-2 text-stone-600 font-medium">👤 Mon Profil (${st.currentUser.firstName})</button>
+                        ${st.currentUser.role === 'admin' ? `<button onclick="app.navigate('administration')" class="block py-2 text-emerald-700 font-medium">⚙️ Administration</button>` : ''}
+                        <button onclick="app.logout()" class="block py-2 text-red-600">Déconnexion</button>
+                    ` : `
+                        <button onclick="app.navigate('connexion')" class="block py-2 text-stone-600 font-medium">Connexion</button>
+                        <button onclick="app.navigate('inscription')" class="block py-2 text-emerald-700 font-medium">S'inscrire</button>
+                    `}
+                </div>
+            </div>` : ''}
         </nav>`;
     document.getElementById('navbar').innerHTML = navHtml;
 };

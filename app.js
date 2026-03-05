@@ -25,7 +25,7 @@ class PilatesApp {
          * @type {Object} État global de l'application.
          */
         this.state = {
-            view: 'home',
+            view: 'accueil',
             isMenuOpen: false,
             users: [],
             currentUser: null,
@@ -54,6 +54,23 @@ class PilatesApp {
      */
     async init() {
         try {
+            // Gestion du routage via le hash de l'URL (ex: #schedule)
+            const handleHashRoute = () => {
+                const view = window.location.hash.replace('#', '') || 'accueil';
+                this.state.view = view;
+                this.state.isMenuOpen = false;
+                this.state.aiResponse = '';
+                window.scrollTo(0, 0);
+                this.render();
+            };
+
+            // Écouter les changements d'URL (boutons précédent/suivant du navigateur ou liens)
+            window.addEventListener('hashchange', handleHashRoute);
+            
+            // Définir la vue initiale selon l'URL actuelle au chargement de la page
+            const initialView = window.location.hash.replace('#', '') || 'accueil';
+            this.state.view = initialView;
+
             const savedUser = localStorage.getItem('pilates_user');
             if (savedUser) {
                 this.state.currentUser = JSON.parse(savedUser);
@@ -90,11 +107,15 @@ class PilatesApp {
      * @param {string} view - L'identifiant de la vue (ex: 'home', 'schedule').
      */
     navigate(view) {
-        this.state.view = view;
-        this.state.isMenuOpen = false;
-        this.state.aiResponse = '';
-        window.scrollTo(0, 0);
-        this.render();
+        if (window.location.hash === `#${view}`) {
+            // Si on est déjà sur la vue, on force la fermeture du menu et le scroll en haut
+            this.state.isMenuOpen = false;
+            window.scrollTo(0, 0);
+            this.render();
+        } else {
+            // Changer le hash déclenchera automatiquement l'événement 'hashchange'
+            window.location.hash = view;
+        }
     }
 
     /** 
@@ -131,7 +152,7 @@ class PilatesApp {
     logout() {
         this.state.currentUser = null;
         localStorage.removeItem('pilates_user');
-        this.navigate('home');
+        this.navigate('accueil');
     }
 
     /** 
@@ -162,7 +183,7 @@ class PilatesApp {
      */
     initiateBooking(classId) {
         if (!this.state.currentUser) {
-            this.navigate('login');
+            this.navigate('connexion');
             return;
         }
         const cls = this.state.classes.find(c => c.id === classId);
@@ -490,17 +511,17 @@ class PilatesApp {
         const mainContainer = document.getElementById('main');
         const v = this.state.view;
 
-        if (v === 'login' || v === 'register') {
+        if (v === 'connexion' || v === 'inscription') {
             mainContainer.innerHTML = authView(this, v);
             this.attachAuthEvents(v);
         } else {
             const viewMap = {
-                home: homeView,
-                about: aboutView,
-                profile: profileView,
+                accueil: homeView,
+                'a-propos': aboutView,
+                profil: profileView,
                 contact: contactView,
-                schedule: scheduleView,
-                admin: adminView
+                planning: scheduleView,
+                administration: adminView
             };
             mainContainer.innerHTML = viewMap[v] ? viewMap[v](this) : '';
         }
@@ -520,7 +541,7 @@ class PilatesApp {
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
 
-            if (mode === 'login') {
+            if (mode === 'connexion') {
                 try {
                     const res = await fetch(`${API_URL}/login`, {
                         method: 'POST',
@@ -532,7 +553,7 @@ class PilatesApp {
                         this.state.currentUser = data.user;
                         localStorage.setItem('pilates_user', JSON.stringify(data.user));
                         this.init();
-                        this.navigate('schedule');
+                        this.navigate('planning');
                     } else {
                         this.showNotification(data.message || 'Email ou mot de passe incorrect.', 'error');
                     }
@@ -564,7 +585,7 @@ class PilatesApp {
                         this.state.currentUser = data.user;
                         localStorage.setItem('pilates_user', JSON.stringify(data.user));
                         this.init();
-                        this.navigate('schedule');
+                        this.navigate('planning');
                     } else {
                         this.showNotification(data.message || 'Erreur inscription.', 'error');
                     }

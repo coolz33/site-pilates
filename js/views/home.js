@@ -14,7 +14,7 @@ export const homeView = () => `
                 <p class="text-lg md:text-xl text-stone-600 mb-10 max-w-2xl mx-auto font-light leading-relaxed">
                     Un espace dédié au mouvement en conscience, pour renforcer le corps et apaiser l'esprit. Rejoignez notre studio au cœur de la ville.
                 </p>
-                <button onclick="app.navigate('schedule')" class="px-8 py-4 bg-stone-800 text-white rounded-full text-lg hover:bg-emerald-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                <button onclick="app.navigate('planning')" class="px-8 py-4 bg-stone-800 text-white rounded-full text-lg hover:bg-emerald-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1">
                     Voir le planning et réserver
                 </button>
             </div>

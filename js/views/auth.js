@@ -1,7 +1,7 @@
 import { getNotificationHtml } from './components.js';
 
 export const authView = (app, mode) => {
-    const isLogin = mode === 'login';
+    const isLogin = mode === 'connexion';
     return `
         <div class="min-h-[80vh] flex items-center justify-center bg-stone-50 py-12 px-4 animate-fade-in">
             <div class="max-w-md w-full bg-white p-8 rounded-3xl shadow-sm border border-stone-100">
@@ -60,8 +60,8 @@ export const authView = (app, mode) => {
                 </form>
                 <div class="mt-6 text-center text-sm text-stone-600">
                     ${isLogin ?
-                        `Pas encore de compte ? <button onclick="app.navigate('register')" class="text-emerald-700 font-medium hover:underline">S'inscrire</button>` :
-                        `Déjà un compte ? <button onclick="app.navigate('login')" class="text-emerald-700 font-medium hover:underline">Se connecter</button>`
+                        `Pas encore de compte ? <button onclick="app.navigate('inscription')" class="text-emerald-700 font-medium hover:underline">S'inscrire</button>` :
+                        `Déjà un compte ? <button onclick="app.navigate('connexion')" class="text-emerald-700 font-medium hover:underline">Se connecter</button>`
                     }
                 </div>
             </div>
