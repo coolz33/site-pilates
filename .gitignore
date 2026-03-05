@@ -1,0 +1,8 @@
+# Dépendances
+node_modules/
+
+# Environnement (Contient tes identifiants DB !)
+.env
+
+# Divers
+.DS_Store
