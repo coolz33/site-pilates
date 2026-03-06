@@ -4,6 +4,16 @@ export const profileView = (app) => {
     const u = app.state.currentUser;
     if (!u) return '';
 
+    // Récupération et tri des réservations
+    const now = new Date();
+    const myBookings = app.state.classes
+        .filter(c => c.bookedUsers.includes(u.id))
+        .sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
+
+    const futureBookings = myBookings.filter(c => new Date(c.date + 'T' + c.time) >= now);
+    const pastBookings = myBookings.filter(c => new Date(c.date + 'T' + c.time) < now).reverse();
+    const delayHours = app.state.cancellationDelay || 24;
+
     return `
         <div class="pt-20 pb-24 bg-stone-50 min-h-screen animate-fade-in">
             <div class="max-w-4xl mx-auto px-4 grid md:grid-cols-3 gap-8">
@@ -67,16 +77,50 @@ export const profileView = (app) => {
                         <div class="text-sm opacity-80 mb-1">Mon solde</div>
                         <div class="text-4xl font-light">${u.credits_balance || 0} <span class="text-xl">crédits</span></div>
                     </div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 text-center">
+                        <p class="text-stone-600 text-sm mb-4">Besoin de plus de séances ?</p>
+                        <button onclick="app.navigate('tarifs')" class="text-emerald-700 font-medium hover:underline">
+                            Voir les packs de crédits →
+                        </button>
+                    </div>
+
+                    <!-- Réservations à venir -->
                     <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
-                        <h3 class="font-medium mb-4">Acheter des crédits</h3>
-                        <div class="space-y-3">
-                            ${app.state.creditPackages.map(p => `
-                                <button onclick="app.buyCredits(${JSON.stringify(p).replace(/"/g, '&quot;')})" class="w-full p-3 text-left border rounded-xl hover:border-emerald-500 transition group">
-                                    <div class="font-medium group-hover:text-emerald-700">${p.name}</div>
-                                    <div class="text-sm text-stone-500">${p.credits} crédits • ${p.price}€</div>
-                                </button>
+                        <h3 class="font-medium mb-4 text-stone-800">Mes séances à venir</h3>
+                        ${futureBookings.length === 0 ? '<p class="text-sm text-stone-400">Aucune séance prévue.</p>' : 
+                        `<div class="space-y-3">
+                            ${futureBookings.map(c => {
+                                const classDate = new Date(c.date + 'T' + c.time);
+                                const hoursDiff = (classDate - now) / 1000 / 60 / 60;
+                                const canCancel = hoursDiff >= delayHours;
+                                return `
+                                <div class="p-3 border border-stone-100 rounded-xl bg-stone-50">
+                                    <div class="font-medium text-emerald-800">${c.title}</div>
+                                    <div class="text-sm text-stone-600">${new Date(c.date).toLocaleDateString('fr-FR')} à ${c.time}</div>
+                                    ${canCancel ? 
+                                        `<div class="mt-2 flex justify-between items-center">
+                                            <span class="text-xs text-stone-500">Annulable jusqu'à ${delayHours}h avant</span>
+                                            <button onclick="app.deleteClass(${c.id})" class="text-xs text-red-500 hover:underline">Annuler le cours</button>
+                                        </div>` : 
+                                        `<div class="mt-2 text-xs text-stone-400">Annulation impossible (moins de ${delayHours}h avant)</div>`
+                                    }
+                                </div>`;
+                            }).join('')}
+                        </div>`}
+                    </div>
+
+                    <!-- Historique -->
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
+                        <h3 class="font-medium mb-4 text-stone-800">Historique</h3>
+                        ${pastBookings.length === 0 ? '<p class="text-sm text-stone-400">Aucun historique.</p>' : 
+                        `<div class="space-y-3 max-h-60 overflow-y-auto pr-2">
+                            ${pastBookings.map(c => `
+                                <div class="p-3 border border-stone-100 rounded-xl opacity-70">
+                                    <div class="font-medium text-stone-700">${c.title}</div>
+                                    <div class="text-sm text-stone-500">${new Date(c.date).toLocaleDateString('fr-FR')}</div>
+                                </div>
                             `).join('')}
-                        </div>
+                        </div>`}
                     </div>
                 </div>
             </div>

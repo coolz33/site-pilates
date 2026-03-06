@@ -9,10 +9,12 @@ services:
     env_file:
       - .env
     volumes:
-      # 1. Lie votre dossier NAS au conteneur pour voir vos modifs en direct
-      - /volume1/docker/site-pilates:/app
-      # 2. Empêche votre dossier NAS d'écraser les modules installés dans l'image
+      # Lie votre dossier NAS au conteneur pour voir vos modifs en direct
+      - .:/app
+      # Volume anonyme pour protéger les modules (évite les conflits NAS/Conteneur)
       - /app/node_modules
+    # Cette commande installe les modules manquants au démarrage puis lance le serveur
+    command: sh -c "npm install --production && node server.js"
     restart: always
     extra_hosts:
       - "coolz-nas5:host-gateway"

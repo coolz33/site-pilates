@@ -52,17 +52,42 @@ export const userService = {
     },
 
     async buyCredits(app, pkg) {
-        if (!confirm(`Acheter ${pkg.name} ?`)) return;
-        const res = await fetch(`${API_URL}/credits/buy`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: app.state.currentUser.id, credits: pkg.credits })
-        });
-        const data = await res.json();
-        if (data.success) {
-            app.state.currentUser.credits_balance = data.credits_balance;
-            app.showNotification("Crédits ajoutés !");
-            app.render();
+        if (!app.state.currentUser) {
+            app.showNotification("Veuillez vous connecter pour acheter des crédits.", "error");
+            app.navigate('connexion');
+            return;
+        }
+
+        // Ouvrir le popup immédiatement
+        const width = 600;
+        const height = 800;
+        const left = (window.innerWidth / 2) - (width / 2);
+        const top = (window.innerHeight / 2) - (height / 2);
+        const popup = window.open('', 'Paiement Stripe', `width=${width},height=${height},top=${top},left=${left}`);
+        
+        if (popup) {
+            popup.document.write(`<html><head><title>Paiement</title><style>body{font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f4;color:#444;}</style></head><body><div style="text-align:center"><h3>Connexion à Stripe...</h3><p>Veuillez patienter.</p></div></body></html>`);
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/checkout/create-session`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    packageId: pkg.id, 
+                    userId: app.state.currentUser.id 
+                })
+            });
+            const data = await res.json();
+            if (data.url) {
+                popup.location.href = data.url;
+            } else {
+                popup.close();
+                app.showNotification(data.message || data.error || "Erreur lors de l'initialisation du paiement", "error");
+            }
+        } catch (err) {
+            if (popup) popup.close();
+            app.showNotification("Erreur de connexion au service de paiement", "error");
         }
     },
 
@@ -71,7 +96,8 @@ export const userService = {
         const settings = {
             studioAddress: document.getElementById('admin-studio-address').value,
             studioPhone: document.getElementById('admin-studio-phone').value,
-            studioEmail: document.getElementById('admin-studio-email').value
+            studioEmail: document.getElementById('admin-studio-email').value,
+            cancellationDelay: app.state.cancellationDelay // On garde la valeur actuelle car le champ n'est plus dans ce formulaire
         };
         await fetch(`${API_URL}/settings`, {
             method: 'POST',
@@ -79,6 +105,23 @@ export const userService = {
             body: JSON.stringify(settings)
         });
         app.showNotification('Paramètres mis à jour.');
+        app.init();
+    },
+
+    async updateCancellationDelay(app, e) {
+        e.preventDefault();
+        const settings = {
+            studioAddress: app.state.studioAddress,
+            studioPhone: app.state.studioPhone,
+            studioEmail: app.state.studioEmail,
+            cancellationDelay: parseInt(document.getElementById('admin-cancellation-delay').value) || 0
+        };
+        await fetch(`${API_URL}/settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        app.showNotification('Délai mis à jour.');
         app.init();
     }
 };

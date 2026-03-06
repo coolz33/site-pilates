@@ -5,8 +5,9 @@
  */
 
 const pool = require('../database');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 /**
  * Initialise la base de données : crée les tables et insère les données par défaut.
@@ -19,7 +20,8 @@ const seedDB = async () => {
                 id INT PRIMARY KEY DEFAULT 1,
                 studioAddress VARCHAR(255),
                 studioPhone VARCHAR(50),
-                studioEmail VARCHAR(100)
+                studioEmail VARCHAR(100),
+                cancellationDelay INT DEFAULT 24
             )
         `);
 
@@ -92,6 +94,7 @@ const seedDB = async () => {
         try { await pool.query(`ALTER TABLE users ADD COLUMN zipCode VARCHAR(10)`); } catch (e) {}
         try { await pool.query(`ALTER TABLE users ADD COLUMN city VARCHAR(100)`); } catch (e) {}
         try { await pool.query(`ALTER TABLE users ADD COLUMN newsletter_subscribed BOOLEAN DEFAULT 0`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE settings ADD COLUMN cancellationDelay INT DEFAULT 24`); } catch (e) {}
         // Migration des anciens noms vers les nouveaux si nécessaire
         try { await pool.query(`ALTER TABLE users CHANGE points_balance credits_balance INT DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE classes CHANGE points_price credits_price INT DEFAULT 1`); } catch (e) {}
@@ -119,23 +122,23 @@ const seedDB = async () => {
         const [classes] = await pool.query('SELECT COUNT(*) as count FROM classes');
         if (classes[0].count === 0) {
             const defaultClasses = [
-                ['Pilates Fondations', '2026-02-23', '09:00', 60, 10, 20, 'Idéal pour acquérir les bases de la méthode, comprendre la respiration et le placement du bassin.'],
-                ['Pilates Flow', '2026-02-24', '18:30', 45, 12, 20, 'Un enchaînement fluide et dynamique pour faire monter le rythme cardiaque tout en contrôlant ses mouvements.'],
-                ['Core & Posture', '2026-02-25', '12:15', 45, 8, 25, 'Focus intense sur la sangle abdominale et les muscles profonds du dos pour redresser la silhouette.'],
-                ['Pilates Avancé', '2026-02-26', '19:00', 60, 10, 25, 'Réservé aux pratiquants réguliers. Des exercices complexes pour défier votre équilibre et votre force.'],
-                ['Stretching & Mobilité', '2026-02-28', '10:00', 60, 15, 15, "Une séance douce axée sur les étirements profonds et l'amplitude articulaire pour libérer les tensions."]
+                ['Pilates Fondations', '2026-02-23', '09:00', 60, 10, 20, 20, 'Idéal pour acquérir les bases de la méthode, comprendre la respiration et le placement du bassin.'],
+                ['Pilates Flow', '2026-02-24', '18:30', 45, 12, 20, 20, 'Un enchaînement fluide et dynamique pour faire monter le rythme cardiaque tout en contrôlant ses mouvements.'],
+                ['Core & Posture', '2026-02-25', '12:15', 45, 8, 25, 25, 'Focus intense sur la sangle abdominale et les muscles profonds du dos pour redresser la silhouette.'],
+                ['Pilates Avancé', '2026-02-26', '19:00', 60, 10, 25, 25, 'Réservé aux pratiquants réguliers. Des exercices complexes pour défier votre équilibre et votre force.'],
+                ['Stretching & Mobilité', '2026-02-28', '10:00', 60, 15, 15, 15, "Une séance douce axée sur les étirements profonds et l'amplitude articulaire pour libérer les tensions."]
             ];
-            await pool.query('INSERT INTO classes (title, date, time, duration, capacity, price, description) VALUES ?', [defaultClasses]);
+            await pool.query('INSERT INTO classes (title, date, time, duration, capacity, price, credits_price, description) VALUES ?', [defaultClasses]);
         }
 
         // 3b. Course Templates (Exemples)
         const [templates] = await pool.query('SELECT COUNT(*) as count FROM course_templates');
         if (templates[0].count === 0) {
             const defaultTemplates = [
-                ['Pilates Mat Fondamental', 'Séance au sol axée sur les principes de base.', 60, 20, 1],
-                ['Pilates Flow Dynamique', 'Enchaînement fluide pour travailler le cardio et la souplesse.', 45, 22, 1],
-                ['Spécial Dos & Posture', 'Focus sur le renforcement des muscles profonds du dos.', 50, 25, 2],
-                ['Pilates avec Accessoires', 'Utilisation de ballons, cercles et élastiques.', 60, 23, 1]
+                ['Pilates Mat Fondamental', 'Séance au sol axée sur les principes de base.', 60, 20, 20],
+                ['Pilates Flow Dynamique', 'Enchaînement fluide pour travailler le cardio et la souplesse.', 45, 22, 22],
+                ['Spécial Dos & Posture', 'Focus sur le renforcement des muscles profonds du dos.', 50, 25, 25],
+                ['Pilates avec Accessoires', 'Utilisation de ballons, cercles et élastiques.', 60, 23, 23]
             ];
             await pool.query('INSERT INTO course_templates (title, description, duration, default_price, default_credits_price) VALUES ?', [defaultTemplates]);
         }
@@ -144,9 +147,17 @@ const seedDB = async () => {
         const [packages] = await pool.query('SELECT COUNT(*) as count FROM credit_packages');
         if (packages[0].count === 0) {
             await pool.query('INSERT INTO credit_packages (name, credits, price) VALUES ?', [[
-                ['Pack Découverte', 1, 20],
-                ['Pack Équilibre (10 séances)', 10, 180],
-                ['Pack Sérénité (20 séances)', 20, 320]
+                ['Pack Découverte', 20, 20],
+                ['Pack Équilibre (100 crédits)', 100, 80],
+                ['Pack Sérénité (200 crédits)', 200, 140]
+            ]]);
+        } else {
+            // Mise à jour forcée des packs pour correspondre à la demande
+            await pool.query('DELETE FROM credit_packages');
+            await pool.query('INSERT INTO credit_packages (name, credits, price) VALUES ?', [[
+                ['Pack Découverte', 20, 20],
+                ['Pack Équilibre (100 crédits)', 100, 80],
+                ['Pack Sérénité (200 crédits)', 200, 140]
             ]]);
         }
         console.log('✅ Base de données MySQL initialisée');
@@ -186,6 +197,16 @@ const handleRequest = async (req, res) => {
         if (method === 'GET' && path === '/users') {
             const [users] = await pool.query('SELECT * FROM users');
             return send(200, users);
+        }
+
+        const userIdMatch = path.match(/^\/users\/(\d+)$/);
+        if (method === 'GET' && userIdMatch) {
+            const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [userIdMatch[1]]);
+            if (users.length > 0) {
+                const { password: _, ...userWithoutPassword } = users[0];
+                return send(200, userWithoutPassword);
+            }
+            return send(404, { message: 'Utilisateur non trouvé' });
         }
 
         if (method === 'POST' && path === '/login') {
@@ -382,7 +403,31 @@ const handleRequest = async (req, res) => {
         if (method === 'POST' && cancelClassMatch) {
             const classId = cancelClassMatch[1];
             const { userId } = req.body;
-            await pool.query('DELETE FROM bookings WHERE class_id = ? AND user_id = ?', [classId, userId]);
+
+            // Vérification du délai d'annulation
+            const [settings] = await pool.query('SELECT cancellationDelay FROM settings WHERE id = 1');
+            const delay = settings[0]?.cancellationDelay || 24;
+            const [cls] = await pool.query('SELECT date, time, credits_price FROM classes WHERE id = ?', [classId]);
+            
+            if (cls.length) {
+                const classDate = new Date(cls[0].date + 'T' + cls[0].time);
+                const now = new Date();
+                const hoursDiff = (classDate - now) / 1000 / 60 / 60;
+                if (hoursDiff < delay) {
+                    return send(400, { success: false, message: `Annulation impossible moins de ${delay}h avant le cours.` });
+                }
+            }
+
+            const creditsToRefund = (cls.length && cls[0].credits_price) ? cls[0].credits_price : 0;
+
+            await pool.query('START TRANSACTION');
+            const [result] = await pool.query('DELETE FROM bookings WHERE class_id = ? AND user_id = ?', [classId, userId]);
+            
+            if (result.affectedRows > 0 && creditsToRefund > 0) {
+                await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [creditsToRefund, userId]);
+            }
+            await pool.query('COMMIT');
+
             return send(200, { success: true, message: 'Réservation annulée' });
         }
 
@@ -480,6 +525,85 @@ const handleRequest = async (req, res) => {
             }
         }
 
+        // --- ROUTES STRIPE ---
+        if (method === 'POST' && path === '/checkout/create-session') {
+            const { packageId, userId } = req.body;
+            const [pkgs] = await pool.query('SELECT * FROM credit_packages WHERE id = ?', [packageId]);
+            if (!pkgs.length) return send(404, { message: 'Pack non trouvé' });
+            const pkg = pkgs[0];
+
+            const session = await stripe.checkout.sessions.create({
+                payment_method_types: ['card'],
+                line_items: [{
+                    price_data: {
+                        currency: 'eur',
+                        product_data: { name: pkg.name, description: `${pkg.credits} crédits Pilates` },
+                        unit_amount: pkg.price * 100,
+                    },
+                    quantity: 1,
+                }],
+                mode: 'payment',
+                success_url: `http://${req.headers.host}/#profil?payment=success&type=credits`,
+                cancel_url: `http://${req.headers.host}/#profil?payment=cancel`,
+                metadata: { userId: userId.toString(), credits: pkg.credits.toString(), type: 'credits_purchase' }
+            });
+            return send(200, { url: session.url });
+        }
+
+        if (method === 'POST' && path === '/checkout/create-session-class') {
+            const { classId, userId } = req.body;
+            const [rows] = await pool.query('SELECT * FROM classes WHERE id = ?', [classId]);
+            if (!rows.length) return send(404, { message: 'Cours non trouvé' });
+            const cls = rows[0];
+
+            const session = await stripe.checkout.sessions.create({
+                payment_method_types: ['card'],
+                line_items: [{
+                    price_data: {
+                        currency: 'eur',
+                        product_data: { name: cls.title, description: `Réservation cours de Pilates` },
+                        unit_amount: cls.price * 100,
+                    },
+                    quantity: 1,
+                }],
+                mode: 'payment',
+                success_url: `http://${req.headers.host}/#planning?payment=success&type=booking`,
+                cancel_url: `http://${req.headers.host}/#planning?payment=cancel`,
+                metadata: { userId: userId.toString(), classId: classId.toString(), type: 'class_booking' }
+            });
+            return send(200, { url: session.url });
+        }
+
+        if (method === 'POST' && path === '/webhook/stripe') {
+            const sig = req.headers['stripe-signature'];
+            let event;
+            try {
+                event = stripe.webhooks.constructEvent(req.rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+            } catch (err) {
+                console.error("❌ Webhook Error:", err.message);
+                return send(400, { error: `Webhook Error: ${err.message}` });
+            }
+
+            if (event.type === 'checkout.session.completed') {
+                const session = event.data.object;
+                console.log("🔔 Webhook Stripe reçu. Metadata:", session.metadata);
+
+                const { userId, credits, classId, type } = session.metadata;
+                
+                if (type === 'class_booking') {
+                    await pool.query('INSERT IGNORE INTO bookings (class_id, user_id) VALUES (?, ?)', [parseInt(classId), parseInt(userId)]);
+                    console.log(`✅ Réservation confirmée via Stripe pour l'utilisateur ${userId} au cours ${classId}`);
+                } else if (credits && userId) {
+                    // Achat de crédits
+                    await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [parseInt(credits), parseInt(userId)]);
+                    console.log(`✅ Crédits ajoutés : +${credits} pour l'utilisateur ${userId}`);
+                } else {
+                    console.warn("⚠️ Webhook ignoré : métadonnées incomplètes ou type inconnu", session.metadata);
+                }
+            }
+            return send(200, { received: true });
+        }
+
         // --- ROUTES SETTINGS ---
         if (method === 'GET' && path === '/settings') {
             const [rows] = await pool.query('SELECT * FROM settings WHERE id = 1');
@@ -487,12 +611,12 @@ const handleRequest = async (req, res) => {
         }
 
         if (method === 'POST' && path === '/settings') {
-            const { studioAddress, studioPhone, studioEmail } = req.body;
+            const { studioAddress, studioPhone, studioEmail, cancellationDelay } = req.body;
             await pool.query(`
-                INSERT INTO settings (id, studioAddress, studioPhone, studioEmail) 
-                VALUES (1, ?, ?, ?) 
-                ON DUPLICATE KEY UPDATE studioAddress = VALUES(studioAddress), studioPhone = VALUES(studioPhone), studioEmail = VALUES(studioEmail)
-            `, [studioAddress, studioPhone, studioEmail]);
+                INSERT INTO settings (id, studioAddress, studioPhone, studioEmail, cancellationDelay) 
+                VALUES (1, ?, ?, ?, ?) 
+                ON DUPLICATE KEY UPDATE studioAddress = VALUES(studioAddress), studioPhone = VALUES(studioPhone), studioEmail = VALUES(studioEmail), cancellationDelay = VALUES(cancellationDelay)
+            `, [studioAddress, studioPhone, studioEmail, cancellationDelay]);
             
             return send(200, { id: 1, ...req.body });
         }

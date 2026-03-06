@@ -59,16 +59,5 @@ export const newsletterService = {
             app.state.selectedNewsletterRecipients.push(userId);
         }
         app.render();
-    },
-
-    /** Bascule entre l'éditeur visuel et le code HTML */
-    toggleHtmlView(app) {
-        if (!app.state.isHtmlView && app.state.quill) {
-            app.state.newsletterContent = app.state.quill.root.innerHTML;
-        } else if (app.state.isHtmlView) {
-            app.state.newsletterContent = document.getElementById('nl-html-area').value;
-        }
-        app.state.isHtmlView = !app.state.isHtmlView;
-        app.render();
     }
 };

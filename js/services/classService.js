@@ -21,18 +21,22 @@ export const classService = {
             return;
         }
         const cls = app.state.classes.find(c => c.id === classId);
+
+        const classDate = new Date(`${cls.date}T${cls.time}`);
+        if (classDate < new Date()) {
+            return app.showNotification("Ce cours est déjà passé.", "error");
+        }
+
         const isBooked = cls.bookedUsers.includes(app.state.currentUser.id);
 
         if (isBooked) {
-            fetch(`${API_URL}/classes/cancel/${cls.id}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: app.state.currentUser.id })
-            }).then(() => app.init());
+            app.showNotification("Vous êtes déjà inscrit. Gérez vos réservations depuis votre profil.", "info");
+            app.navigate('profil');
         } else if (cls.bookedUsers.length < cls.capacity) {
             app.state.selectedClassForPayment = cls;
             app.state.paymentMethod = 'card';
             app.state.showPaymentModal = true;
+            app.state.modalMessage = null;
             app.render();
         }
     },
@@ -40,10 +44,60 @@ export const classService = {
     async confirmPayment(app, e) {
         e.preventDefault();
         const cls = app.state.selectedClassForPayment;
-        if (cls && cls.bookedUsers.length < cls.capacity) {
+        if (!cls || cls.bookedUsers.length >= cls.capacity) return;
+
+        // Réinitialiser le message d'erreur précédent
+        app.state.modalMessage = null;
+
+        if (app.state.paymentMethod === 'card') {
+            // 1. Ouvrir le popup immédiatement pour éviter le blocage par le navigateur
+            const width = 600;
+            const height = 800;
+            const left = (window.innerWidth / 2) - (width / 2);
+            const top = (window.innerHeight / 2) - (height / 2);
+            const popup = window.open('', 'Paiement Stripe', `width=${width},height=${height},top=${top},left=${left}`);
+            
+            if (popup) {
+                popup.document.write(`<html><head><title>Paiement</title><style>body{font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f4;color:#444;}</style></head><body><div style="text-align:center"><h3>Connexion à Stripe...</h3><p>Veuillez patienter.</p></div></body></html>`);
+            } else {
+                return app.showNotification("Le navigateur a bloqué la fenêtre de paiement.", "error");
+            }
+
             try {
-                const endpoint = app.state.paymentMethod === 'credits' ? `/classes/book-credits/${cls.id}` : `/classes/book/${cls.id}`;
-                const res = await fetch(`${API_URL}${endpoint}`, {
+                const res = await fetch(`${API_URL}/checkout/create-session-class`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        classId: cls.id, 
+                        userId: app.state.currentUser.id 
+                    })
+                });
+                const data = await res.json();
+                if (data.url) {
+                    // 2. Rediriger le popup vers l'URL Stripe reçue
+                    popup.location.href = data.url;
+                    app.state.showPaymentModal = false;
+                    app.state.selectedClassForPayment = null;
+                    app.render();
+                } else {
+                    popup.close(); // Fermer le popup si erreur serveur
+                    app.showNotification(data.message || data.error || "Erreur lors de l'initialisation du paiement", "error");
+                }
+            } catch (err) {
+                if (popup) popup.close();
+                app.showNotification("Erreur de connexion au service de paiement", "error");
+            }
+        } else {
+            // Vérification de la case à cocher
+            const confirmCheck = document.getElementById('confirm-credits');
+            if (!confirmCheck || !confirmCheck.checked) {
+                app.state.modalMessage = { type: 'error', text: "Veuillez cocher la case pour confirmer l'utilisation de vos crédits." };
+                return app.render();
+            }
+
+            // Paiement par crédits (la confirmation est implicite via le bouton du modal)
+            try {
+                const res = await fetch(`${API_URL}/classes/book-credits/${cls.id}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: app.state.currentUser.id })
@@ -52,14 +106,21 @@ export const classService = {
                 if (data.success) {
                     if (data.user) app.state.currentUser = data.user;
                     app.showNotification("Réservation confirmée !");
+                    app.state.showPaymentModal = false;
+                    app.state.selectedClassForPayment = null;
+                    app.init();
                 } else {
-                    app.showNotification(data.message, 'error');
+                    app.state.modalMessage = { type: 'error', text: data.message };
+                    if (data.message === 'Solde de crédits insuffisant') {
+                        app.state.modalMessage.isInsufficientCredits = true;
+                    }
+                    app.render();
                 }
-            } catch (err) { app.showNotification("Erreur lors de la réservation", 'error'); }
+            } catch (err) { 
+                app.state.modalMessage = { type: 'error', text: "Erreur lors de la réservation" };
+                app.render();
+            }
         }
-        app.state.showPaymentModal = false;
-        app.state.selectedClassForPayment = null;
-        app.init();
     },
 
     cancelPayment(app) {
@@ -68,7 +129,25 @@ export const classService = {
         app.render();
     },
 
-    async deleteClass(app, id) {
+    // Annulation par le client (Profil)
+    async cancelBooking(app, classId) {
+        if (!confirm("Confirmer l'annulation de ce cours ?")) return;
+        const res = await fetch(`${API_URL}/classes/cancel/${classId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: app.state.currentUser.id })
+        });
+        const data = await res.json();
+        if (data.success) {
+            app.showNotification("Réservation annulée.");
+            app.init(); // Rafraîchir pour mettre à jour le solde et le planning
+        } else {
+            app.showNotification(data.message, 'error');
+        }
+    },
+
+    // Suppression par l'admin (Planning)
+    async adminDeleteClass(app, id) {
         if (confirm("Voulez-vous vraiment supprimer ce cours ?")) {
             await fetch(`${API_URL}/classes/${id}`, { method: 'DELETE' });
             app.init();

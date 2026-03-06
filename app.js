@@ -13,6 +13,7 @@ import { newsletterService } from './js/services/newsletterService.js';
 import { homeView } from './js/views/home.js';
 import { aboutView } from './js/views/about.js';
 import { profileView } from './js/views/profile.js';
+import { creditsView } from './js/views/credits.js';
 import { contactView } from './js/views/contact.js';
 import { authView } from './js/views/auth.js';
 import { scheduleView } from './js/views/schedule.js';
@@ -42,6 +43,7 @@ class PilatesApp {
             adminTab: 'planning',
             paymentMethod: 'card',
             selectedClassForPayment: null,
+            modalMessage: null,
             editingTemplateId: null,
             notification: { message: '', type: 'success', visible: false },
             courseTemplates: [],
@@ -49,6 +51,7 @@ class PilatesApp {
             studioAddress: '',
             studioPhone: '',
             studioEmail: '',
+            cancellationDelay: 24,
             quill: null,
             newsletterContent: '',
             isHtmlView: false,
@@ -62,13 +65,32 @@ class PilatesApp {
      */
     async init() {
         try {
+            // Gestion de la fermeture du popup de paiement Stripe
+            if (window.opener && window.location.hash.includes('payment=')) {
+                // On met à jour l'URL de la fenêtre principale pour déclencher la notification
+                window.opener.location.href = window.location.href;
+                // On recharge la fenêtre principale pour récupérer les nouvelles données (réservation/crédits)
+                window.opener.location.reload();
+                // On ferme le popup
+                window.close();
+                return; // On arrête l'exécution du script dans le popup
+            }
+
             // Gestion du routage via le hash de l'URL (ex: #schedule)
             const handleHashRoute = () => {
                 const hash = window.location.hash.replace('#', '');
-                const [view, query] = hash.split('?');
+                const [view, queryString] = hash.split('?');
+                const params = new URLSearchParams(queryString);
 
-                if (query === 'desabonne=success') {
+                if (params.get('desabonne') === 'success') {
                     this.showNotification("Vous avez été désabonné de la newsletter avec succès.");
+                }
+                if (params.get('payment') === 'success') {
+                    const msg = params.get('type') === 'booking' ? "Paiement réussi ! Votre réservation est confirmée." : "Paiement réussi ! Vos crédits ont été ajoutés.";
+                    this.showNotification(msg);
+                }
+                if (params.get('payment') === 'cancel') {
+                    this.showNotification("Paiement annulé.", "error");
                 }
 
                 this.state.view = view || 'accueil';
@@ -83,10 +105,18 @@ class PilatesApp {
             
             // Définir la vue initiale selon l'URL actuelle au chargement de la page
             const hash = window.location.hash.replace('#', '');
-            const [initialView, query] = hash.split('?');
+            const [initialView, queryString] = hash.split('?');
+            const params = new URLSearchParams(queryString);
 
-            if (query === 'desabonne=success') {
+            if (params.get('desabonne') === 'success') {
                 this.showNotification("Vous avez été désabonné de la newsletter avec succès.");
+            }
+            if (params.get('payment') === 'success') {
+                const msg = params.get('type') === 'booking' ? "Paiement réussi ! Votre réservation est confirmée." : "Paiement réussi ! Vos crédits ont été ajoutés.";
+                this.showNotification(msg);
+            }
+            if (params.get('payment') === 'cancel') {
+                this.showNotification("Paiement annulé.", "error");
             }
 
             this.state.view = initialView || 'accueil';
@@ -94,6 +124,17 @@ class PilatesApp {
             const savedUser = localStorage.getItem('pilates_user');
             if (savedUser) {
                 this.state.currentUser = JSON.parse(savedUser);
+                // Rafraîchir les données depuis le serveur pour avoir les crédits à jour
+                try {
+                    const resUser = await fetch(`${API_URL}/users/${this.state.currentUser.id}`);
+                    if (resUser.ok) {
+                        const freshUser = await resUser.json();
+                        this.state.currentUser = freshUser;
+                        localStorage.setItem('pilates_user', JSON.stringify(freshUser));
+                    }
+                } catch (e) {
+                    console.warn("Impossible de rafraîchir les données utilisateur", e);
+                }
             }
             
             const resSettings = await fetch(`${API_URL}/settings`);
@@ -101,6 +142,7 @@ class PilatesApp {
             this.state.studioAddress = settings.studioAddress;
             this.state.studioPhone = settings.studioPhone;
             this.state.studioEmail = settings.studioEmail;
+            this.state.cancellationDelay = settings.cancellationDelay || 24;
 
             const resClasses = await fetch(`${API_URL}/classes`);
             this.state.classes = await resClasses.json() || [];
@@ -192,8 +234,10 @@ class PilatesApp {
     async updateProfile(e) { await userService.updateProfile(this, e); }
     async buyCredits(pkg) { await userService.buyCredits(this, pkg); }
     async updateStudioSettings(e) { await userService.updateStudioSettings(this, e); }
+    async updateCancellationDelay(e) { await userService.updateCancellationDelay(this, e); }
     async askAi() { await aiService.askAi(this); }
-    async deleteClass(id) { await classService.deleteClass(this, id); }
+    async deleteClass(id) { await classService.cancelBooking(this, id); } // Pour le profil utilisateur
+    async adminDeleteClass(id) { await classService.adminDeleteClass(this, id); } // Pour l'admin
     async generateAdminDescription() { await aiService.generateAdminDescription(this); }
     async submitAddClass(e) { await classService.submitAddClass(this, e); }
     applyTemplate() { classService.applyTemplate(this); }
@@ -220,6 +264,7 @@ class PilatesApp {
                 accueil: homeView,
                 'a-propos': aboutView,
                 profil: profileView,
+                tarifs: creditsView,
                 contact: contactView,
                 planning: scheduleView,
                 administration: adminView

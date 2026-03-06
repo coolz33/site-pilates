@@ -32,37 +32,50 @@ export const adminView = (app) => {
                 ${st.adminTab === 'planning' || st.adminTab === 'past_sessions' ? `
                     <div class="grid md:grid-cols-3 gap-8">
                         ${st.adminTab === 'planning' ? `
-                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
-                            <h2 class="text-xl font-medium mb-6">Ajouter un cours</h2>
-                            <form onsubmit="app.submitAddClass(event)" class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-stone-700 mb-1">Modèle de cours</label>
-                                    <select id="planning-template-select" onchange="app.applyTemplate()" class="w-full p-2 border border-stone-200 rounded-lg bg-stone-50 text-sm">
-                                        <option value="">-- Sélectionner --</option>
-                                        ${st.courseTemplates.map(t => `<option value="${t.id}">${t.title}</option>`).join('')}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-stone-700 mb-1">Date</label>
-                                    <input type="date" id="planning-date" required class="w-full p-2 border border-stone-200 rounded-lg">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-stone-700 mb-1">Heure</label>
-                                    <input type="time" id="planning-time" required class="w-full p-2 border border-stone-200 rounded-lg">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-stone-700 mb-1">Capacité</label>
-                                    <input type="number" id="planning-capacity" value="10" min="1" class="w-full p-2 border border-stone-200 rounded-lg">
-                                </div>
-                                <button type="submit" class="w-full py-3 bg-gradient-to-r from-emerald-700 to-emerald-900 text-white rounded-xl font-medium hover:shadow-lg transition-all active:scale-[0.98]">Ajouter au planning</button>
-                                
-                                <!-- Champs cachés pour le template -->
-                                <input type="hidden" id="planning-title">
-                                <textarea id="planning-desc" class="hidden"></textarea>
-                                <input type="hidden" id="planning-duration">
-                                <input type="hidden" id="planning-price">
-                                <input type="hidden" id="planning-credits-price">
-                            </form>
+                        <div class="space-y-6">
+                            <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
+                                <h2 class="text-xl font-medium mb-6">Ajouter un cours</h2>
+                                <form onsubmit="app.submitAddClass(event)" class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-stone-700 mb-1">Modèle de cours</label>
+                                        <select id="planning-template-select" onchange="app.applyTemplate()" class="w-full p-2 border border-stone-200 rounded-lg bg-stone-50 text-sm">
+                                            <option value="">-- Sélectionner --</option>
+                                            ${st.courseTemplates.map(t => `<option value="${t.id}">${t.title}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-stone-700 mb-1">Date</label>
+                                        <input type="date" id="planning-date" required class="w-full p-2 border border-stone-200 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-stone-700 mb-1">Heure</label>
+                                        <input type="time" id="planning-time" required class="w-full p-2 border border-stone-200 rounded-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-stone-700 mb-1">Capacité</label>
+                                        <input type="number" id="planning-capacity" value="10" min="1" class="w-full p-2 border border-stone-200 rounded-lg">
+                                    </div>
+                                    <button type="submit" class="w-full py-3 bg-gradient-to-r from-emerald-700 to-emerald-900 text-white rounded-xl font-medium hover:shadow-lg transition-all active:scale-[0.98]">Ajouter au planning</button>
+                                    
+                                    <!-- Champs cachés pour le template -->
+                                    <input type="hidden" id="planning-title">
+                                    <textarea id="planning-desc" class="hidden"></textarea>
+                                    <input type="hidden" id="planning-duration">
+                                    <input type="hidden" id="planning-price">
+                                    <input type="hidden" id="planning-credits-price">
+                                </form>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
+                                <h2 class="text-lg font-medium mb-4 text-stone-800">Paramètres</h2>
+                                <form onsubmit="app.updateCancellationDelay(event)">
+                                    <label class="block text-sm font-medium text-stone-700 mb-1">Délai d'annulation (heures)</label>
+                                    <div class="flex gap-2">
+                                        <input type="number" id="admin-cancellation-delay" required min="0" class="w-full p-2 border border-stone-200 rounded-lg" value="${st.cancellationDelay}">
+                                        <button type="submit" class="px-4 py-2 bg-stone-800 text-white rounded-lg font-medium hover:bg-stone-900 transition text-sm">OK</button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                         ` : ''}
                         
@@ -98,7 +111,7 @@ export const adminView = (app) => {
                                                     </span>
                                                 </td>
                                                 <td class="p-4 text-right">
-                                                    <button onclick="app.deleteClass(${c.id})" class="text-red-400 hover:text-red-600 p-2 transition" title="Supprimer">
+                                                    <button onclick="app.adminDeleteClass(${c.id})" class="text-red-400 hover:text-red-600 p-2 transition" title="Supprimer">
                                                         ${icons.trash}
                                                     </button>
                                                 </td>
@@ -189,7 +202,7 @@ export const adminView = (app) => {
                                             <td class="p-4 font-medium text-stone-800">${u.firstName} ${u.lastName}</td>
                                             <td class="p-4 text-stone-600 text-sm">${u.email}</td>
                                             <td class="p-4 text-stone-600 text-sm">${u.phone || '-'}</td>
-                                            <td class="p-4"><span class="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold">${u.credits_balance} crédits</span></td>
+                                            <td class="p-4"><span class="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold">${u.credits_balance || 0} crédits</span></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>

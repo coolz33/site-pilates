@@ -53,12 +53,16 @@ const server = http.createServer((req, res) => {
     }
 
     // Parse Body
-    let body = '';
+    const chunks = [];
     req.on('data', chunk => {
-        body += chunk.toString();
+        chunks.push(chunk);
     });
 
     req.on('end', async () => {
+        const rawBodyBuffer = Buffer.concat(chunks);
+        req.rawBody = rawBodyBuffer; // On stocke le buffer brut pour Stripe
+        const body = rawBodyBuffer.toString();
+
         try {
             req.body = body ? JSON.parse(body) : {};
         } catch (e) {
@@ -71,7 +75,7 @@ const server = http.createServer((req, res) => {
         if (pathname.startsWith('/api')) {
             await api.handleRequest(req, res);
         } else {
-            const relativePath = pathname === '/' ? 'index.html' : pathname.slice(1);
+            const relativePath = pathname === '/' ? 'index.html' : decodeURIComponent(pathname.slice(1));
             const filePath = path.join(__dirname, relativePath);
 
             const extname = String(path.extname(filePath)).toLowerCase();
