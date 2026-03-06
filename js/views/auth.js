@@ -3,7 +3,7 @@ import { getNotificationHtml } from './components.js';
 export const authView = (app, mode) => {
     const isLogin = mode === 'connexion';
     return `
-        <div class="min-h-[80vh] flex items-center justify-center bg-stone-50 py-12 px-4 animate-fade-in">
+        <div class="min-h-[60vh] md:min-h-[70vh] flex items-center justify-center bg-stone-50 py-8 md:py-12 px-4 animate-fade-in">
             <div class="max-w-md w-full bg-white p-8 rounded-3xl shadow-sm border border-stone-100">
                 <div class="text-center mb-8">
                     <h2 class="text-3xl font-light text-stone-800">${isLogin ? 'Connexion' : 'Créer un compte'}</h2>

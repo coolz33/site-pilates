@@ -12,4 +12,14 @@ const pool = mysql.createPool({
     queueLimit: 0
 });
 
+// Test immédiat de la connexion pour remonter les erreurs de configuration au démarrage
+pool.getConnection()
+    .then(conn => {
+        console.log('🐘 Pool MySQL prêt (Host: ' + (process.env.DB_HOST || 'localhost') + ')');
+        conn.release();
+    })
+    .catch(err => {
+        console.error('❌ Erreur critique de connexion DB:', err.message);
+    });
+
 module.exports = pool;

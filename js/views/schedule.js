@@ -46,7 +46,7 @@ export const scheduleView = (app) => {
     }).join('');
 
     return `
-        <div class="min-h-screen bg-stone-50 pt-12 pb-24 animate-fade-in">
+        <div class="min-h-[70vh] bg-stone-50 pt-8 pb-12 animate-fade-in">
             <div class="max-w-7xl mx-auto px-4">
                 ${getNotificationHtml(app)}
                 <div class="flex justify-between items-center mb-10">
@@ -60,7 +60,7 @@ export const scheduleView = (app) => {
                 <!-- Section Assistant IA -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 mb-10">
                     <h2 class="text-xl font-medium text-stone-800 mb-4 flex items-center gap-2">
-                        ✨ Quel cours est fait pour vous ?
+                        <span class="text-emerald-700">${icons.sparkles}</span> Quel cours est fait pour vous ?
                     </h2>
                     <div class="flex flex-col md:flex-row gap-4">
                         <input type="text" id="ai-prompt" placeholder="Ex: Je cherche un cours dynamique pour renforcer mon dos..." class="flex-1 p-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500">

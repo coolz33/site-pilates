@@ -10,18 +10,18 @@ export const renderNavbar = (app) => {
                     <div class="flex items-center cursor-pointer" onclick="app.navigate('accueil')">
                         <span class="text-2xl font-light text-emerald-800 tracking-wider">ÉQUILIBRE<span class="font-semibold">PILATES</span></span>
                     </div>
-                    <div class="hidden md:flex items-center space-x-8">
-                        <button onclick="app.navigate('accueil')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'accueil' ? 'font-semibold text-emerald-800' : ''}">🏠 Accueil</button>
-                        <button onclick="app.navigate('a-propos')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'a-propos' ? 'font-semibold text-emerald-800' : ''}">✨ Le Pilates</button>
-                        <button onclick="app.navigate('planning')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'planning' ? 'font-semibold text-emerald-800' : ''}">📅 Planning & Réservation</button>
-                        <button onclick="app.navigate('contact')" class="text-stone-600 hover:text-emerald-700 transition ${st.view === 'contact' ? 'font-semibold text-emerald-800' : ''}">✉️ Contact</button>
+                    <div class="hidden md:flex items-center space-x-5 ml-12">
+                        <button onclick="app.navigate('accueil')" class="h-full px-1 transition-all duration-300 border-b-2 flex items-center gap-2 ${st.view === 'accueil' ? 'border-emerald-700 text-emerald-800 font-medium' : 'border-transparent text-stone-600 hover:text-emerald-700 hover:border-stone-200'}">${icons.home} Accueil</button>
+                        <button onclick="app.navigate('a-propos')" class="h-full px-1 transition-all duration-300 border-b-2 flex items-center gap-2 ${st.view === 'a-propos' ? 'border-emerald-700 text-emerald-800 font-medium' : 'border-transparent text-stone-600 hover:text-emerald-700 hover:border-stone-200'}">${icons.sparkles} Le Pilates</button>
+                        <button onclick="app.navigate('planning')" class="h-full px-1 transition-all duration-300 border-b-2 flex items-center gap-2 ${st.view === 'planning' ? 'border-emerald-700 text-emerald-800 font-medium' : 'border-transparent text-stone-600 hover:text-emerald-700 hover:border-stone-200'}">${icons.calendar} Planning & Réservation</button>
+                        <button onclick="app.navigate('contact')" class="h-full px-1 transition-all duration-300 border-b-2 flex items-center gap-2 ${st.view === 'contact' ? 'border-emerald-700 text-emerald-800 font-medium' : 'border-transparent text-stone-600 hover:text-emerald-700 hover:border-stone-200'}">${icons.mail} Contact</button>
                         ${st.currentUser ? `
-                        <div class="flex items-center gap-4 border-l pl-6">
-                            <button onclick="app.navigate('profil')" class="text-sm text-stone-600 hover:text-emerald-700 font-medium">👤 Bonjour, ${st.currentUser.firstName}</button>
-                            ${st.currentUser.role === 'admin' ? `<button onclick="app.navigate('administration')" class="text-sm font-medium text-emerald-700 hover:underline">⚙️ Administration</button>` : ''}
+                        <div class="flex items-center gap-3 border-l border-stone-200 pl-10 ml-10">
+                            <button onclick="app.navigate('profil')" class="text-sm transition-colors flex items-center gap-2 ${st.view === 'profil' ? 'text-emerald-800 font-bold' : 'text-stone-600 hover:text-emerald-700'}">${icons.user} ${st.currentUser.firstName}</button>
+                            ${st.currentUser.role === 'admin' ? `<button onclick="app.navigate('administration')" class="text-sm font-medium transition-colors flex items-center gap-2 ${st.view === 'administration' ? 'text-emerald-800 underline underline-offset-4' : 'text-emerald-700 hover:underline'}">${icons.settings} Administration</button>` : ''}
                             <button onclick="app.logout()" class="text-sm text-red-600 hover:text-red-800">Déconnexion</button>
                         </div>` : `
-                        <div class="flex items-center gap-4 border-l pl-6">
+                        <div class="flex items-center gap-4 border-l border-stone-200 pl-10 ml-10">
                             <button onclick="app.navigate('connexion')" class="text-sm font-medium text-stone-600 hover:text-emerald-700">Connexion</button>
                             <button onclick="app.navigate('inscription')" class="px-4 py-2 bg-emerald-700 text-white text-sm rounded-full hover:bg-emerald-800 transition shadow-sm">S'inscrire</button>
                         </div>`}
@@ -33,14 +33,14 @@ export const renderNavbar = (app) => {
             </div>
             ${st.isMenuOpen ? `
             <div class="md:hidden bg-white border-t border-stone-100 px-4 pt-2 pb-6 space-y-2 shadow-lg flex flex-col">
-                <button onclick="app.navigate('accueil')" class="text-left py-2 text-stone-600 ${st.view === 'accueil' ? 'font-semibold text-emerald-800' : ''}">🏠 Accueil</button>
-                <button onclick="app.navigate('a-propos')" class="text-left py-2 text-stone-600 ${st.view === 'a-propos' ? 'font-semibold text-emerald-800' : ''}">✨ Le Pilates</button>
-                <button onclick="app.navigate('planning')" class="text-left py-2 text-stone-600 ${st.view === 'planning' ? 'font-semibold text-emerald-800' : ''}">📅 Planning & Réservation</button>
-                <button onclick="app.navigate('contact')" class="text-left py-2 text-stone-600 ${st.view === 'contact' ? 'font-semibold text-emerald-800' : ''}">✉️ Contact</button>
+                <button onclick="app.navigate('accueil')" class="text-left py-3 px-4 rounded-r-xl border-l-4 transition-all flex items-center gap-3 ${st.view === 'accueil' ? 'bg-emerald-50 border-emerald-700 text-emerald-800 font-semibold' : 'border-transparent text-stone-600 hover:bg-stone-50'}">${icons.home} Accueil</button>
+                <button onclick="app.navigate('a-propos')" class="text-left py-3 px-4 rounded-r-xl border-l-4 transition-all flex items-center gap-3 ${st.view === 'a-propos' ? 'bg-emerald-50 border-emerald-700 text-emerald-800 font-semibold' : 'border-transparent text-stone-600 hover:bg-stone-50'}">${icons.sparkles} Le Pilates</button>
+                <button onclick="app.navigate('planning')" class="text-left py-3 px-4 rounded-r-xl border-l-4 transition-all flex items-center gap-3 ${st.view === 'planning' ? 'bg-emerald-50 border-emerald-700 text-emerald-800 font-semibold' : 'border-transparent text-stone-600 hover:bg-stone-50'}">${icons.calendar} Planning & Réservation</button>
+                <button onclick="app.navigate('contact')" class="text-left py-3 px-4 rounded-r-xl border-l-4 transition-all flex items-center gap-3 ${st.view === 'contact' ? 'bg-emerald-50 border-emerald-700 text-emerald-800 font-semibold' : 'border-transparent text-stone-600 hover:bg-stone-50'}">${icons.mail} Contact</button>
                 <div class="border-t border-stone-100 pt-2 mt-2">
                     ${st.currentUser ? `
-                        <button onclick="app.navigate('profil')" class="block py-2 text-stone-600 font-medium">👤 Mon Profil (${st.currentUser.firstName})</button>
-                        ${st.currentUser.role === 'admin' ? `<button onclick="app.navigate('administration')" class="block py-2 text-emerald-700 font-medium">⚙️ Administration</button>` : ''}
+                        <button onclick="app.navigate('profil')" class="block py-3 px-4 rounded-r-xl border-l-4 transition-all flex items-center gap-3 ${st.view === 'profil' ? 'bg-emerald-50 border-emerald-700 text-emerald-800 font-semibold' : 'border-transparent text-stone-600'}">${icons.user} Mon Profil (${st.currentUser.firstName})</button>
+                        ${st.currentUser.role === 'admin' ? `<button onclick="app.navigate('administration')" class="block py-3 px-4 rounded-r-xl border-l-4 transition-all flex items-center gap-3 ${st.view === 'administration' ? 'bg-emerald-50 border-emerald-700 text-emerald-800 font-semibold' : 'border-transparent text-emerald-700'}">${icons.settings} Administration</button>` : ''}
                         <button onclick="app.logout()" class="block py-2 text-red-600">Déconnexion</button>
                     ` : `
                         <button onclick="app.navigate('connexion')" class="block py-2 text-stone-600 font-medium">Connexion</button>
@@ -54,7 +54,7 @@ export const renderNavbar = (app) => {
 
 export const renderFooter = (app) => {
     document.getElementById('footer').innerHTML = `
-        <footer class="bg-stone-900 text-stone-400 py-12">
+        <footer class="bg-stone-900 text-stone-400 py-6 md:py-8">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div>
                     <span class="text-xl font-light text-white tracking-wider mb-4 block">ÉQUILIBRE<span class="font-semibold">PILATES</span></span>

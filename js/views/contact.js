@@ -1,3 +1,4 @@
+import { icons } from '../icons.js';
 import { getNotificationHtml } from './components.js';
 
 export const contactView = (app) => `
@@ -9,18 +10,18 @@ export const contactView = (app) => `
                     <p class="text-stone-600 mb-10 text-lg font-light">Une question ? N'hésitez pas à nous écrire.</p>
                     <div class="space-y-6">
                         <div class="flex items-start gap-4 text-stone-600">
-                            <div class="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-emerald-700 flex-shrink-0">📍</div>
+                            <div class="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-emerald-700 flex-shrink-0">${icons.mapPin}</div>
                             <div>
                                 <div class="font-medium text-stone-800 mb-1">Notre Studio</div>
                                 <div class="leading-relaxed">${app.state.studioAddress}</div>
                             </div>
                         </div>
                         <div class="flex items-center gap-4 text-stone-600">
-                            <div class="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-emerald-700 flex-shrink-0">📞</div>
+                            <div class="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-emerald-700 flex-shrink-0">${icons.phone}</div>
                             <div><div class="font-medium text-stone-800">Téléphone</div><div>${app.state.studioPhone}</div></div>
                         </div>
                         <div class="flex items-center gap-4 text-stone-600">
-                            <div class="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-emerald-700 flex-shrink-0">✉️</div>
+                            <div class="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-emerald-700 flex-shrink-0">${icons.mail}</div>
                             <div><div class="font-medium text-stone-800">Email</div><div>${app.state.studioEmail}</div></div>
                         </div>
                     </div>

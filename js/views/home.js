@@ -2,7 +2,7 @@ import { icons } from '../icons.js';
 
 export const homeView = () => `
     <div class="animate-fade-in">
-        <section class="relative h-[80vh] flex items-center justify-center bg-stone-100 overflow-hidden">
+        <section class="relative min-h-[35vh] md:min-h-[40vh] flex items-center justify-center bg-stone-100 overflow-hidden py-8 md:py-12">
             <div class="absolute top-0 left-0 w-full h-full opacity-40 pointer-events-none">
                 <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-200 mix-blend-multiply filter blur-[80px]"></div>
                 <div class="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-stone-300 mix-blend-multiply filter blur-[80px]"></div>
@@ -19,7 +19,7 @@ export const homeView = () => `
                 </button>
             </div>
         </section>
-        <section class="py-24 bg-white">
+        <section class="py-8 md:py-12 bg-white">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
                     <div class="p-6 rounded-2xl bg-stone-50 border border-stone-100">
