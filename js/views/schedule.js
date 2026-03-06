@@ -64,7 +64,7 @@ export const scheduleView = (app) => {
                     </h2>
                     <div class="flex flex-col md:flex-row gap-4">
                         <input type="text" id="ai-prompt" placeholder="Ex: Je cherche un cours dynamique pour renforcer mon dos..." class="flex-1 p-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500">
-                        <button onclick="app.askAi()" class="px-6 py-3 bg-emerald-800 text-white rounded-xl hover:bg-emerald-900 transition flex items-center justify-center gap-2 min-w-[160px]">
+                        <button onclick="app.askAi()" class="px-6 py-3 bg-gradient-to-r from-emerald-700 to-emerald-900 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 min-w-[160px] active:scale-[0.98]">
                             ${st.isAiLoading ? '<span class="animate-spin">⏳</span> Recherche...' : 'Demander à l\'IA'}
                         </button>
                     </div>

@@ -44,7 +44,10 @@ class PilatesApp {
             creditPackages: [],
             studioAddress: '',
             studioPhone: '',
-            studioEmail: ''
+            studioEmail: '',
+            quill: null,
+            newsletterContent: '',
+            isHtmlView: false
         };
     }
 
@@ -244,17 +247,39 @@ class PilatesApp {
     sendNewsletter(e) {
         e.preventDefault();
         const subject = document.getElementById('nl-subject').value;
-        const message = document.getElementById('nl-message').value;
+        
+        // Synchronisation du contenu selon le mode actuel
+        if (this.state.isHtmlView) {
+            this.state.newsletterContent = document.getElementById('nl-html-area').value;
+        } else if (this.state.quill) {
+            this.state.newsletterContent = this.state.quill.root.innerHTML;
+        }
+
+        const message = this.state.newsletterContent;
         const clients = this.state.users.filter(u => u.role !== 'admin');
 
         if (clients.length === 0) return this.showNotification("Aucun client inscrit.", 'error');
-        if (!subject || !message) {
+        if (!subject || !message || message === '<p><br></p>') {
             return this.showNotification("Veuillez remplir tous les champs.", 'error');
         }
 
         this.showNotification(`Newsletter envoyée à ${clients.length} abonné(s) !`);
         document.getElementById('nl-subject').value = '';
-        document.getElementById('nl-message').value = '';
+        this.state.newsletterContent = '';
+        this.state.isHtmlView = false;
+        if (this.state.quill) this.state.quill.setContents([]);
+        this.render();
+    }
+
+    /** Bascule entre l'éditeur visuel et le code HTML */
+    toggleHtmlView() {
+        if (!this.state.isHtmlView && this.state.quill) {
+            this.state.newsletterContent = this.state.quill.root.innerHTML;
+        } else if (this.state.isHtmlView) {
+            this.state.newsletterContent = document.getElementById('nl-html-area').value;
+        }
+        this.state.isHtmlView = !this.state.isHtmlView;
+        this.render();
     }
 
     /** 
@@ -527,6 +552,37 @@ class PilatesApp {
         }
 
         renderPaymentModal(this, mainContainer);
+
+        // Initialisation de Quill pour la newsletter
+        if (v === 'administration' && this.state.adminTab === 'newsletter' && !this.state.isHtmlView && typeof Quill !== 'undefined') {
+            const editorContainer = document.getElementById('nl-editor');
+            if (editorContainer) {
+                this.state.quill = new Quill('#nl-editor', {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            [{ 'header': [1, 2, 3, false] }],
+                            ['bold', 'italic', 'underline', 'strike'],
+                            [{ 'color': [] }, { 'background': [] }],
+                            [{ 'align': [] }],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['link', 'image', 'clean']
+                        ]
+                    },
+                    placeholder: 'Rédigez votre message ici...'
+                });
+
+                // Restaurer le contenu sauvegardé
+                if (this.state.newsletterContent) {
+                    this.state.quill.root.innerHTML = this.state.newsletterContent;
+                }
+
+                // Sauvegarder le contenu à chaque modification pour ne pas le perdre au re-render
+                this.state.quill.on('text-change', () => {
+                    this.state.newsletterContent = this.state.quill.root.innerHTML;
+                });
+            }
+        }
     }
 
     /** 

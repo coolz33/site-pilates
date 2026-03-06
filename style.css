@@ -13,3 +13,48 @@
 .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;
 }
+
+/* --- Corrections Quill & Focus --- */
+.quill-editor-wrapper {
+    border: 1px solid #e7e5e4; /* stone-200 */
+    border-radius: 0.75rem;
+    overflow: hidden;
+    transition: all 0.2s ease;
+    background-color: #fff;
+}
+
+.ql-toolbar.ql-snow {
+    border: none !important;
+    border-bottom: 1px solid #e7e5e4 !important;
+    background-color: #fafaf9;
+}
+
+.ql-container.ql-snow {
+    border: none !important;
+    font-family: inherit;
+}
+
+.ql-editor {
+    min-height: 280px; /* Zone de clic agrandie */
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+
+/* Suppression de l'outline bleu par défaut sur l'éditeur Quill */
+.ql-editor:focus {
+    outline: none !important;
+}
+
+/* Contour vert unifié lors de la sélection */
+input:focus,
+textarea:focus,
+.quill-editor-wrapper:focus-within {
+    outline: none !important;
+    border-color: #10b981 !important; /* emerald-500 */
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1) !important; /* Halo vert émeraude */
+}
+
+/* Harmonisation de la barre de séparation interne lors du focus */
+.quill-editor-wrapper:focus-within .ql-toolbar.ql-snow {
+    border-bottom-color: #10b981 !important;
+}

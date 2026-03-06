@@ -54,7 +54,7 @@ export const adminView = (app) => {
                                     <label class="block text-sm font-medium text-stone-700 mb-1">Capacité</label>
                                     <input type="number" id="planning-capacity" value="10" min="1" class="w-full p-2 border border-stone-200 rounded-lg">
                                 </div>
-                                <button type="submit" class="w-full py-3 bg-emerald-800 text-white rounded-xl font-medium hover:bg-emerald-900 transition">Ajouter au planning</button>
+                                <button type="submit" class="w-full py-3 bg-gradient-to-r from-emerald-700 to-emerald-900 text-white rounded-xl font-medium hover:shadow-lg transition-all active:scale-[0.98]">Ajouter au planning</button>
                                 
                                 <!-- Champs cachés pour le template -->
                                 <input type="hidden" id="planning-title">
@@ -146,7 +146,7 @@ export const adminView = (app) => {
                                         </div>
                                     `;
                                 })()}
-                                <button type="submit" class="w-full py-3 bg-stone-800 text-white rounded-xl font-medium hover:bg-stone-900 transition">
+                                <button type="submit" class="w-full py-3 bg-gradient-to-r from-stone-700 to-stone-900 text-white rounded-xl font-medium hover:shadow-lg transition-all active:scale-[0.98]">
                                     ${st.editingTemplateId ? 'Mettre à jour' : 'Enregistrer le modèle'}
                                 </button>
                                 ${st.editingTemplateId ? `<button type="button" onclick="app.cancelEditTemplate()" class="w-full py-2 text-stone-500 text-sm hover:underline">Annuler</button>` : ''}
@@ -207,13 +207,24 @@ export const adminView = (app) => {
                         <form onsubmit="app.sendNewsletter(event)" class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-stone-700 mb-1">Objet</label>
-                                <input type="text" id="nl-subject" required class="w-full p-3 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Ex: Nouveaux cours disponibles !">
+                                <input type="text" id="nl-subject" required class="w-full p-3 border border-stone-200 rounded-xl outline-none text-sm" placeholder="Ex: Nouveaux cours disponibles !">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-stone-700 mb-1">Message</label>
-                                <textarea id="nl-message" required rows="6" class="w-full p-3 border border-stone-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm" placeholder="Bonjour à tous..."></textarea>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-sm font-medium text-stone-700">Message</label>
+                                    <button type="button" onclick="app.toggleHtmlView()" class="text-xs text-emerald-600 hover:text-emerald-800 font-medium flex items-center gap-1">
+                                        ${st.isHtmlView ? '👁️ Voir le rendu visuel' : '💻 Voir le code HTML'}
+                                    </button>
+                                </div>
+                                ${st.isHtmlView ? `
+                                    <textarea id="nl-html-area" class="w-full p-3 border border-stone-200 rounded-xl outline-none text-sm font-mono min-h-[280px] mb-4">${st.newsletterContent}</textarea>
+                                ` : `
+                                    <div class="quill-editor-wrapper mb-4">
+                                        <div id="nl-editor" class="bg-white"></div>
+                                    </div>
+                                `}
                             </div>
-                            <button type="submit" class="w-full py-4 bg-emerald-800 text-white rounded-xl font-medium hover:bg-emerald-900 transition">
+                            <button type="submit" class="w-full py-4 bg-gradient-to-br from-emerald-600 to-emerald-800 text-white rounded-xl font-medium hover:from-emerald-700 hover:to-emerald-900 transition-all shadow-md hover:shadow-lg active:scale-[0.98]">
                                 Envoyer aux ${clients.length} clients
                             </button>
                         </form>
