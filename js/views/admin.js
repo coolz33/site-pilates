@@ -19,12 +19,12 @@ export const adminView = (app) => {
                 
                 <!-- Onglets Admin -->
                 <div class="flex gap-4 mb-8 border-b border-stone-200 overflow-x-auto">
-                    <button onclick="app.state.adminTab='planning'; app.render()" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'planning' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Séances à venir</button>
-                    <button onclick="app.state.adminTab='past_sessions'; app.render()" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'past_sessions' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Séances passées</button>
-                    <button onclick="app.state.adminTab='templates'; app.render()" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'templates' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Modèles de cours</button>
-                    <button onclick="app.state.adminTab='users'; app.render()" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'users' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Clients</button>
-                    <button onclick="app.state.adminTab='newsletter'; app.render()" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'newsletter' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Newsletter</button>
-                    <button onclick="app.state.adminTab='settings'; app.render()" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'settings' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Studio</button>
+                    <button onclick="app.setAdminTab('planning')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'planning' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Séances à venir</button>
+                    <button onclick="app.setAdminTab('past_sessions')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'past_sessions' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Séances passées</button>
+                    <button onclick="app.setAdminTab('templates')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'templates' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Modèles de cours</button>
+                    <button onclick="app.setAdminTab('users')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'users' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Clients</button>
+                    <button onclick="app.setAdminTab('newsletter')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'newsletter' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Newsletter</button>
+                    <button onclick="app.setAdminTab('settings')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'settings' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Studio</button>
                 </div>
 
                 ${getNotificationHtml(app)}
@@ -199,7 +199,41 @@ export const adminView = (app) => {
                 ` : ''}
 
                 ${st.adminTab === 'newsletter' ? `
-                    <div class="max-w-2xl bg-white p-8 rounded-3xl shadow-sm border border-stone-100 animate-fade-in">
+                    <div class="grid md:grid-cols-3 gap-8 animate-fade-in">
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-lg font-medium text-stone-800">Destinataires</h2>
+                                <div class="flex gap-2">
+                                    <button onclick="app.state.selectedNewsletterRecipients = app.state.users.filter(u => u.role !== 'admin').map(u => u.id); app.render()" class="text-[10px] bg-stone-100 px-2 py-1 rounded hover:bg-stone-200 text-stone-600">Tous</button>
+                                    <button onclick="app.setAdminTab('newsletter')" class="text-[10px] bg-emerald-50 px-2 py-1 rounded hover:bg-emerald-100 text-emerald-700">Abonnés</button>
+                                </div>
+                            </div>
+                            <div class="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+                                ${clients.map(u => {
+                                    const isSelected = st.selectedNewsletterRecipients.includes(u.id);
+                                    const isSubscribed = Number(u.newsletter_subscribed) === 1;
+                                    return `
+                                        <div onclick="app.toggleNewsletterRecipient(${u.id})" class="flex items-center justify-between p-3 rounded-xl border cursor-pointer transition ${isSelected ? 'bg-emerald-50 border-emerald-200' : 'bg-stone-50 border-stone-100 opacity-60'}">
+                                            <div class="text-sm">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-medium ${isSelected ? 'text-emerald-900' : 'text-stone-700'}">${u.firstName} ${u.lastName}</span>
+                                                    ${isSubscribed ? `<span class="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase font-bold">Abonné</span>` : ''}
+                                                </div>
+                                                <div class="text-xs text-stone-500">${u.email}</div>
+                                            </div>
+                                            <div class="w-5 h-5 rounded-full border flex items-center justify-center ${isSelected ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-stone-300'}">
+                                                ${isSelected ? '✓' : ''}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-stone-100 text-xs text-stone-500">
+                                ${st.selectedNewsletterRecipients.length} destinataire(s) sélectionné(s).
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2 bg-white p-8 rounded-3xl shadow-sm border border-stone-100">
                         <h2 class="text-xl font-medium text-stone-800 mb-6 flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                             Envoyer une Newsletter
@@ -225,9 +259,10 @@ export const adminView = (app) => {
                                 `}
                             </div>
                             <button type="submit" class="w-full py-4 bg-gradient-to-br from-emerald-600 to-emerald-800 text-white rounded-xl font-medium hover:from-emerald-700 hover:to-emerald-900 transition-all shadow-md hover:shadow-lg active:scale-[0.98]">
-                                Envoyer aux ${clients.length} clients
+                                Envoyer aux ${st.selectedNewsletterRecipients.length} destinataires
                             </button>
                         </form>
+                        </div>
                     </div>
                 ` : ''}
 

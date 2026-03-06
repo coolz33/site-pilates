@@ -1,7 +1,11 @@
 import { icons } from '../icons.js';
+import { getNotificationHtml } from './components.js';
 
-export const homeView = () => `
+export const homeView = (app) => `
     <div class="animate-fade-in">
+        <div class="max-w-7xl mx-auto px-4 pt-6 -mb-6">
+            ${getNotificationHtml(app)}
+        </div>
         <section class="relative min-h-[35vh] md:min-h-[40vh] flex items-center justify-center bg-stone-100 overflow-hidden py-8 md:py-12">
             <div class="absolute top-0 left-0 w-full h-full opacity-40 pointer-events-none">
                 <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-200 mix-blend-multiply filter blur-[80px]"></div>

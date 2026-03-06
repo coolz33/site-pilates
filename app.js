@@ -47,7 +47,8 @@ class PilatesApp {
             studioEmail: '',
             quill: null,
             newsletterContent: '',
-            isHtmlView: false
+            isHtmlView: false,
+            selectedNewsletterRecipients: []
         };
     }
 
@@ -59,8 +60,14 @@ class PilatesApp {
         try {
             // Gestion du routage via le hash de l'URL (ex: #schedule)
             const handleHashRoute = () => {
-                const view = window.location.hash.replace('#', '') || 'accueil';
-                this.state.view = view;
+                const hash = window.location.hash.replace('#', '');
+                const [view, query] = hash.split('?');
+
+                if (query === 'desabonne=success') {
+                    this.showNotification("Vous avez été désabonné de la newsletter avec succès.");
+                }
+
+                this.state.view = view || 'accueil';
                 this.state.isMenuOpen = false;
                 this.state.aiResponse = '';
                 window.scrollTo(0, 0);
@@ -71,8 +78,14 @@ class PilatesApp {
             window.addEventListener('hashchange', handleHashRoute);
             
             // Définir la vue initiale selon l'URL actuelle au chargement de la page
-            const initialView = window.location.hash.replace('#', '') || 'accueil';
-            this.state.view = initialView;
+            const hash = window.location.hash.replace('#', '');
+            const [initialView, query] = hash.split('?');
+
+            if (query === 'desabonne=success') {
+                this.showNotification("Vous avez été désabonné de la newsletter avec succès.");
+            }
+
+            this.state.view = initialView || 'accueil';
 
             const savedUser = localStorage.getItem('pilates_user');
             if (savedUser) {
@@ -119,6 +132,20 @@ class PilatesApp {
             // Changer le hash déclenchera automatiquement l'événement 'hashchange'
             window.location.hash = view;
         }
+    }
+
+    /**
+     * Change l'onglet admin et initialise la liste des destinataires si newsletter.
+     */
+    setAdminTab(tab) {
+        this.state.adminTab = tab;
+        if (tab === 'newsletter') {
+            // Par défaut, on sélectionne ceux qui ont coché la case
+            this.state.selectedNewsletterRecipients = this.state.users
+                .filter(u => Number(u.newsletter_subscribed) === 1 && u.role !== 'admin')
+                .map(u => u.id);
+        }
+        this.render();
     }
 
     /** 
@@ -242,9 +269,9 @@ class PilatesApp {
     }
 
     /** 
-     * Simule l'envoi d'un email groupé aux clients.
+     * Envoie la newsletter via l'API SMTP.
      */
-    sendNewsletter(e) {
+    async sendNewsletter(e) {
         e.preventDefault();
         const subject = document.getElementById('nl-subject').value;
         
@@ -256,18 +283,43 @@ class PilatesApp {
         }
 
         const message = this.state.newsletterContent;
-        const clients = this.state.users.filter(u => u.role !== 'admin');
+        const recipientIds = this.state.selectedNewsletterRecipients;
 
-        if (clients.length === 0) return this.showNotification("Aucun client inscrit.", 'error');
+        if (recipientIds.length === 0) return this.showNotification("Aucun destinataire sélectionné.", 'error');
         if (!subject || !message || message === '<p><br></p>') {
             return this.showNotification("Veuillez remplir tous les champs.", 'error');
         }
 
-        this.showNotification(`Newsletter envoyée à ${clients.length} abonné(s) !`);
-        document.getElementById('nl-subject').value = '';
-        this.state.newsletterContent = '';
-        this.state.isHtmlView = false;
-        if (this.state.quill) this.state.quill.setContents([]);
+        try {
+            const res = await fetch(`${API_URL}/newsletter/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subject, message, recipientIds })
+            });
+            const data = await res.json();
+            if (data.success) {
+                this.showNotification(`Newsletter envoyée avec succès !`);
+                document.getElementById('nl-subject').value = '';
+                this.state.newsletterContent = '';
+                this.state.isHtmlView = false;
+                if (this.state.quill) this.state.quill.setContents([]);
+                this.render();
+            } else {
+                this.showNotification(data.message || "Erreur lors de l'envoi", 'error');
+            }
+        } catch (err) {
+            this.showNotification("Erreur réseau lors de l'envoi", 'error');
+        }
+    }
+
+    /** Ajoute ou retire un utilisateur de la liste d'envoi temporaire */
+    toggleNewsletterRecipient(userId) {
+        const index = this.state.selectedNewsletterRecipients.indexOf(userId);
+        if (index > -1) {
+            this.state.selectedNewsletterRecipients.splice(index, 1);
+        } else {
+            this.state.selectedNewsletterRecipients.push(userId);
+        }
         this.render();
     }
 
@@ -304,7 +356,8 @@ class PilatesApp {
             address: document.getElementById('prof-address').value,
             phone: phone,
             zipCode: document.getElementById('prof-zipcode').value,
-            city: document.getElementById('prof-city').value
+            city: document.getElementById('prof-city').value,
+            newsletter_subscribed: document.getElementById('prof-newsletter')?.checked ? 1 : 0
         };
 
         let passwordUpdated = false;
@@ -622,6 +675,7 @@ class PilatesApp {
                 const zipCode = document.getElementById('auth-zipcode').value;
                 const city = document.getElementById('auth-city').value;
                 const confirmPassword = document.getElementById('auth-confirm-password').value;
+                const newsletter_subscribed = document.getElementById('auth-newsletter')?.checked ? 1 : 0;
 
                 // Validations
                 if (!this.validateEmail(email)) return this.showNotification("Email invalide.", 'error');
@@ -634,7 +688,7 @@ class PilatesApp {
                     const res = await fetch(`${API_URL}/register`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ firstName, lastName, email, password, address, phone, zipCode, city })
+                        body: JSON.stringify({ firstName, lastName, email, password, address, phone, zipCode, city, newsletter_subscribed })
                     });
                     const data = await res.json();
                     if (data.success) {

@@ -53,6 +53,12 @@ export const profileView = (app) => {
                                 <input type="text" id="prof-city" value="${u.city || ''}" class="w-full p-3 border rounded-xl">
                             </div>
                         </div>
+                        <div class="flex items-center gap-3 p-1">
+                            <input type="checkbox" id="prof-newsletter" ${u.newsletter_subscribed ? 'checked' : ''} class="w-5 h-5 text-emerald-600 border-stone-300 rounded focus:ring-emerald-500">
+                            <label for="prof-newsletter" class="text-sm text-stone-600 cursor-pointer">
+                                Je souhaite recevoir les actualités et promotions du studio.
+                            </label>
+                        </div>
                         <button type="submit" class="w-full py-3 bg-emerald-800 text-white rounded-xl font-medium">Enregistrer</button>
                     </form>
                 </div>

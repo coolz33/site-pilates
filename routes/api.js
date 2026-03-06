@@ -6,6 +6,7 @@
 
 const pool = require('../database');
 const bcrypt = require('bcrypt');
+const nodemailer = require('nodemailer');
 
 /**
  * Initialise la base de données : crée les tables et insère les données par défaut.
@@ -35,7 +36,8 @@ const seedDB = async () => {
                 phone VARCHAR(50),
                 zipCode VARCHAR(10),
                 city VARCHAR(100),
-                credits_balance INT DEFAULT 0
+                credits_balance INT DEFAULT 0,
+                newsletter_subscribed BOOLEAN DEFAULT 0
             )
         `);
 
@@ -89,6 +91,7 @@ const seedDB = async () => {
         try { await pool.query(`ALTER TABLE classes ADD COLUMN credits_price INT DEFAULT 1`); } catch (e) {}
         try { await pool.query(`ALTER TABLE users ADD COLUMN zipCode VARCHAR(10)`); } catch (e) {}
         try { await pool.query(`ALTER TABLE users ADD COLUMN city VARCHAR(100)`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE users ADD COLUMN newsletter_subscribed BOOLEAN DEFAULT 0`); } catch (e) {}
         // Migration des anciens noms vers les nouveaux si nécessaire
         try { await pool.query(`ALTER TABLE users CHANGE points_balance credits_balance INT DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE classes CHANGE points_price credits_price INT DEFAULT 1`); } catch (e) {}
@@ -160,8 +163,13 @@ seedDB();
  */
 const handleRequest = async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    const path = url.pathname.replace('/api', '').replace(/\/$/, '') || '/';
+    // Nettoyage du chemin : on enlève /api au début et les slashes à la fin
+    let path = url.pathname.replace(/^\/api/, '');
+    if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
+    if (!path) path = '/';
+    
     const method = req.method;
+    console.log(`[API] ${method} ${path}`);
 
     /**
      * Envoie une réponse JSON.
@@ -208,26 +216,26 @@ const handleRequest = async (req, res) => {
         }
 
         if (method === 'POST' && path === '/register') {
-            const { firstName, lastName, email, password, address, phone, zipCode, city } = req.body;
+            const { firstName, lastName, email, password, address, phone, zipCode, city, newsletter_subscribed } = req.body;
             const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
             if (existing.length > 0) return send(400, { success: false, message: 'Cet email est déjà utilisé' });
 
             const name = `${firstName} ${lastName}`;
             const hashedPassword = await bcrypt.hash(password, 10);
             const [result] = await pool.query(
-                'INSERT INTO users (firstName, lastName, name, email, password, address, phone, zipCode, city, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [firstName, lastName, name, email, hashedPassword, address, phone, zipCode, city, 'user']
+                'INSERT INTO users (firstName, lastName, name, email, password, address, phone, zipCode, city, role, newsletter_subscribed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [firstName, lastName, name, email, hashedPassword, address, phone, zipCode, city, 'user', newsletter_subscribed || 0]
             );
-            const [newUser] = await pool.query('SELECT id, firstName, lastName, name, email, role, address, phone, zipCode, city, credits_balance FROM users WHERE id = ?', [result.insertId]);
+            const [newUser] = await pool.query('SELECT id, firstName, lastName, name, email, role, address, phone, zipCode, city, credits_balance, newsletter_subscribed FROM users WHERE id = ?', [result.insertId]);
             return send(200, { success: true, user: newUser[0] });
         }
 
         if (method === 'PUT' && path === '/users/profile') {
-            const { id, firstName, lastName, email, password, address, phone, zipCode, city } = req.body;
+            const { id, firstName, lastName, email, password, address, phone, zipCode, city, newsletter_subscribed } = req.body;
             const name = `${firstName} ${lastName}`;
             
-            let query = 'UPDATE users SET firstName=?, lastName=?, name=?, email=?, address=?, phone=?, zipCode=?, city=?';
-            let params = [firstName, lastName, name, email, address, phone, zipCode, city];
+            let query = 'UPDATE users SET firstName=?, lastName=?, name=?, email=?, address=?, phone=?, zipCode=?, city=?, newsletter_subscribed=?';
+            let params = [firstName, lastName, name, email, address, phone, zipCode, city, newsletter_subscribed];
             
             // On ne met à jour le mot de passe que s'il est fourni (non vide)
             if (password && password.trim() !== "") {
@@ -241,7 +249,7 @@ const handleRequest = async (req, res) => {
             
             await pool.query(query, params);
             
-            const [updated] = await pool.query('SELECT id, firstName, lastName, name, email, role, address, phone, zipCode, city, credits_balance FROM users WHERE id = ?', [id]);
+            const [updated] = await pool.query('SELECT id, firstName, lastName, name, email, role, address, phone, zipCode, city, credits_balance, newsletter_subscribed FROM users WHERE id = ?', [id]);
             return send(200, { success: true, user: updated[0] });
         }
 
@@ -407,6 +415,69 @@ const handleRequest = async (req, res) => {
 
             const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "Je n'ai pas pu formuler de réponse.";
             return send(200, { success: true, answer });
+        }
+
+        // --- ROUTE DÉSINCRIPTION DIRECTE ---
+        if (method === 'GET' && path === '/newsletter/unsubscribe') {
+            const email = url.searchParams.get('email');
+            if (email) {
+                await pool.query('UPDATE users SET newsletter_subscribed = 0 WHERE email = ?', [email]);
+            }
+            res.writeHead(302, { 'Location': `http://${req.headers.host}/#accueil?desabonne=success` });
+            return res.end();
+        }
+
+        // --- ROUTE NEWSLETTER (Envoi SMTP) ---
+        if (method === 'POST' && path === '/newsletter/send') {
+            const { subject, message, recipientIds } = req.body;
+            
+            if (!recipientIds || recipientIds.length === 0) {
+                return send(400, { success: false, message: 'Aucun destinataire sélectionné' });
+            }
+
+            try {
+                // Récupération des emails des destinataires sélectionnés
+                const [users] = await pool.query('SELECT email, firstName FROM users WHERE id IN (?)', [recipientIds]);
+                if (users.length === 0) return send(404, { success: false, message: 'Destinataires introuvables' });
+
+                const transporter = nodemailer.createTransport({
+                    host: process.env.SMTP_HOST,
+                    port: parseInt(process.env.SMTP_PORT),
+                    secure: process.env.SMTP_PORT == 465, // true pour le port 465, false pour les autres
+                    auth: {
+                        user: process.env.SMTP_USER,
+                        pass: process.env.SMTP_PASS,
+                    },
+                });
+
+                // Envoi individuel pour personnaliser le lien de désinscription
+                for (const u of users) {
+                    const unsubscribeLink = `http://${req.headers.host}/api/newsletter/unsubscribe?email=${encodeURIComponent(u.email)}`;
+                    const personalFooter = `
+                        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e7e5e4; font-family: sans-serif; color: #78716c; font-size: 12px; text-align: center;">
+                            <p>Bonjour ${u.firstName}, vous recevez cet email car vous êtes membre du Studio Équilibre Pilates.</p>
+                            <p>Pour ne plus recevoir de communications, vous pouvez vous <a href="${unsubscribeLink}" style="color: #10b981; text-decoration: underline;">désabonner en un clic</a>.</p>
+                        </div>
+                    `;
+
+                    await transporter.sendMail({
+                        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+                        to: u.email, 
+                        subject: subject,
+                        html: message + personalFooter,
+                        headers: {
+                            'Precedence': 'bulk',
+                            'List-Unsubscribe': `<${unsubscribeLink}>, <mailto:${process.env.SMTP_USER}?subject=unsubscribe>`,
+                            'X-Mailer': 'EquilibrePilates-Mailer'
+                        }
+                    });
+                }
+
+                return send(200, { success: true });
+            } catch (err) {
+                console.error("Erreur Newsletter SMTP:", err);
+                return send(500, { success: false, message: "Erreur lors de l'envoi: " + err.message });
+            }
         }
 
         // --- ROUTES SETTINGS ---
