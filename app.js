@@ -4,8 +4,12 @@
  * Gère l'état (State), le rendu (Rendering), les appels API et l'IA.
  */
 
-import { icons } from './js/icons.js';
-import { API_URL, callGemini } from './js/api.js';
+import { API_URL } from './js/api.js';
+import { authService } from './js/services/authService.js';
+import { classService } from './js/services/classService.js';
+import { aiService } from './js/services/aiService.js';
+import { userService } from './js/services/userService.js';
+import { newsletterService } from './js/services/newsletterService.js';
 import { homeView } from './js/views/home.js';
 import { aboutView } from './js/views/about.js';
 import { profileView } from './js/views/profile.js';
@@ -176,407 +180,26 @@ class PilatesApp {
     validatePhone(phone) { return /^(\+33|0)[1-9][0-9]{8}$/.test(phone.replace(/\s/g, '')); }
     validatePassword(pwd) { return pwd.length >= 5; }
 
-    /** 
-     * Déconnecte l'utilisateur et nettoie le stockage local.
-     */
-    logout() {
-        this.state.currentUser = null;
-        localStorage.removeItem('pilates_user');
-        this.navigate('accueil');
-    }
-
-    /** 
-     * Navigue d'une semaine en avant ou en arrière dans le planning.
-     * @param {number} offset - Nombre de semaines à ajouter/soustraire.
-     */
-    changeWeek(offset) {
-        const newDate = new Date(this.state.currentDate);
-        newDate.setDate(newDate.getDate() + (offset * 7));
-        this.state.currentDate = newDate;
-        this.render();
-    }
-
-    /** 
-     * Saute à une date spécifique via le sélecteur de date.
-     * @param {string} dateString - Date au format YYYY-MM-DD.
-     */
-    jumpToDate(dateString) {
-        if (!dateString) return;
-        const [year, month, day] = dateString.split('-').map(Number);
-        this.state.currentDate = new Date(year, month - 1, day);
-        this.render();
-    }
-
-    /**
-     * Gère le clic sur le bouton de réservation d'un cours.
-     * @param {number} classId - L'identifiant du cours.
-     */
-    initiateBooking(classId) {
-        if (!this.state.currentUser) {
-            this.navigate('connexion');
-            return;
-        }
-        const cls = this.state.classes.find(c => c.id === classId);
-        const isBooked = cls.bookedUsers.includes(this.state.currentUser.id);
-
-        if (isBooked) {
-            fetch(`${API_URL}/classes/cancel/${cls.id}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: this.state.currentUser.id })
-            }).then(() => this.init());
-        } else if (cls.bookedUsers.length < cls.capacity) {
-            this.state.selectedClassForPayment = cls;
-            this.state.paymentMethod = 'card';
-            this.state.showPaymentModal = true;
-            this.render();
-        }
-    }
-
-    /** 
-     * Finalise la réservation après le tunnel de paiement (simulé).
-     */
-    async confirmPayment(e) {
-        e.preventDefault();
-        const cls = this.state.selectedClassForPayment;
-        if (cls && cls.bookedUsers.length < cls.capacity) {
-            try {
-                const endpoint = this.state.paymentMethod === 'credits' ? `/classes/book-credits/${cls.id}` : `/classes/book/${cls.id}`;
-                const res = await fetch(`${API_URL}${endpoint}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: this.state.currentUser.id })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    if (data.user) this.state.currentUser = data.user;
-                    this.showNotification("Réservation confirmée !");
-                } else {
-                    this.showNotification(data.message, 'error');
-                }
-            } catch (err) { this.showNotification("Erreur lors de la réservation", 'error'); }
-        }
-        this.state.showPaymentModal = false;
-        this.state.selectedClassForPayment = null;
-        this.init();
-    }
-
-    /** Ferme le modal de paiement sans réserver */
-    cancelPayment() {
-        this.state.showPaymentModal = false;
-        this.state.selectedClassForPayment = null;
-        this.render();
-    }
-
-    /** 
-     * Envoie la newsletter via l'API SMTP.
-     */
-    async sendNewsletter(e) {
-        e.preventDefault();
-        const subject = document.getElementById('nl-subject').value;
-        
-        // Synchronisation du contenu selon le mode actuel
-        if (this.state.isHtmlView) {
-            this.state.newsletterContent = document.getElementById('nl-html-area').value;
-        } else if (this.state.quill) {
-            this.state.newsletterContent = this.state.quill.root.innerHTML;
-        }
-
-        const message = this.state.newsletterContent;
-        const recipientIds = this.state.selectedNewsletterRecipients;
-
-        if (recipientIds.length === 0) return this.showNotification("Aucun destinataire sélectionné.", 'error');
-        if (!subject || !message || message === '<p><br></p>') {
-            return this.showNotification("Veuillez remplir tous les champs.", 'error');
-        }
-
-        try {
-            const res = await fetch(`${API_URL}/newsletter/send`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ subject, message, recipientIds })
-            });
-            const data = await res.json();
-            if (data.success) {
-                this.showNotification(`Newsletter envoyée avec succès !`);
-                document.getElementById('nl-subject').value = '';
-                this.state.newsletterContent = '';
-                this.state.isHtmlView = false;
-                if (this.state.quill) this.state.quill.setContents([]);
-                this.render();
-            } else {
-                this.showNotification(data.message || "Erreur lors de l'envoi", 'error');
-            }
-        } catch (err) {
-            this.showNotification("Erreur réseau lors de l'envoi", 'error');
-        }
-    }
-
-    /** Ajoute ou retire un utilisateur de la liste d'envoi temporaire */
-    toggleNewsletterRecipient(userId) {
-        const index = this.state.selectedNewsletterRecipients.indexOf(userId);
-        if (index > -1) {
-            this.state.selectedNewsletterRecipients.splice(index, 1);
-        } else {
-            this.state.selectedNewsletterRecipients.push(userId);
-        }
-        this.render();
-    }
-
-    /** Bascule entre l'éditeur visuel et le code HTML */
-    toggleHtmlView() {
-        if (!this.state.isHtmlView && this.state.quill) {
-            this.state.newsletterContent = this.state.quill.root.innerHTML;
-        } else if (this.state.isHtmlView) {
-            this.state.newsletterContent = document.getElementById('nl-html-area').value;
-        }
-        this.state.isHtmlView = !this.state.isHtmlView;
-        this.render();
-    }
-
-    /** 
-     * Enregistre les modifications du profil utilisateur.
-     */
-    async updateProfile(e) {
-        e.preventDefault();
-        const password = document.getElementById('prof-password').value;
-        const confirmPassword = document.getElementById('prof-confirm-password').value;
-        const email = document.getElementById('prof-email').value;
-        const phone = document.getElementById('prof-phone').value;
-
-        if (!this.validateEmail(email)) return this.showNotification("Email invalide.", 'error');
-        if (phone && !this.validatePhone(phone)) return this.showNotification("Téléphone invalide.", 'error');
-
-        const userData = {
-            id: this.state.currentUser.id,
-            firstName: document.getElementById('prof-firstname').value,
-            lastName: document.getElementById('prof-lastname').value,
-            email: email,
-            password: "",
-            address: document.getElementById('prof-address').value,
-            phone: phone,
-            zipCode: document.getElementById('prof-zipcode').value,
-            city: document.getElementById('prof-city').value,
-            newsletter_subscribed: document.getElementById('prof-newsletter')?.checked ? 1 : 0
-        };
-
-        let passwordUpdated = false;
-        if (confirmPassword.trim() !== "") {
-            if (password !== confirmPassword) return this.showNotification("Mots de passe différents.", 'error');
-            if (!this.validatePassword(password)) return this.showNotification("Mot de passe trop court.", 'error');
-            userData.password = password;
-            passwordUpdated = true;
-        }
-
-        try {
-            const res = await fetch(`${API_URL}/users/profile`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(userData)
-            });
-            const data = await res.json();
-            if (data.success) {
-                this.state.currentUser = data.user;
-                localStorage.setItem('pilates_user', JSON.stringify(data.user));
-                this.showNotification(passwordUpdated ? "Profil et mot de passe mis à jour !" : "Modifications enregistrées");
-                document.getElementById('prof-password').value = "";
-                document.getElementById('prof-confirm-password').value = "";
-            } else {
-                this.showNotification(data.message || "Erreur", 'error');
-            }
-        } catch (err) { this.showNotification("Erreur serveur", 'error'); }
-    }
-
-    /** 
-     * Ajoute des crédits au compte de l'utilisateur.
-     * @param {Object} pkg - Le pack de crédits sélectionné.
-     */
-    async buyCredits(pkg) {
-        if (!confirm(`Acheter ${pkg.name} ?`)) return;
-        const res = await fetch(`${API_URL}/credits/buy`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: this.state.currentUser.id, credits: pkg.credits })
-        });
-        const data = await res.json();
-        if (data.success) {
-            this.state.currentUser.credits_balance = data.credits_balance;
-            this.showNotification("Crédits ajoutés !");
-            this.render();
-        }
-    }
-
-    /** 
-     * Met à jour les informations de contact du studio (Admin).
-     */
-    async updateStudioSettings(e) {
-        e.preventDefault();
-        const settings = {
-            studioAddress: document.getElementById('admin-studio-address').value,
-            studioPhone: document.getElementById('admin-studio-phone').value,
-            studioEmail: document.getElementById('admin-studio-email').value
-        };
-        await fetch(`${API_URL}/settings`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(settings)
-        });
-        this.showNotification('Paramètres mis à jour.');
-        this.init();
-    }
-
-    /** 
-     * Interroge l'IA pour conseiller un cours à l'élève selon ses besoins.
-     */
-    async askAi() {
-        const promptInput = document.getElementById('ai-prompt').value;
-        if (!promptInput.trim()) return;
-        this.state.isAiLoading = true;
-        this.render();
-
-        const date = new Date(this.state.currentDate);
-        const day = date.getDay();
-        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-        const startOfWeek = new Date(date.setDate(diff));
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-
-        const availableClasses = this.state.classes
-            .filter(c => {
-                const cDate = new Date(c.date);
-                return cDate >= startOfWeek && cDate <= endOfWeek;
-            })
-            .map(c => `- ${c.title} le ${new Date(c.date).toLocaleDateString('fr-FR', { weekday: 'long' })} à ${c.time} (${c.duration}min) : ${c.description || 'Cours de Pilates'}`)
-            .join('\n');
-
-        const fullPrompt = `Tu es un coach de Pilates bienveillant et professionnel. Voici les cours au planning cette semaine dans notre studio :\n${availableClasses}\n\nUn élève te dit : "${promptInput}".\nEn une seule phrase courte et chaleureuse, conseille-lui le cours le plus pertinent de la liste en expliquant rapidement pourquoi. Si aucun cours ne correspond vraiment, propose-lui un cours au hasard en douceur. Ne mets pas de texte en gras.`;
-
-        this.state.aiResponse = await callGemini(fullPrompt, this.state.currentUser?.id);
-        this.state.isAiLoading = false;
-        this.render();
-    }
-
-    /** 
-     * Supprime une séance du planning (Admin).
-     * @param {number} id - L'identifiant de la séance.
-     */
-    async deleteClass(id) {
-        if (confirm("Voulez-vous vraiment supprimer ce cours ?")) {
-            await fetch(`${API_URL}/classes/${id}`, { method: 'DELETE' });
-            this.init();
-        }
-    }
-
-    /** 
-     * Utilise l'IA pour rédiger une description de cours attrayante (Admin).
-     */
-    async generateAdminDescription() {
-        const title = document.getElementById('template-title').value;
-        if (!title) {
-            this.showNotification("Saisissez un titre.", 'error');
-            return;
-        }
-
-        const btn = document.getElementById('btn-generate-desc');
-        btn.innerHTML = 'Génération...';
-        btn.disabled = true;
-
-        const prompt = `Agis comme le gérant d'un studio de Pilates moderne. Rédige une description très courte (1 ou 2 phrases maximum) pour un cours qui s'appelle "${title}". Le ton doit être professionnel, apaisant et donner envie de s'inscrire. Ne mets pas de guillemets.`;
-        const desc = await callGemini(prompt);
-
-        document.getElementById('template-desc').value = desc;
-        btn.innerHTML = "✨ Suggérer avec l'IA";
-        btn.disabled = false;
-    }
-
-    /** 
-     * Enregistre une nouvelle séance dans le planning (Admin).
-     */
-    async submitAddClass(e) {
-        e.preventDefault();
-        const title = document.getElementById('planning-title').value;
-        const date = document.getElementById('planning-date').value;
-        const time = document.getElementById('planning-time').value;
-
-        if (!title) return this.showNotification("Veuillez choisir un modèle de cours.", "error");
-        if (!date || !time) return this.showNotification("Veuillez saisir une date et une heure.", "error");
-
-        const newClass = {
-            title: title,
-            description: document.getElementById('planning-desc').value,
-            date: date,
-            time: time,
-            duration: parseInt(document.getElementById('planning-duration').value) || 0,
-            capacity: parseInt(document.getElementById('planning-capacity').value) || 10,
-            price: parseInt(document.getElementById('planning-price').value) || 0,
-            credits_price: parseInt(document.getElementById('planning-credits-price').value) || 1,
-            bookedUsers: []
-        };
-        await fetch(`${API_URL}/classes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newClass)
-        });
-        this.showNotification("Séance ajoutée.");
-        this.init();
-    }
-
-    /** 
-     * Remplit le formulaire de séance à partir d'un modèle existant (Admin).
-     */
-    applyTemplate() {
-        const templateId = document.getElementById('planning-template-select').value;
-        if (!templateId) return;
-        const t = this.state.courseTemplates.find(x => x.id == templateId);
-        if (!t) return;
-        document.getElementById('planning-title').value = t.title;
-        document.getElementById('planning-desc').value = t.description;
-        document.getElementById('planning-duration').value = t.duration;
-        document.getElementById('planning-price').value = t.default_price;
-        document.getElementById('planning-credits-price').value = t.default_credits_price || 1;
-    }
-
-    /** 
-     * Charge un modèle dans le formulaire d'édition (Admin).
-     * @param {number} id - L'identifiant du modèle.
-     */
-    editTemplate(id) {
-        this.state.editingTemplateId = id;
-        this.render();
-    }
-
-    /** Annule l'édition d'un modèle */
-    cancelEditTemplate() {
-        this.state.editingTemplateId = null;
-        this.render();
-    }
-
-    /** 
-     * Crée ou met à jour un modèle de cours dans le catalogue (Admin).
-     */
-    async saveAsTemplate() {
-        const template = {
-            title: document.getElementById('template-title').value,
-            description: document.getElementById('template-desc').value,
-            duration: parseInt(document.getElementById('template-duration').value) || 0,
-            default_price: parseInt(document.getElementById('template-price').value) || 0,
-            default_credits_price: parseInt(document.getElementById('template-credits-price').value) || 1
-        };
-
-        const id = this.state.editingTemplateId;
-        const method = id ? 'PUT' : 'POST';
-        const url = id ? `${API_URL}/course-templates/${id}` : `${API_URL}/course-templates`;
-
-        await fetch(url, {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(template)
-        });
-
-        this.showNotification(id ? "Modèle mis à jour !" : "Modèle sauvegardé !");
-        this.state.editingTemplateId = null;
-        await this.init();
-    }
+    logout() { authService.logout(this); }
+    changeWeek(offset) { classService.changeWeek(this, offset); }
+    jumpToDate(dateString) { classService.jumpToDate(this, dateString); }
+    initiateBooking(classId) { classService.initiateBooking(this, classId); }
+    async confirmPayment(e) { await classService.confirmPayment(this, e); }
+    cancelPayment() { classService.cancelPayment(this); }
+    async sendNewsletter(e) { await newsletterService.sendNewsletter(this, e); }
+    toggleNewsletterRecipient(userId) { newsletterService.toggleNewsletterRecipient(this, userId); }
+    toggleHtmlView() { newsletterService.toggleHtmlView(this); }
+    async updateProfile(e) { await userService.updateProfile(this, e); }
+    async buyCredits(pkg) { await userService.buyCredits(this, pkg); }
+    async updateStudioSettings(e) { await userService.updateStudioSettings(this, e); }
+    async askAi() { await aiService.askAi(this); }
+    async deleteClass(id) { await classService.deleteClass(this, id); }
+    async generateAdminDescription() { await aiService.generateAdminDescription(this); }
+    async submitAddClass(e) { await classService.submitAddClass(this, e); }
+    applyTemplate() { classService.applyTemplate(this); }
+    editTemplate(id) { classService.editTemplate(this, id); }
+    cancelEditTemplate() { classService.cancelEditTemplate(this); }
+    async saveAsTemplate() { await classService.saveAsTemplate(this); }
 
     /** 
      * Fonction maîtresse de rendu. 
@@ -591,7 +214,7 @@ class PilatesApp {
 
         if (v === 'connexion' || v === 'inscription') {
             mainContainer.innerHTML = authView(this, v);
-            this.attachAuthEvents(v);
+            authService.attachAuthEvents(this, v);
         } else {
             const viewMap = {
                 accueil: homeView,
@@ -638,75 +261,9 @@ class PilatesApp {
         }
     }
 
-    /** 
-     * Gère la soumission des formulaires d'authentification.
-     */
-    attachAuthEvents(mode) {
-        const form = document.getElementById('auth-form');
-        if (!form) return;
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('auth-email').value;
-            const password = document.getElementById('auth-password').value;
-
-            if (mode === 'connexion') {
-                try {
-                    const res = await fetch(`${API_URL}/login`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        this.state.currentUser = data.user;
-                        localStorage.setItem('pilates_user', JSON.stringify(data.user));
-                        this.init();
-                        this.navigate('planning');
-                    } else {
-                        this.showNotification(data.message || 'Email ou mot de passe incorrect.', 'error');
-                    }
-                } catch (err) { this.showNotification("Erreur de connexion", 'error'); }
-            } else {
-                const firstName = document.getElementById('auth-firstname').value;
-                const lastName = document.getElementById('auth-lastname').value;
-                const address = document.getElementById('auth-address').value;
-                const phone = document.getElementById('auth-phone').value;
-                const zipCode = document.getElementById('auth-zipcode').value;
-                const city = document.getElementById('auth-city').value;
-                const confirmPassword = document.getElementById('auth-confirm-password').value;
-                const newsletter_subscribed = document.getElementById('auth-newsletter')?.checked ? 1 : 0;
-
-                // Validations
-                if (!this.validateEmail(email)) return this.showNotification("Email invalide.", 'error');
-                if (!this.validatePhone(phone)) return this.showNotification("Téléphone invalide.", 'error');
-                if (!this.validatePassword(password)) return this.showNotification("Mot de passe trop court.", 'error');
-                if (password !== confirmPassword) return this.showNotification("Mots de passe différents.", 'error');
-                if (!firstName || !lastName) return this.showNotification("Nom/Prénom obligatoires.", 'error');
-
-                try {
-                    const res = await fetch(`${API_URL}/register`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ firstName, lastName, email, password, address, phone, zipCode, city, newsletter_subscribed })
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        this.state.currentUser = data.user;
-                        localStorage.setItem('pilates_user', JSON.stringify(data.user));
-                        this.init();
-                        this.navigate('planning');
-                    } else {
-                        this.showNotification(data.message || 'Erreur inscription.', 'error');
-                    }
-                } catch (err) { this.showNotification("Erreur inscription.", 'error'); }
-            }
-        });
-    }
 }
 
 /** Instanciation et démarrage de l'application */
 window.app = new PilatesApp();
-window.addEventListener('DOMContentLoaded', () => {
-    window.app.init();
+window.addEventListener('DOMContentLoaded', () => {    window.app.init();
 });
