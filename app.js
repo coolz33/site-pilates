@@ -235,6 +235,8 @@ class PilatesApp {
     async buyCredits(pkg) { await userService.buyCredits(this, pkg); }
     async updateStudioSettings(e) { await userService.updateStudioSettings(this, e); }
     async updateCancellationDelay(e) { await userService.updateCancellationDelay(this, e); }
+    async updatePackage(e, id) { await userService.updatePackage(this, e, id); }
+    async createPackage(e) { await userService.createPackage(this, e); }
     async askAi() { await aiService.askAi(this); }
     async deleteClass(id) { await classService.cancelBooking(this, id); } // Pour le profil utilisateur
     async adminDeleteClass(id) { await classService.adminDeleteClass(this, id); } // Pour l'admin

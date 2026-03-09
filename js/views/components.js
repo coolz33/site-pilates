@@ -89,19 +89,14 @@ export const getNotificationHtml = (app) => {
 export const renderPaymentModal = (app, container) => {
     if (app.state.showPaymentModal && app.state.selectedClassForPayment) {
         const cls = app.state.selectedClassForPayment;
-        const isCard = app.state.paymentMethod === 'card';
         const modalHtml = `
             <div class="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
                 <div class="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-xl">
-                    <h3 class="text-2xl font-light text-stone-800 mb-2">Paiement en ligne</h3>
+                    <h3 class="text-2xl font-light text-stone-800 mb-2">Confirmation de réservation</h3>
                     <p class="mb-6 border-b pb-4 text-stone-600">
                         Réservation : <strong class="text-emerald-800">${cls.title}</strong>
                     </p>
-                    <form onsubmit="app.confirmPayment(event)" class="space-y-4">
-                        <div class="flex gap-2 mb-6 p-1 bg-stone-100 rounded-xl">
-                            <button type="button" onclick="app.state.paymentMethod='card'; app.state.modalMessage=null; app.render()" class="flex-1 py-2 rounded-lg text-sm font-medium ${app.state.paymentMethod==='card' ? 'bg-white shadow-sm text-emerald-800' : 'text-stone-500'}">Carte</button>
-                            <button type="button" onclick="app.state.paymentMethod='credits'; app.state.modalMessage=null; app.render()" class="flex-1 py-2 rounded-lg text-sm font-medium ${app.state.paymentMethod==='credits' ? 'bg-white shadow-sm text-emerald-800' : 'text-stone-500'}">Crédits</button>
-                        </div>
+                    <form onsubmit="app.confirmPayment(event)" class="space-y-6">
                         
                         ${app.state.modalMessage ? `
                             <div class="mb-4 p-3 rounded-xl text-sm ${app.state.modalMessage.type === 'error' ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-blue-50 text-blue-700'} animate-fade-in">
@@ -117,24 +112,18 @@ export const renderPaymentModal = (app, container) => {
                             </div>
                         ` : ''}
 
-                        ${isCard ? `
-                            <div class="bg-stone-50 p-4 rounded-xl text-center text-stone-600 text-sm">
-                                Vous serez redirigé vers une page de paiement sécurisée Stripe.
+                        <div class="bg-emerald-50 p-4 rounded-xl text-center text-emerald-800 flex flex-col gap-1">
+                            <span class="font-bold">Coût de la séance : ${cls.credits_price ?? 1} crédits</span>
+                            <span class="text-sm opacity-80">Votre solde : ${app.state.currentUser.credits_balance || 0} crédits</span>
+                            <div class="mt-3 pt-3 border-t border-emerald-200/50 flex items-center justify-center gap-2">
+                                <input type="checkbox" id="confirm-credits" required class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
+                                <label for="confirm-credits" class="text-xs font-medium cursor-pointer">Je confirme l'utilisation de mes crédits</label>
                             </div>
-                        ` : `
-                            <div class="bg-emerald-50 p-4 rounded-xl text-center text-emerald-800 flex flex-col gap-1">
-                                <span class="font-bold">Coût de la séance : ${cls.credits_price ?? 1} crédits</span>
-                                <span class="text-sm opacity-80">Votre solde : ${app.state.currentUser.credits_balance || 0} crédits</span>
-                                <div class="mt-3 pt-3 border-t border-emerald-200/50 flex items-center justify-center gap-2">
-                                    <input type="checkbox" id="confirm-credits" required class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
-                                    <label for="confirm-credits" class="text-xs font-medium cursor-pointer">Je confirme l'utilisation de mes crédits</label>
-                                </div>
-                            </div>
-                        `}
+                        </div>
                         <div class="flex gap-3">
                             <button type="button" onclick="app.cancelPayment()" class="flex-1 py-3 border rounded-xl">Annuler</button>
                             <button type="submit" class="flex-1 py-3 bg-emerald-800 text-white rounded-xl">
-                                ${isCard ? 'Payer' : 'Confirmer'}
+                                Confirmer
                             </button>
                         </div>
                     </form>

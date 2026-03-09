@@ -123,5 +123,39 @@ export const userService = {
         });
         app.showNotification('Délai mis à jour.');
         app.init();
+    },
+
+    async updatePackage(app, e, id) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const pkg = {
+            name: formData.get('name'),
+            credits: parseInt(formData.get('credits')),
+            price: parseInt(formData.get('price'))
+        };
+        await fetch(`${API_URL}/credit-packages/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pkg)
+        });
+        app.showNotification('Pack mis à jour.');
+        app.init();
+    },
+
+    async createPackage(app, e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const pkg = {
+            name: formData.get('name'),
+            credits: parseInt(formData.get('credits')),
+            price: parseInt(formData.get('price'))
+        };
+        await fetch(`${API_URL}/credit-packages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pkg)
+        });
+        app.showNotification('Nouveau pack ajouté.');
+        app.init();
     }
 };

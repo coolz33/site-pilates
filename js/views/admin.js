@@ -15,21 +15,26 @@ export const adminView = (app) => {
     return `
         <div class="min-h-screen bg-stone-50 pt-12 pb-24 animate-fade-in">
             <div class="max-w-6xl mx-auto px-4">
-                <h1 class="text-3xl font-light text-stone-800 mb-8">Tableau de bord Administrateur</h1>
-                
-                <!-- Onglets Admin -->
-                <div class="flex gap-4 mb-8 border-b border-stone-200 overflow-x-auto">
-                    <button onclick="app.setAdminTab('planning')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'planning' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Séances à venir</button>
-                    <button onclick="app.setAdminTab('past_sessions')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'past_sessions' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Séances passées</button>
-                    <button onclick="app.setAdminTab('templates')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'templates' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Modèles de cours</button>
-                    <button onclick="app.setAdminTab('users')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'users' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Clients</button>
-                    <button onclick="app.setAdminTab('newsletter')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'newsletter' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Newsletter</button>
-                    <button onclick="app.setAdminTab('settings')" class="pb-4 px-2 whitespace-nowrap ${st.adminTab === 'settings' ? 'text-emerald-700 border-b-2 border-emerald-700 font-medium' : 'text-stone-500'}">Studio</button>
-                </div>
+                <div class="flex flex-col md:flex-row gap-8">
+                    <!-- Menu Latéral -->
+                    <aside class="w-full md:w-64 flex-shrink-0">
+                        <h1 class="text-2xl font-light text-stone-800 mb-6 px-2">Administration</h1>
+                        <nav class="space-y-1">
+                            <button onclick="app.setAdminTab('planning')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'planning' ? 'bg-emerald-50 text-emerald-800 font-medium' : 'text-stone-600 hover:bg-stone-100'}">📅 Séances à venir</button>
+                            <button onclick="app.setAdminTab('past_sessions')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'past_sessions' ? 'bg-emerald-50 text-emerald-800 font-medium' : 'text-stone-600 hover:bg-stone-100'}">🕰️ Séances passées</button>
+                            <button onclick="app.setAdminTab('templates')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'templates' ? 'bg-emerald-50 text-emerald-800 font-medium' : 'text-stone-600 hover:bg-stone-100'}">📋 Modèles de cours</button>
+                            <button onclick="app.setAdminTab('packages')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'packages' ? 'bg-emerald-50 text-emerald-800 font-medium' : 'text-stone-600 hover:bg-stone-100'}">💳 Tarifs & Packs</button>
+                            <button onclick="app.setAdminTab('users')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'users' ? 'bg-emerald-50 text-emerald-800 font-medium' : 'text-stone-600 hover:bg-stone-100'}">👥 Clients</button>
+                            <button onclick="app.setAdminTab('newsletter')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'newsletter' ? 'bg-emerald-50 text-emerald-800 font-medium' : 'text-stone-600 hover:bg-stone-100'}">✉️ Newsletter</button>
+                            <button onclick="app.setAdminTab('settings')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'settings' ? 'bg-emerald-50 text-emerald-800 font-medium' : 'text-stone-600 hover:bg-stone-100'}">⚙️ Studio</button>
+                        </nav>
+                    </aside>
 
-                ${getNotificationHtml(app)}
+                    <!-- Contenu Principal -->
+                    <div class="flex-1 min-w-0">
+                        ${getNotificationHtml(app)}
 
-                ${st.adminTab === 'planning' || st.adminTab === 'past_sessions' ? `
+                        ${st.adminTab === 'planning' || st.adminTab === 'past_sessions' ? `
                     <div class="grid md:grid-cols-3 gap-8">
                         ${st.adminTab === 'planning' ? `
                         <div class="space-y-6">
@@ -61,7 +66,6 @@ export const adminView = (app) => {
                                     <input type="hidden" id="planning-title">
                                     <textarea id="planning-desc" class="hidden"></textarea>
                                     <input type="hidden" id="planning-duration">
-                                    <input type="hidden" id="planning-price">
                                     <input type="hidden" id="planning-credits-price">
                                 </form>
                             </div>
@@ -103,7 +107,7 @@ export const adminView = (app) => {
                                                 </td>
                                                 <td class="p-4">
                                                     <div class="font-medium text-emerald-800">${c.title}</div>
-                                                    <div class="text-xs text-stone-400">${c.price}€ / ${c.credits_price || 0} crédits</div>
+                                                    <div class="text-xs text-stone-400">${c.credits_price || 1} crédits</div>
                                                 </td>
                                                 <td class="p-4 text-center">
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.bookedUsers.length >= c.capacity ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}">
@@ -143,15 +147,9 @@ export const adminView = (app) => {
                                             </div>
                                             <textarea id="template-desc" rows="3" class="w-full p-2 border border-stone-200 rounded-lg text-sm">${t ? t.description : ''}</textarea>
                                         </div>
-                                        <div class="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-stone-700 mb-1">Durée (min)</label>
-                                                <input type="number" id="template-duration" required class="w-full p-2 border border-stone-200 rounded-lg" value="${t?.duration || ''}">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-stone-700 mb-1">Prix (€)</label>
-                                                <input type="number" id="template-price" required class="w-full p-2 border border-stone-200 rounded-lg" value="${t?.default_price || ''}">
-                                            </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-stone-700 mb-1">Durée (min)</label>
+                                            <input type="number" id="template-duration" required class="w-full p-2 border border-stone-200 rounded-lg" value="${t?.duration || ''}">
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-stone-700 mb-1">Prix (Crédits)</label>
@@ -171,10 +169,45 @@ export const adminView = (app) => {
                                 ${st.courseTemplates.map(t => `
                                     <div onclick="app.editTemplate(${t.id})" class="p-4 border border-stone-100 rounded-2xl hover:border-emerald-300 transition cursor-pointer group bg-stone-50/50">
                                         <div class="font-medium text-emerald-800 group-hover:text-emerald-600">${t.title}</div>
-                                        <div class="text-xs text-stone-500 mb-2">${t.duration} min • ${t.default_price}€ / ${t.default_credits_price || 0} crédits</div>
+                                        <div class="text-xs text-stone-500 mb-2">${t.duration} min • ${t.default_credits_price || 1} crédits</div>
                                         <p class="text-xs text-stone-400 line-clamp-2">${t.description || 'Aucune description'}</p>
                                     </div>
                                 `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${st.adminTab === 'packages' ? `
+                    <div class="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 animate-fade-in">
+                        <h2 class="text-xl font-medium text-stone-800 mb-6">Gestion des Tarifs (Packs de crédits)</h2>
+                        <div class="space-y-6">
+                            ${st.creditPackages.map(pkg => `
+                                <form onsubmit="app.updatePackage(event, ${pkg.id})" class="flex flex-col md:flex-row gap-4 items-end p-4 border border-stone-100 rounded-xl bg-stone-50/50">
+                                    <div class="flex-1 w-full">
+                                        <label class="block text-xs font-medium text-stone-500 mb-1">Nom du pack</label>
+                                        <input type="text" name="name" value="${pkg.name}" required class="w-full p-2 border border-stone-200 rounded-lg text-sm">
+                                    </div>
+                                    <div class="w-full md:w-24">
+                                        <label class="block text-xs font-medium text-stone-500 mb-1">Crédits</label>
+                                        <input type="number" name="credits" value="${pkg.credits}" required min="1" class="w-full p-2 border border-stone-200 rounded-lg text-sm text-center">
+                                    </div>
+                                    <div class="w-full md:w-24">
+                                        <label class="block text-xs font-medium text-stone-500 mb-1">Prix (€)</label>
+                                        <input type="number" name="price" value="${pkg.price}" required min="0" class="w-full p-2 border border-stone-200 rounded-lg text-sm text-center">
+                                    </div>
+                                    <button type="submit" class="w-full md:w-auto px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800 transition">Enregistrer</button>
+                                </form>
+                            `).join('')}
+                            
+                            <div class="pt-6 border-t border-stone-100">
+                                <h3 class="text-sm font-medium text-stone-800 mb-4">Ajouter un nouveau pack</h3>
+                                <form onsubmit="app.createPackage(event)" class="flex flex-col md:flex-row gap-4 items-end">
+                                    <input type="text" name="name" placeholder="Nom (ex: Pack Découverte)" required class="flex-1 w-full p-2 border border-stone-200 rounded-lg text-sm">
+                                    <input type="number" name="credits" placeholder="Crédits" required min="1" class="w-full md:w-24 p-2 border border-stone-200 rounded-lg text-sm text-center">
+                                    <input type="number" name="price" placeholder="Prix €" required min="0" class="w-full md:w-24 p-2 border border-stone-200 rounded-lg text-sm text-center">
+                                    <button type="submit" class="w-full md:w-auto px-4 py-2 bg-stone-800 text-white rounded-lg text-sm hover:bg-stone-900 transition">Ajouter</button>
+                                </form>
                             </div>
                         </div>
                     </div>
@@ -299,6 +332,8 @@ export const adminView = (app) => {
                         </form>
                     </div>
                 ` : ''}
+                    </div>
+                </div>
             </div>
         </div>`;
 };

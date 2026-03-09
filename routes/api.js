@@ -51,7 +51,6 @@ const seedDB = async () => {
                 time VARCHAR(10),
                 duration INT,
                 capacity INT,
-                price INT,
                 credits_price INT DEFAULT 1,
                 description TEXT
             )
@@ -63,7 +62,6 @@ const seedDB = async () => {
                 title VARCHAR(255),
                 description TEXT,
                 duration INT,
-                default_price INT,
                 default_credits_price INT
             )
         `);
@@ -98,6 +96,8 @@ const seedDB = async () => {
         // Migration des anciens noms vers les nouveaux si nécessaire
         try { await pool.query(`ALTER TABLE users CHANGE points_balance credits_balance INT DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE classes CHANGE points_price credits_price INT DEFAULT 1`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE classes DROP COLUMN price`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE course_templates DROP COLUMN default_price`); } catch (e) {}
         try { await pool.query(`ALTER TABLE course_templates CHANGE default_points_price default_credits_price INT`); } catch (e) {}
         try { await pool.query(`ALTER TABLE course_templates ADD COLUMN default_credits_price INT DEFAULT 1`); } catch (e) {}
 
@@ -122,25 +122,25 @@ const seedDB = async () => {
         const [classes] = await pool.query('SELECT COUNT(*) as count FROM classes');
         if (classes[0].count === 0) {
             const defaultClasses = [
-                ['Pilates Fondations', '2026-02-23', '09:00', 60, 10, 20, 20, 'Idéal pour acquérir les bases de la méthode, comprendre la respiration et le placement du bassin.'],
-                ['Pilates Flow', '2026-02-24', '18:30', 45, 12, 20, 20, 'Un enchaînement fluide et dynamique pour faire monter le rythme cardiaque tout en contrôlant ses mouvements.'],
-                ['Core & Posture', '2026-02-25', '12:15', 45, 8, 25, 25, 'Focus intense sur la sangle abdominale et les muscles profonds du dos pour redresser la silhouette.'],
-                ['Pilates Avancé', '2026-02-26', '19:00', 60, 10, 25, 25, 'Réservé aux pratiquants réguliers. Des exercices complexes pour défier votre équilibre et votre force.'],
-                ['Stretching & Mobilité', '2026-02-28', '10:00', 60, 15, 15, 15, "Une séance douce axée sur les étirements profonds et l'amplitude articulaire pour libérer les tensions."]
+                ['Pilates Fondations', '2026-02-23', '09:00', 60, 10, 20, 'Idéal pour acquérir les bases de la méthode, comprendre la respiration et le placement du bassin.'],
+                ['Pilates Flow', '2026-02-24', '18:30', 45, 12, 20, 'Un enchaînement fluide et dynamique pour faire monter le rythme cardiaque tout en contrôlant ses mouvements.'],
+                ['Core & Posture', '2026-02-25', '12:15', 45, 8, 25, 'Focus intense sur la sangle abdominale et les muscles profonds du dos pour redresser la silhouette.'],
+                ['Pilates Avancé', '2026-02-26', '19:00', 60, 10, 25, 'Réservé aux pratiquants réguliers. Des exercices complexes pour défier votre équilibre et votre force.'],
+                ['Stretching & Mobilité', '2026-02-28', '10:00', 60, 15, 15, "Une séance douce axée sur les étirements profonds et l'amplitude articulaire pour libérer les tensions."]
             ];
-            await pool.query('INSERT INTO classes (title, date, time, duration, capacity, price, credits_price, description) VALUES ?', [defaultClasses]);
+            await pool.query('INSERT INTO classes (title, date, time, duration, capacity, credits_price, description) VALUES ?', [defaultClasses]);
         }
 
         // 3b. Course Templates (Exemples)
         const [templates] = await pool.query('SELECT COUNT(*) as count FROM course_templates');
         if (templates[0].count === 0) {
             const defaultTemplates = [
-                ['Pilates Mat Fondamental', 'Séance au sol axée sur les principes de base.', 60, 20, 20],
-                ['Pilates Flow Dynamique', 'Enchaînement fluide pour travailler le cardio et la souplesse.', 45, 22, 22],
-                ['Spécial Dos & Posture', 'Focus sur le renforcement des muscles profonds du dos.', 50, 25, 25],
-                ['Pilates avec Accessoires', 'Utilisation de ballons, cercles et élastiques.', 60, 23, 23]
+                ['Pilates Mat Fondamental', 'Séance au sol axée sur les principes de base.', 60, 20],
+                ['Pilates Flow Dynamique', 'Enchaînement fluide pour travailler le cardio et la souplesse.', 45, 22],
+                ['Spécial Dos & Posture', 'Focus sur le renforcement des muscles profonds du dos.', 50, 25],
+                ['Pilates avec Accessoires', 'Utilisation de ballons, cercles et élastiques.', 60, 23]
             ];
-            await pool.query('INSERT INTO course_templates (title, description, duration, default_price, default_credits_price) VALUES ?', [defaultTemplates]);
+            await pool.query('INSERT INTO course_templates (title, description, duration, default_credits_price) VALUES ?', [defaultTemplates]);
         }
 
         // 4. Credit Packages (Tarif dégressif)
@@ -288,20 +288,20 @@ const handleRequest = async (req, res) => {
         }
 
         if (method === 'POST' && path === '/course-templates') {
-            const { title, description, duration, default_price, default_credits_price } = req.body;
+            const { title, description, duration, default_credits_price } = req.body;
             await pool.query(
-                'INSERT INTO course_templates (title, description, duration, default_price, default_credits_price) VALUES (?, ?, ?, ?, ?)',
-                [title, description, duration, default_price, default_credits_price]
+                'INSERT INTO course_templates (title, description, duration, default_credits_price) VALUES (?, ?, ?, ?)',
+                [title, description, duration, default_credits_price]
             );
             return send(200, { success: true });
         }
 
         const templateIdMatch = path.match(/^\/course-templates\/(\d+)$/);
         if (method === 'PUT' && templateIdMatch) {
-            const { title, description, duration, default_price, default_credits_price } = req.body;
+            const { title, description, duration, default_credits_price } = req.body;
             await pool.query(
-                'UPDATE course_templates SET title=?, description=?, duration=?, default_price=?, default_credits_price=? WHERE id=?',
-                [title, description, duration, default_price, default_credits_price, templateIdMatch[1]]
+                'UPDATE course_templates SET title=?, description=?, duration=?, default_credits_price=? WHERE id=?',
+                [title, description, duration, default_credits_price, templateIdMatch[1]]
             );
             return send(200, { success: true });
         }
@@ -311,9 +311,28 @@ const handleRequest = async (req, res) => {
             return send(200, pkgs);
         }
 
+        if (method === 'POST' && path === '/credit-packages') {
+            const { name, credits, price } = req.body;
+            await pool.query(
+                'INSERT INTO credit_packages (name, credits, price) VALUES (?, ?, ?)',
+                [name, credits, price]
+            );
+            return send(200, { success: true });
+        }
+
+        const packageIdMatch = path.match(/^\/credit-packages\/(\d+)$/);
+        if (method === 'PUT' && packageIdMatch) {
+            const { name, credits, price } = req.body;
+            await pool.query(
+                'UPDATE credit_packages SET name=?, credits=?, price=? WHERE id=?',
+                [name, credits, price, packageIdMatch[1]]
+            );
+            return send(200, { success: true });
+        }
+
         if (method === 'GET' && path === '/classes') {
             const [rows] = await pool.query(`
-                SELECT c.id, c.title, DATE_FORMAT(c.date, '%Y-%m-%d') as date, c.time, c.duration, c.capacity, c.price, c.credits_price, c.description, 
+                SELECT c.id, c.title, DATE_FORMAT(c.date, '%Y-%m-%d') as date, c.time, c.duration, c.capacity, c.credits_price, c.description, 
                 GROUP_CONCAT(b.user_id) as bookedUsersStr 
                 FROM classes c 
                 LEFT JOIN bookings b ON c.id = b.class_id 
@@ -329,10 +348,10 @@ const handleRequest = async (req, res) => {
         }
 
         if (method === 'POST' && path === '/classes') {
-            const { title, date, time, duration, capacity, price, credits_price, description } = req.body;
+            const { title, date, time, duration, capacity, credits_price, description } = req.body;
             const [result] = await pool.query(
-                'INSERT INTO classes (title, date, time, duration, capacity, price, credits_price, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [title, date, time, duration, capacity, price, credits_price, description]
+                'INSERT INTO classes (title, date, time, duration, capacity, credits_price, description) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [title, date, time, duration, capacity, credits_price, description]
             );
             return send(200, { id: result.insertId, ...req.body, bookedUsers: [] });
         }
@@ -550,30 +569,6 @@ const handleRequest = async (req, res) => {
             return send(200, { url: session.url });
         }
 
-        if (method === 'POST' && path === '/checkout/create-session-class') {
-            const { classId, userId } = req.body;
-            const [rows] = await pool.query('SELECT * FROM classes WHERE id = ?', [classId]);
-            if (!rows.length) return send(404, { message: 'Cours non trouvé' });
-            const cls = rows[0];
-
-            const session = await stripe.checkout.sessions.create({
-                payment_method_types: ['card'],
-                line_items: [{
-                    price_data: {
-                        currency: 'eur',
-                        product_data: { name: cls.title, description: `Réservation cours de Pilates` },
-                        unit_amount: cls.price * 100,
-                    },
-                    quantity: 1,
-                }],
-                mode: 'payment',
-                success_url: `http://${req.headers.host}/#planning?payment=success&type=booking`,
-                cancel_url: `http://${req.headers.host}/#planning?payment=cancel`,
-                metadata: { userId: userId.toString(), classId: classId.toString(), type: 'class_booking' }
-            });
-            return send(200, { url: session.url });
-        }
-
         if (method === 'POST' && path === '/webhook/stripe') {
             const sig = req.headers['stripe-signature'];
             let event;
@@ -590,10 +585,7 @@ const handleRequest = async (req, res) => {
 
                 const { userId, credits, classId, type } = session.metadata;
                 
-                if (type === 'class_booking') {
-                    await pool.query('INSERT IGNORE INTO bookings (class_id, user_id) VALUES (?, ?)', [parseInt(classId), parseInt(userId)]);
-                    console.log(`✅ Réservation confirmée via Stripe pour l'utilisateur ${userId} au cours ${classId}`);
-                } else if (credits && userId) {
+                if (credits && userId) {
                     // Achat de crédits
                     await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [parseInt(credits), parseInt(userId)]);
                     console.log(`✅ Crédits ajoutés : +${credits} pour l'utilisateur ${userId}`);

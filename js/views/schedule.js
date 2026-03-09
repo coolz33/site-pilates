@@ -32,7 +32,7 @@ export const scheduleView = (app) => {
                     <div class="p-4 rounded-xl border ${isBooked ? 'bg-emerald-800 text-white' : (isPast ? 'bg-stone-100 text-stone-500' : 'bg-white')} mb-3 shadow-sm">
                         <div class="font-medium">${c.time} - ${c.title}</div>
                         <div class="text-xs opacity-80 mb-2">${c.duration} min | ${c.bookedUsers.length}/${c.capacity} pers.</div>
-                        <div class="text-xs font-semibold mb-3 ${isBooked ? 'text-emerald-200' : (isPast ? 'text-stone-400' : 'text-emerald-700')}">${c.price}€ ou ${c.credits_price || 1} crédits</div>
+                        <div class="text-xs font-semibold mb-3 ${isBooked ? 'text-emerald-200' : (isPast ? 'text-stone-400' : 'text-emerald-700')}">${c.credits_price || 1} crédits</div>
                         <button onclick="app.initiateBooking(${c.id})" ${isBooked || isPast ? 'disabled' : ''} class="w-full py-2 rounded-lg text-sm ${isBooked ? 'bg-emerald-900 text-emerald-200 cursor-default' : (isPast ? 'bg-stone-200 text-stone-400 cursor-not-allowed' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100')}">
                             ${isBooked ? 'Inscrit' : (isPast ? 'Terminé' : 'Réserver')}
                         </button>
