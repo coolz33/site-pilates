@@ -46,6 +46,11 @@ const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+    // Headers de sécurité essentiels
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+
     if (req.method === 'OPTIONS') {
         res.writeHead(204);
         res.end();
@@ -63,6 +68,8 @@ const server = http.createServer((req, res) => {
         req.rawBody = rawBodyBuffer; // On stocke le buffer brut pour Stripe
         const body = rawBodyBuffer.toString();
 
+        if (req.url.includes('webhook')) console.log(`[STRIPE] Requête reçue sur ${req.url}`);
+
         try {
             req.body = body ? JSON.parse(body) : {};
         } catch (e) {
@@ -73,7 +80,13 @@ const server = http.createServer((req, res) => {
         const pathname = parsedUrl.pathname;
 
         if (pathname.startsWith('/api')) {
-            await api.handleRequest(req, res);
+            try {
+                await api.handleRequest(req, res);
+            } catch (err) {
+                console.error('❌ Erreur lors du traitement de la requête API:', err);
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Erreur interne du serveur' }));
+            }
         } else {
             const relativePath = pathname === '/' ? 'index.html' : decodeURIComponent(pathname.slice(1));
             const filePath = path.join(__dirname, relativePath);
@@ -93,9 +106,27 @@ const server = http.createServer((req, res) => {
 
             fs.readFile(filePath, (error, content) => {
                 if (error) {
-                    console.error(`--- ❌ Fichier statique introuvable : ${filePath}`);
-                    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-                    res.end(JSON.stringify({ message: 'Fichier ou route non trouvée' }));
+                    // Si le fichier n'est pas trouvé (ENOENT) et que ce n'est pas une route API,
+                    // on sert index.html pour le routage SPA (History API).
+                    if (error.code === 'ENOENT' && !pathname.startsWith('/api')) {
+                        fs.readFile(path.join(__dirname, 'index.html'), (err, indexContent) => {
+                            if (err) {
+                                console.error(`--- ❌ Erreur de lecture de index.html : ${err}`);
+                                res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+                                res.end('<h1>500 Internal Server Error</h1>');
+                            } else {
+                                res.writeHead(200, { 'Content-Type': 'text/html' });
+                                res.end(indexContent, 'utf-8');
+                            }
+                        });
+                    } else {
+                        // Gestion des erreurs originales pour les autres types d'erreurs ou les routes API
+                        if (!filePath.endsWith('.map') && !filePath.endsWith('favicon.ico')) {
+                            console.error(`--- ❌ Fichier statique introuvable : ${filePath}`);
+                        }
+                        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify({ message: 'Fichier ou route non trouvée' }));
+                    }
                 } else {
                     res.writeHead(200, { 'Content-Type': contentType });
                     res.end(content, 'utf-8');
@@ -125,5 +156,6 @@ server.on('error', (e) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Serveur démarré sur le port ${PORT}`);
+    console.log(`🚀 Serveur démarré sur : http://localhost:${PORT}`);
+    console.log(`📡 En attente de requêtes...`);
 });

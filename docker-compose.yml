@@ -1,4 +1,4 @@
-version: '3'
+version: '3.8'
 
 services:
   pilates-app:
@@ -8,6 +8,8 @@ services:
       - "5051:5051"
     env_file:
       - .env
+    environment:
+      - PORT=5051
     volumes:
       # Lie votre dossier NAS au conteneur pour voir vos modifs en direct
       - .:/app

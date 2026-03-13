@@ -13,8 +13,9 @@ export const authService = {
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('auth-email').value;
-            const password = document.getElementById('auth-password').value;
+            
+            const email = app.state.isVerifyingEmail ? app.state.registrationData.email : document.getElementById('auth-email').value;
+            const password = app.state.isVerifyingEmail ? app.state.registrationData.password : document.getElementById('auth-password').value;
 
             if (mode === 'connexion') {
                 try {

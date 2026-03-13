@@ -85,6 +85,35 @@ const seedDB = async () => {
             )
         `);
 
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS transactions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT,
+                type VARCHAR(50),
+                amount INT,
+                description VARCHAR(255),
+                date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS email_verifications (
+                email VARCHAR(100) PRIMARY KEY,
+                code VARCHAR(10),
+                expires_at DATETIME
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS password_resets (
+                token VARCHAR(255) PRIMARY KEY,
+                user_id INT NOT NULL,
+                expires_at DATETIME NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+
         // Mise à jour des tables existantes pour ajouter les nouvelles colonnes si nécessaire
         // On utilise des blocs try/catch individuels pour que si une colonne existe déjà, le script continue
         try { await pool.query(`ALTER TABLE users ADD COLUMN credits_balance INT DEFAULT 0`); } catch (e) {}
@@ -180,6 +209,7 @@ const handleRequest = async (req, res) => {
     if (!path) path = '/';
     
     const method = req.method;
+    console.log(`[API] Incoming Request - Raw URL: ${req.url}, Method: ${method}, Processed Path: ${path}`); // Debug log
     console.log(`[API] ${method} ${path}`);
 
     /**
@@ -199,14 +229,68 @@ const handleRequest = async (req, res) => {
             return send(200, users);
         }
 
-        const userIdMatch = path.match(/^\/users\/(\d+)$/);
-        if (method === 'GET' && userIdMatch) {
-            const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [userIdMatch[1]]);
-            if (users.length > 0) {
-                const { password: _, ...userWithoutPassword } = users[0];
-                return send(200, userWithoutPassword);
+        // Gestion des routes /users/:id (Profil, Détails, Suppression)
+        const userIdMatch = path.match(/^\/users\/(\d+)\/?$/);
+        if (userIdMatch) {
+            const userId = userIdMatch[1];
+
+            if (method === 'GET') {
+                const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+                if (users.length > 0) {
+                    const { password: _, ...userWithoutPassword } = users[0];
+                    const [transactions] = await pool.query('SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC', [userId]);
+                    return send(200, { ...userWithoutPassword, transactions });
+                }
+                return send(404, { message: 'Utilisateur non trouvé' });
             }
-            return send(404, { message: 'Utilisateur non trouvé' });
+            
+            if (method === 'DELETE') {
+                await pool.query('DELETE FROM users WHERE id = ?', [userId]);
+                return send(200, { success: true, message: 'Utilisateur supprimé' });
+            }
+        }
+
+        // --- ROUTES GESTION CLIENT (ADMIN) ---
+        const userDetailsMatch = path.match(/^\/users\/(\d+)\/details$/);
+        if (method === 'GET' && userDetailsMatch) {
+            const userId = userDetailsMatch[1];
+            const [user] = await pool.query('SELECT id, firstName, lastName, email, phone, address, zipCode, city, credits_balance, newsletter_subscribed, role FROM users WHERE id = ?', [userId]);
+            if (!user.length) return send(404, { message: 'Utilisateur non trouvé' });
+
+            const [bookings] = await pool.query(`
+                SELECT b.class_id, c.title, DATE_FORMAT(c.date, '%Y-%m-%d') as date, c.time, c.duration 
+                FROM bookings b 
+                JOIN classes c ON b.class_id = c.id 
+                WHERE b.user_id = ? 
+                ORDER BY c.date DESC, c.time DESC`, [userId]);
+
+            const [transactions] = await pool.query('SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC', [userId]);
+
+            return send(200, { user: user[0], bookings, transactions });
+        }
+
+        const giftMatch = path.match(/^\/users\/(\d+)\/gift$/);
+        if (method === 'POST' && giftMatch) {
+            const userId = giftMatch[1];
+            const { amount } = req.body;
+            const description = amount > 0 ? 'Cadeau administrateur' : 'Retrait manuel administrateur';
+            await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [amount, userId]);
+            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'adjustment', amount, description]);
+            return send(200, { success: true });
+        }
+
+        const messageMatch = path.match(/^\/users\/(\d+)\/message$/);
+        if (method === 'POST' && messageMatch) {
+            const userId = messageMatch[1];
+            const { subject, message } = req.body;
+            const [users] = await pool.query('SELECT email FROM users WHERE id = ?', [userId]);
+            if (!users.length) return send(404, { message: 'Utilisateur non trouvé' });
+
+            // Réutilisation de la configuration SMTP (simplifiée ici)
+            const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: parseInt(process.env.SMTP_PORT), secure: process.env.SMTP_PORT == 465, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+            await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: users[0].email, subject: subject, html: message });
+
+            return send(200, { success: true });
         }
 
         if (method === 'POST' && path === '/login') {
@@ -236,8 +320,128 @@ const handleRequest = async (req, res) => {
             }
         }
 
+        if (method === 'POST' && path === '/forgot-password') {
+            const { email } = req.body;
+            const [users] = await pool.query('SELECT id, firstName FROM users WHERE email = ?', [email]);
+            if (users.length === 0) {
+                // Pour des raisons de sécurité, on ne doit pas indiquer si l'email existe ou non.
+                // On renvoie toujours un succès pour ne pas donner d'indices aux attaquants.
+                return send(200, { success: true, message: 'Si cet email existe, un lien de réinitialisation a été envoyé.' });
+            }
+
+            const user = users[0];
+            const token = require('crypto').randomBytes(32).toString('hex'); // Jeton sécurisé
+            const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // Expire dans 1 heure
+
+            await pool.query('INSERT INTO password_resets (token, user_id, expires_at) VALUES (?, ?, ?)', [token, user.id, expiresAt]);
+
+            const resetLink = `http://${req.headers.host}/#reset-password?token=${token}`;
+
+            const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: parseInt(process.env.SMTP_PORT),
+                secure: process.env.SMTP_PORT == 465,
+                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+            });
+
+            try {
+                await transporter.sendMail({
+                    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+                    to: email,
+                    subject: 'Réinitialisation de votre mot de passe - Pilates',
+                    html: `
+                        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px;">
+                            <h2 style="color: #065f46;">Réinitialisation de votre mot de passe</h2>
+                            <p>Bonjour ${user.firstName},</p>
+                            <p>Vous avez demandé à réinitialiser votre mot de passe. Veuillez cliquer sur le lien ci-dessous pour choisir un nouveau mot de passe :</p>
+                            <p style="text-align: center; margin: 20px 0;">
+                                <a href="${resetLink}" style="background-color: #065f46; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                                    Réinitialiser mon mot de passe
+                                </a>
+                            </p>
+                            <p>Ce lien est valide pendant 1 heure. Si vous n'avez pas demandé cette réinitialisation, veuillez ignorer cet email.</p>
+                        </div>
+                    `
+                });
+                console.log("[API] Email de réinitialisation envoyé à:", email);
+                return send(200, { success: true, message: 'Si cet email existe, un lien de réinitialisation a été envoyé.' });
+            } catch (mailErr) {
+                console.error("[API] Erreur lors de l'envoi de l'email de réinitialisation:", mailErr);
+                return send(500, { success: false, message: "Erreur lors de l'envoi de l'email de réinitialisation. Vérifiez la configuration SMTP." });
+            }
+        }
+
+        if (method === 'POST' && path === '/reset-password') {
+            const { token, newPassword } = req.body;
+
+            const [resetRequest] = await pool.query('SELECT user_id FROM password_resets WHERE token = ? AND expires_at > NOW()', [token]);
+            if (resetRequest.length === 0) {
+                return send(400, { success: false, message: 'Jeton invalide ou expiré.' });
+            }
+
+            const userId = resetRequest[0].user_id;
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+            await pool.query('START TRANSACTION');
+            await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+            await pool.query('DELETE FROM password_resets WHERE token = ?', [token]);
+            await pool.query('COMMIT');
+
+            return send(200, { success: true, message: 'Votre mot de passe a été réinitialisé avec succès.' });
+        }
+
+        if (method === 'POST' && path === '/send-verification-code') {
+            console.log(`[API] DEBUG: Matched POST /send-verification-code route.`); // Debug log
+            const { email } = req.body;
+            const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+            if (existing.length > 0) return send(400, { success: false, message: 'Cet email est déjà utilisé' });
+
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // Expire dans 15 min
+
+            await pool.query(
+                'INSERT INTO email_verifications (email, code, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE code = VALUES(code), expires_at = VALUES(expires_at)',
+                [email, code, expiresAt]
+            );
+
+            const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: parseInt(process.env.SMTP_PORT),
+                secure: process.env.SMTP_PORT == 465,
+                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+            });
+
+            try {
+                await transporter.sendMail({
+                    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+                    to: email,
+                    subject: 'Votre code de vérification - Pilates',
+                    html: `
+                        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px;">
+                            <h2 style="color: #065f46;">Vérification de votre compte</h2>
+                            <p>Veuillez saisir le code suivant pour valider votre inscription :</p>
+                            <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #065f46; margin: 20px 0; text-align: center; background: #f0fdf4; padding: 15px; border-radius: 8px;">
+                                ${code}
+                            </div>
+                        </div>
+                    `
+                });
+                console.log("[API] Email de vérification envoyé à:", email);
+                return send(200, { success: true });
+            } catch (mailErr) {
+                console.error("[API] Erreur lors de l'envoi de l'email de vérification:", mailErr);
+                return send(500, { success: false, message: "Erreur lors de l'envoi de l'email de vérification. Vérifiez la configuration SMTP." });
+            }
+        }
+
         if (method === 'POST' && path === '/register') {
-            const { firstName, lastName, email, password, address, phone, zipCode, city, newsletter_subscribed } = req.body;
+            console.log(`[API] DEBUG: Matched POST /register route.`); // Debug log
+            const { firstName, lastName, email, password, address, phone, zipCode, city, newsletter_subscribed, code } = req.body;
+
+            // Vérification du code
+            const [verification] = await pool.query('SELECT * FROM email_verifications WHERE email = ? AND code = ? AND expires_at > NOW()', [email, code]);
+            if (verification.length === 0) return send(400, { success: false, message: 'Code de vérification invalide ou expiré' });
+
             const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
             if (existing.length > 0) return send(400, { success: false, message: 'Cet email est déjà utilisé' });
 
@@ -247,6 +451,8 @@ const handleRequest = async (req, res) => {
                 'INSERT INTO users (firstName, lastName, name, email, password, address, phone, zipCode, city, role, newsletter_subscribed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [firstName, lastName, name, email, hashedPassword, address, phone, zipCode, city, 'user', newsletter_subscribed || 0]
             );
+            await pool.query('DELETE FROM email_verifications WHERE email = ?', [email]);
+
             const [newUser] = await pool.query('SELECT id, firstName, lastName, name, email, role, address, phone, zipCode, city, credits_balance, newsletter_subscribed FROM users WHERE id = ?', [result.insertId]);
             return send(200, { success: true, user: newUser[0] });
         }
@@ -276,7 +482,11 @@ const handleRequest = async (req, res) => {
 
         if (method === 'POST' && path === '/credits/buy') {
             const { userId, credits } = req.body;
+            await pool.query('START TRANSACTION');
             await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [credits, userId]);
+            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'purchase', credits, 'Achat de crédits (Manuel)']);
+            await pool.query('COMMIT');
+            
             const [updated] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
             return send(200, { success: true, credits_balance: updated[0].credits_balance });
         }
@@ -412,6 +622,7 @@ const handleRequest = async (req, res) => {
             await pool.query('START TRANSACTION');
             await pool.query('UPDATE users SET credits_balance = credits_balance - ? WHERE id = ?', [cls.credits_price, userId]);
             await pool.query('INSERT INTO bookings (class_id, user_id) VALUES (?, ?)', [classId, userId]);
+            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'booking', -cls.credits_price, `Réservation : ${cls.title}`]);
             await pool.query('COMMIT');
 
             const [updatedUser] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
@@ -444,6 +655,7 @@ const handleRequest = async (req, res) => {
             
             if (result.affectedRows > 0 && creditsToRefund > 0) {
                 await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [creditsToRefund, userId]);
+                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'refund', creditsToRefund, `Annulation : ${cls[0].title}`]);
             }
             await pool.query('COMMIT');
 
@@ -564,7 +776,7 @@ const handleRequest = async (req, res) => {
                 mode: 'payment',
                 success_url: `http://${req.headers.host}/#profil?payment=success&type=credits`,
                 cancel_url: `http://${req.headers.host}/#profil?payment=cancel`,
-                metadata: { userId: userId.toString(), credits: pkg.credits.toString(), type: 'credits_purchase' }
+                metadata: { userId: userId.toString(), credits: pkg.credits.toString(), price: pkg.price.toString(), type: 'credits_purchase' }
             });
             return send(200, { url: session.url });
         }
@@ -583,11 +795,15 @@ const handleRequest = async (req, res) => {
                 const session = event.data.object;
                 console.log("🔔 Webhook Stripe reçu. Metadata:", session.metadata);
 
-                const { userId, credits, classId, type } = session.metadata;
+                const { userId, credits, price, type } = session.metadata;
                 
                 if (credits && userId) {
                     // Achat de crédits
+                    const description = price ? `Achat de crédits (${price}€)` : 'Achat de crédits';
+                    await pool.query('START TRANSACTION');
                     await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [parseInt(credits), parseInt(userId)]);
+                    await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [parseInt(userId), 'purchase', parseInt(credits), description]);
+                    await pool.query('COMMIT');
                     console.log(`✅ Crédits ajoutés : +${credits} pour l'utilisateur ${userId}`);
                 } else {
                     console.warn("⚠️ Webhook ignoré : métadonnées incomplètes ou type inconnu", session.metadata);

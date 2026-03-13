@@ -157,5 +157,42 @@ export const userService = {
         });
         app.showNotification('Nouveau pack ajouté.');
         app.init();
+    },
+
+    async getUserDetails(app, userId) {
+        const res = await fetch(`${API_URL}/users/${userId}/details`);
+        return await res.json();
+    },
+
+    async adjustCredits(app, e, userId) {
+        e.preventDefault();
+        const mode = e.submitter.dataset.mode;
+        let amount = parseInt(e.target.amount.value);
+        if (mode === 'remove') amount = -amount;
+
+        await fetch(`${API_URL}/users/${userId}/gift`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount })
+        });
+        app.showNotification(amount > 0 ? 'Crédits ajoutés !' : 'Crédits retirés !');
+        app.viewUser(userId); // Rafraîchir la vue
+    },
+
+    async sendUserMessage(app, e, userId) {
+        e.preventDefault();
+        const subject = e.target.subject.value;
+        const message = app.state.adminUserMessageContent;
+
+        if (!subject || !message || message.trim() === '' || message === '<p><br></p>') {
+            return app.showNotification("Veuillez remplir tous les champs.", 'error');
+        }
+
+        await fetch(`${API_URL}/users/${userId}/message`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject, message }) });
+        app.showNotification('Message envoyé !');
+        e.target.subject.value = '';
+        if (app.state.adminUserQuill) {
+            app.state.adminUserQuill.setContents([]);
+        }
     }
 };
