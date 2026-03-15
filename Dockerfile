@@ -1,5 +1,5 @@
 # Utilise une image Node.js légère comme base
-FROM node:20-slim
+FROM node:20
 
 # Définit le dossier de travail dans le conteneur
 WORKDIR /app
