@@ -1,30 +1,11 @@
-# Utilise une image Node.js légère comme base
-FROM --platform=linux/amd64 node:20
-
-# Définit le dossier de travail dans le conteneur
+FROM node:20
 WORKDIR /app
-
-# Copie les fichiers de configuration npm
 COPY package*.json ./
-
-# Installe toutes les dépendances (nécessaire pour compiler Tailwind)
 RUN npm install
-
-# Copie tout le reste du code source (sauf ce qui est dans .dockerignore)
 COPY . .
-
-# Génère le fichier CSS de production avec Tailwind CLI
-RUN ls -la && npx tailwindcss --help && npx tailwindcss -i style.css -o style-dist.css
-
-# Supprime les dépendances de développement pour alléger l'image finale
+# On ne met PAS de ligne RUN npx tailwindcss ici !
 RUN npm prune --production
-
-# Définit les variables d'environnement nécessaires
 ENV PORT=5051
 ENV NODE_ENV=production
-
-# Expose le port 5051 (celui défini dans votre .env)
 EXPOSE 5051
-
-# Commande pour démarrer le serveur
 CMD ["node", "server.js"]
