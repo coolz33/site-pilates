@@ -1,11 +1,22 @@
+version: '3.8'
+
 services:
-  pilates:
+  pilates-app:
     build: .
-    container_name: pilates_studio
+    container_name: pilates-app
     ports:
       - "5051:5051"
     env_file:
       - .env
-    restart: always
     environment:
-      - NODE_ENV=production
+      - PORT=5051
+    volumes:
+      # Lie votre dossier NAS au conteneur pour voir vos modifs en direct
+      - .:/app
+      # Volume anonyme pour protéger les modules (évite les conflits NAS/Conteneur)
+      - /app/node_modules
+    # Cette commande installe les modules manquants au démarrage puis lance le serveur
+    command: sh -c "npm install --production && node server.js"
+    restart: always
+    extra_hosts:
+      - "coolz-nas5:host-gateway"
