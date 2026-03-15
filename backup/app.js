@@ -190,7 +190,8 @@ class PilatesApp {
         if (this.state.view === 'planning') this.state.currentDate = new Date();
 
         try {
-            // Ajout d'un contrôleur d'abandon pour éviter le chargement infini (utile sur NAS)
+            // Ajout d'un contrôleur d'abandon pour éviter le chargement infini si le serveur est bloqué
+            console.log("[APP] Chargement des données initiales...");
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 secondes max
 
@@ -229,11 +230,9 @@ class PilatesApp {
                     this.state.users = results[5] || [];
                 }
             }
-        } catch (err) {
-            console.error("[APP] Erreur critique au chargement des données:", err);
-            if (err.name === 'AbortError') {
-                this.showNotification("Le serveur met trop de temps à répondre.", "error");
-            }
+        } catch (e) {
+            console.error("[APP] Erreur critique au démarrage:", e);
+            this.showNotification("Erreur de connexion au serveur (Timeout).", "error");
         }
 
         this.render();

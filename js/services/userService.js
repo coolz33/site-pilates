@@ -63,11 +63,13 @@ export const userService = {
         const height = 800;
         const left = (window.innerWidth / 2) - (width / 2);
         const top = (window.innerHeight / 2) - (height / 2);
-        const popup = window.open('', 'Paiement Stripe', `width=${width},height=${height},top=${top},left=${left}`);
         
-        if (popup) {
-            popup.document.write(`<html><head><title>Paiement</title><style>body{font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#f5f5f4;color:#444;}</style></head><body><div style="text-align:center"><h3>Connexion à Stripe...</h3><p>Veuillez patienter.</p></div></body></html>`);
-        }
+        // On utilise '_blank' au lieu d'un nom fixe pour éviter les conflits de sécurité cross-origin
+        const popup = window.open('', '_blank', `width=${width},height=${height},top=${top},left=${left}`);
+        
+        if (popup) popup.focus();
+
+        console.log("[CHECKOUT] Tentative d'achat pour:", app.state.currentUser.email, "userId:", app.state.currentUser.id);
 
         try {
             const res = await fetch(`${API_URL}/checkout/create-session`, {
@@ -75,18 +77,19 @@ export const userService = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     packageId: pkg.id, 
-                    userId: app.state.currentUser.id 
+                    userId: app.state.currentUser.id,
+                    email: app.state.currentUser.email
                 })
             });
             const data = await res.json();
-            if (data.url) {
+            if (data.url && popup) {
                 popup.location.href = data.url;
             } else {
-                popup.close();
+                if (popup) popup.close();
                 app.showNotification(data.message || data.error || "Erreur lors de l'initialisation du paiement", "error");
             }
         } catch (err) {
-            if (popup) popup.close();
+            if (popup && !popup.closed) popup.close();
             app.showNotification("Erreur de connexion au service de paiement", "error");
         }
     },

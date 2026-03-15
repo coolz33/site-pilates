@@ -7,11 +7,17 @@ WORKDIR /app
 # Copie les fichiers de configuration npm
 COPY package*.json ./
 
-# Installe uniquement les dépendances de production
-RUN npm ci --only=production
+# Installe toutes les dépendances (nécessaire pour compiler Tailwind)
+RUN npm install
 
 # Copie tout le reste du code source (sauf ce qui est dans .dockerignore)
 COPY . .
+
+# Génère le fichier CSS de production avec Tailwind CLI
+RUN npx tailwindcss -i ./style.css -o ./style-dist.css --minify
+
+# Supprime les dépendances de développement pour alléger l'image finale
+RUN npm prune --production
 
 # Définit les variables d'environnement nécessaires
 ENV PORT=5051

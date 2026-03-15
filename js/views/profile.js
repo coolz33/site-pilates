@@ -8,7 +8,8 @@ export const profileView = (app) => {
 
     // Récupération et tri des réservations
     const now = new Date();
-    const myBookings = app.state.classes
+    const classes = Array.isArray(app.state.classes) ? app.state.classes : [];
+    const myBookings = classes
         .filter(c => c.bookedUsers.includes(u.id))
         .sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
 

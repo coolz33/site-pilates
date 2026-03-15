@@ -238,7 +238,11 @@ const handleRequest = async (req, res) => {
                 const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
                 if (users.length > 0) {
                     const { password: _, ...userWithoutPassword } = users[0];
-                    const [transactions] = await pool.query('SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC', [userId]);
+                    const [transactions] = await pool.query(`
+                        SELECT id, type, amount, description, DATE_FORMAT(date, '%Y-%m-%d %H:%i') as date 
+                        FROM transactions 
+                        WHERE user_id = ? 
+                        ORDER BY date DESC`, [userId]);
                     return send(200, { ...userWithoutPassword, transactions });
                 }
                 return send(404, { message: 'Utilisateur non trouvé' });
@@ -264,7 +268,10 @@ const handleRequest = async (req, res) => {
                 WHERE b.user_id = ? 
                 ORDER BY c.date DESC, c.time DESC`, [userId]);
 
-            const [transactions] = await pool.query('SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC', [userId]);
+            const [transactions] = await pool.query(`
+                SELECT id, type, amount, description, DATE_FORMAT(date, '%Y-%m-%d %H:%i') as date 
+                FROM transactions 
+                WHERE user_id = ? ORDER BY date DESC`, [userId]);
 
             return send(200, { user: user[0], bookings, transactions });
         }
@@ -546,7 +553,7 @@ const handleRequest = async (req, res) => {
                 GROUP_CONCAT(b.user_id) as bookedUsersStr 
                 FROM classes c 
                 LEFT JOIN bookings b ON c.id = b.class_id 
-                GROUP BY c.id
+                GROUP BY c.id, c.title, c.date, c.time, c.duration, c.capacity, c.credits_price, c.description
             `);
             
             const classes = rows.map(c => {
@@ -695,10 +702,8 @@ const handleRequest = async (req, res) => {
 
         // --- ROUTE DÉSINCRIPTION DIRECTE ---
         if (method === 'GET' && path === '/newsletter/unsubscribe') {
-            const email = url.searchParams.get('email');
-            if (email) {
-                await pool.query('UPDATE users SET newsletter_subscribed = 0 WHERE email = ?', [email]);
-            }
+            const email = req.query.email;
+            if (email) await pool.query('UPDATE users SET newsletter_subscribed = 0 WHERE email = ?', [email]);
             res.writeHead(302, { 'Location': `http://${req.headers.host}/#accueil?desabonne=success` });
             return res.end();
         }
@@ -758,12 +763,28 @@ const handleRequest = async (req, res) => {
 
         // --- ROUTES STRIPE ---
         if (method === 'POST' && path === '/checkout/create-session') {
-            const { packageId, userId } = req.body;
+            const { packageId, userId, email } = req.body;
+            console.log("[STRIPE] Requête de session reçue. userId:", userId, "packageId:", packageId);
+
+            let customerEmail = email ? email.trim() : null;
+
+            // Si l'email n'est pas fourni par le front, on le récupère en base par sécurité
+            if (!customerEmail) {
+                const [users] = await pool.query('SELECT email FROM users WHERE id = ?', [userId]);
+                if (!users.length) {
+                    console.error("[STRIPE] Utilisateur introuvable en DB pour ID:", userId);
+                    return send(404, { message: 'Utilisateur non trouvé' });
+                }
+                customerEmail = users[0].email ? users[0].email.trim() : null;
+            }
+            console.log(`[STRIPE] Email envoyé à Stripe : "${customerEmail}"`);
+
             const [pkgs] = await pool.query('SELECT * FROM credit_packages WHERE id = ?', [packageId]);
             if (!pkgs.length) return send(404, { message: 'Pack non trouvé' });
             const pkg = pkgs[0];
 
             const session = await stripe.checkout.sessions.create({
+                customer_email: customerEmail,
                 payment_method_types: ['card'],
                 line_items: [{
                     price_data: {
@@ -774,10 +795,11 @@ const handleRequest = async (req, res) => {
                     quantity: 1,
                 }],
                 mode: 'payment',
-                success_url: `http://${req.headers.host}/#profil?payment=success&type=credits`,
+                success_url: `http://${req.headers.host}/paiement-succes`,
                 cancel_url: `http://${req.headers.host}/#profil?payment=cancel`,
-                metadata: { userId: userId.toString(), credits: pkg.credits.toString(), price: pkg.price.toString(), type: 'credits_purchase' }
+                metadata: { userId: userId.toString(), credits: pkg.credits.toString(), price: pkg.price.toString(), packageName: pkg.name, type: 'credits_purchase' }
             });
+            console.log("[STRIPE] Session créée avec succès :", session.id);
             return send(200, { url: session.url });
         }
 
@@ -786,6 +808,7 @@ const handleRequest = async (req, res) => {
             let event;
             try {
                 event = stripe.webhooks.constructEvent(req.rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+                console.log(`[STRIPE] ✅ Événement vérifié : ${event.type}`);
             } catch (err) {
                 console.error("❌ Webhook Error:", err.message);
                 return send(400, { error: `Webhook Error: ${err.message}` });
@@ -793,18 +816,66 @@ const handleRequest = async (req, res) => {
 
             if (event.type === 'checkout.session.completed') {
                 const session = event.data.object;
-                console.log("🔔 Webhook Stripe reçu. Metadata:", session.metadata);
+                console.log("🔔 Webhook Stripe : checkout.session.completed reçu.");
 
-                const { userId, credits, price, type } = session.metadata;
+                const { userId, credits, price, packageName, type } = session.metadata;
                 
                 if (credits && userId) {
-                    // Achat de crédits
+                    console.log(`[WEBHOOK] Traitement achat : User ${userId}, +${credits} crédits`);
+                    
                     const description = price ? `Achat de crédits (${price}€)` : 'Achat de crédits';
                     await pool.query('START TRANSACTION');
                     await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [parseInt(credits), parseInt(userId)]);
                     await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [parseInt(userId), 'purchase', parseInt(credits), description]);
                     await pool.query('COMMIT');
-                    console.log(`✅ Crédits ajoutés : +${credits} pour l'utilisateur ${userId}`);
+                    console.log(`✅ Crédits ajoutés en DB (+${credits}) pour l'utilisateur ${userId}`);
+
+                    // Récupérer l'email de l'utilisateur depuis la DB pour être sûr de l'adresse
+                    const [userRows] = await pool.query('SELECT email FROM users WHERE id = ?', [userId]);
+                    const targetEmail = userRows[0]?.email || session.customer_details?.email;
+                    
+                    console.log(`[WEBHOOK] Préparation de l'email pour : ${targetEmail}`);
+
+                    if (!targetEmail) {
+                        console.error("❌ Webhook Error: Impossible de trouver l'email du destinataire dans la DB ou la session");
+                        return send(200, { received: true });
+                    }
+
+                    // Envoi de l'email de confirmation (Facture)
+                    console.log("[SMTP] Tentative d'envoi de facture à:", targetEmail);
+                    const transporter = nodemailer.createTransport({
+                        host: process.env.SMTP_HOST,
+                        port: parseInt(process.env.SMTP_PORT),
+                        secure: process.env.SMTP_PORT == 465, // true pour 465, false pour 587
+                        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+                        tls: {
+                            rejectUnauthorized: false // Aide en développement si le certificat SMTP est auto-signé
+                        }
+                    });
+
+                    try {
+                        const info = await transporter.sendMail({
+                            from: `"Équilibre Pilates" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+                            to: targetEmail,
+                            subject: 'Confirmation de votre achat - Équilibre Pilates',
+                            html: `
+                                <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px; max-width: 600px; margin: auto;">
+                                    <h2 style="color: #065f46;">Merci pour votre achat !</h2>
+                                    <p>Votre paiement a été validé avec succès. Voici le récapitulatif de votre commande :</p>
+                                    <div style="background: #f9f8f7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                        <p style="margin: 5px 0;"><strong>Produit :</strong> ${packageName || 'Pack de crédits'}</p>
+                                        <p style="margin: 5px 0;"><strong>Montant :</strong> ${price}€</p>
+                                        <p style="margin: 5px 0;"><strong>Crédits ajoutés :</strong> +${credits}</p>
+                                    </div>
+                                    <p>Vos crédits sont immédiatement disponibles sur votre compte pour vos prochaines réservations.</p>
+                                    <p style="font-size: 12px; color: #78716c; margin-top: 30px;">Ceci est un email automatique, merci de ne pas y répondre.</p>
+                                </div>
+                            `
+                        });
+                        console.log("✅ [SMTP] Email de confirmation envoyé ! ID:", info.messageId);
+                    } catch (mailErr) {
+                        console.error("❌ [SMTP] Erreur envoi email facture:", mailErr.message);
+                    }
                 } else {
                     console.warn("⚠️ Webhook ignoré : métadonnées incomplètes ou type inconnu", session.metadata);
                 }
@@ -832,6 +903,7 @@ const handleRequest = async (req, res) => {
         return send(404, { message: 'Route non trouvée' });
 
     } catch (err) {
+        console.error(`❌ [API ERROR] ${method} ${path} :`, err);
         return send(500, { error: err.message });
     }
 };
