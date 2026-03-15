@@ -14,7 +14,7 @@ RUN npm install
 COPY . .
 
 # Génère le fichier CSS de production avec Tailwind CLI
-RUN npx tailwindcss -i ./style.css -o ./style-dist.css --minify
+RUN npx tailwindcss -i style.css -o style-dist.css --minify
 
 # Supprime les dépendances de développement pour alléger l'image finale
 RUN npm prune --production
