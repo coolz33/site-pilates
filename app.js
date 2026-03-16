@@ -321,7 +321,7 @@ class PilatesApp {
             document.body.appendChild(container);
         }
         const { message, type, visible } = this.state.notification;
-        container.className = `fixed top-6 right-6 z-[200] transition-all duration-500 transform ${visible ? 'translate-y-0 opacity-100' : '-translate-y-8 opacity-0 pointer-events-none'}`;
+        container.className = `fixed top-6 left-1/2 -translate-x-1/2 z-[200] transition-all duration-500 transform ${visible ? 'translate-y-0 opacity-100' : '-translate-y-8 opacity-0 pointer-events-none'}`;
         const bgColor = type === 'success' ? 'bg-emerald-600' : 'bg-rose-600';
         container.innerHTML = `
             <div class="${bgColor} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3">
