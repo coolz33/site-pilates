@@ -203,8 +203,6 @@ export const profileView = (app) => {
                     <h1 class="text-4xl font-light text-stone-800 dark:text-stone-100">Mon Profil</h1>
                 </div>
 
-                ${getNotificationHtml(app)}
-
                 ${navTabs}
 
                 <div class="animate-fade-in">

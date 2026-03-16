@@ -32,7 +32,6 @@ export const adminView = (app) => {
 
                     <!-- Contenu Principal -->
                     <div class="flex-1 min-w-0">
-                        ${getNotificationHtml(app)}
                         ${st.isAdminAiLoading ? '<div class="p-10 text-center text-stone-500 animate-pulse">Chargement des données...</div>' : ''}
 
                         ${!st.isAdminAiLoading && (st.adminTab === 'planning' || st.adminTab === 'past_sessions') ? `
@@ -168,10 +167,15 @@ export const adminView = (app) => {
                             <h2 class="text-xl font-medium text-stone-800 mb-6 dark:text-stone-100">Catalogue des cours</h2>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 ${st.courseTemplates.map(t => `
-                                    <div onclick="app.editTemplate(${t.id})" class="p-4 border border-stone-100 rounded-2xl hover:border-emerald-300 transition cursor-pointer group bg-stone-50/50 dark:border-stone-700 dark:hover:border-emerald-600 dark:bg-stone-700/50">
-                                        <div class="font-medium text-emerald-800 group-hover:text-emerald-600 dark:text-emerald-400 dark:group-hover:text-emerald-300">${t.title}</div>
-                                        <div class="text-xs text-stone-500 mb-2 dark:text-stone-400">${t.duration} min • ${t.default_credits_price || 1} crédits</div>
-                                        <p class="text-xs text-stone-400 line-clamp-2 dark:text-stone-500">${t.description || 'Aucune description'}</p>
+                                    <div class="relative p-4 border border-stone-100 rounded-2xl hover:border-emerald-300 transition group bg-stone-50/50 dark:border-stone-700 dark:hover:border-emerald-600 dark:bg-stone-700/50">
+                                        <div onclick="app.editTemplate(${t.id})" class="cursor-pointer">
+                                            <div class="font-medium text-emerald-800 group-hover:text-emerald-600 dark:text-emerald-400 dark:group-hover:text-emerald-300">${t.title}</div>
+                                            <div class="text-xs text-stone-500 mb-2 dark:text-stone-400">${t.duration} min • ${t.default_credits_price || 1} crédits</div>
+                                            <p class="text-xs text-stone-400 line-clamp-2 dark:text-stone-500">${t.description || 'Aucune description'}</p>
+                                        </div>
+                                        <button onclick="app.deleteTemplate(${t.id})" class="absolute top-2 right-2 p-2 text-stone-400 hover:text-red-500 transition-colors">
+                                            ${icons.trash}
+                                        </button>
                                     </div>
                                 `).join('')}
                             </div>
@@ -292,19 +296,6 @@ export const adminView = (app) => {
                             </div>
                         </div>
 
-                        <div class="grid md:grid-cols-1 gap-6">
-                            <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
-                                <h3 class="text-lg font-medium mb-4 dark:text-stone-200">Envoyer un message</h3>
-                                <form onsubmit="app.sendUserMessage(event, ${user.id})" class="space-y-3">
-                                    <input type="text" name="subject" placeholder="Sujet" required class="w-full p-2 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600">
-                                    <div class="quill-editor-wrapper">
-                                        <div id="user-message-editor" class="dark:bg-stone-800"></div>
-                                    </div>
-                                    <button type="submit" class="w-full py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-900 dark:bg-stone-600 dark:hover:bg-stone-500">Envoyer</button>
-                                </form>
-                            </div>
-                        </div>
-
                         <div class="grid md:grid-cols-2 gap-6">
                             <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
                                 <h3 class="text-lg font-medium mb-4 dark:text-stone-200">Historique des réservations</h3>
@@ -351,6 +342,21 @@ export const adminView = (app) => {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div class="grid md:grid-cols-1 gap-6">
+                            <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
+                                <h3 class="text-lg font-medium mb-4 dark:text-stone-200">Envoyer un message au client</h3>
+                                <form onsubmit="app.sendUserMessage(event, ${user.id})" class="space-y-3">
+                                    <input type="text" id="user-message-editor-subject" name="subject" placeholder="Sujet" required class="w-full p-2 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600">
+                                    <div class="quill-editor-wrapper">
+                                        <div id="user-message-editor" class="dark:bg-stone-800"></div>
+                                    </div>
+                                    <button type="submit" ${st.isSendingAdminMessage ? 'disabled' : ''} class="w-full py-2 ${st.isSendingAdminMessage ? 'bg-stone-400 cursor-not-allowed' : 'bg-stone-800 hover:bg-stone-900 dark:bg-stone-600 dark:hover:bg-stone-500'} text-white rounded-lg transition-colors">
+                                        ${st.isSendingAdminMessage ? 'Envoi en cours...' : 'Envoyer le message'}
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>`;
@@ -439,6 +445,15 @@ export const adminView = (app) => {
                             <div>
                                 <label class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Email</label>
                                 <input type="email" id="admin-studio-email" required class="w-full p-2 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600" value="${st.studioEmail}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Moteur d'Intelligence Artificielle</label>
+                                <select id="admin-ai-provider" class="w-full p-2 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600">
+                                    <option value="gemini" ${st.aiProvider === 'gemini' ? 'selected' : ''}>Google Gemini 2.0 (Gratuit)</option>
+                                    <option value="mistral" ${st.aiProvider === 'mistral' ? 'selected' : ''}>Mistral AI (Français)</option>
+                                    <option value="groq" ${st.aiProvider === 'groq' ? 'selected' : ''}>Groq (Ultra-rapide)</option>
+                                    <option value="openai" ${st.aiProvider === 'openai' ? 'selected' : ''}>OpenAI (GPT-4o mini)</option>
+                                </select>
                             </div>
                             <button type="submit" class="w-full py-3 bg-stone-800 text-white rounded-xl font-medium hover:bg-stone-900 transition">Enregistrer les modifications</button>
                         </form>

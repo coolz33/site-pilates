@@ -100,7 +100,8 @@ export const userService = {
             studioAddress: document.getElementById('admin-studio-address').value,
             studioPhone: document.getElementById('admin-studio-phone').value,
             studioEmail: document.getElementById('admin-studio-email').value,
-            cancellationDelay: app.state.cancellationDelay // On garde la valeur actuelle car le champ n'est plus dans ce formulaire
+            aiProvider: document.getElementById('admin-ai-provider').value,
+            cancellationDelay: app.state.cancellationDelay
         };
         await fetch(`${API_URL}/settings`, {
             method: 'POST',

@@ -20,7 +20,6 @@ export const authView = (app, mode) => {
                         ${isLogin ? 'Accédez à votre espace pour réserver.' : (isVerifying ? 'Un code vous a été envoyé par mail.' : (isResetPassword ? (hasResetToken ? 'Saisissez votre nouveau mot de passe.' : 'Saisissez votre email pour réinitialiser votre mot de passe.') : 'Rejoignez le studio Équilibre Pilates.'))}
                     </p>
                 </div>
-                ${getNotificationHtml(app)}
                 <form id="auth-main-form" class="space-y-5 ${isVerifying ? 'hidden' : ''}">
                     ${!isLogin ? `
                     <div class="grid grid-cols-2 gap-4">

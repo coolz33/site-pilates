@@ -21,7 +21,8 @@ const seedDB = async () => {
                 studioAddress VARCHAR(255),
                 studioPhone VARCHAR(50),
                 studioEmail VARCHAR(100),
-                cancellationDelay INT DEFAULT 24
+                cancellationDelay INT DEFAULT 24,
+                aiProvider VARCHAR(50) DEFAULT 'gemini'
             )
         `);
 
@@ -122,6 +123,7 @@ const seedDB = async () => {
         try { await pool.query(`ALTER TABLE users ADD COLUMN city VARCHAR(100)`); } catch (e) {}
         try { await pool.query(`ALTER TABLE users ADD COLUMN newsletter_subscribed BOOLEAN DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE settings ADD COLUMN cancellationDelay INT DEFAULT 24`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE settings ADD COLUMN aiProvider VARCHAR(50) DEFAULT 'gemini'`); } catch (e) {}
         // Migration des anciens noms vers les nouveaux si nécessaire
         try { await pool.query(`ALTER TABLE users CHANGE points_balance credits_balance INT DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE classes CHANGE points_price credits_price INT DEFAULT 1`); } catch (e) {}
@@ -513,6 +515,23 @@ const handleRequest = async (req, res) => {
             return send(200, { success: true });
         }
 
+        const deleteTemplateMatch = path.match(/^\/course-templates\/(\d+)$/);
+        if (method === 'DELETE' && deleteTemplateMatch) {
+            const id = deleteTemplateMatch[1];
+            // 1. Récupérer le titre pour supprimer les cours planifiés associés
+            const [templates] = await pool.query('SELECT title FROM course_templates WHERE id = ?', [id]);
+            if (templates.length > 0) {
+                const title = templates[0].title;
+                await pool.query('START TRANSACTION');
+                await pool.query('DELETE FROM course_templates WHERE id = ?', [id]);
+                // On supprime les cours qui portent le même titre
+                await pool.query('DELETE FROM classes WHERE title = ?', [title]);
+                await pool.query('COMMIT');
+                return send(200, { success: true, message: 'Modèle et cours associés supprimés' });
+            }
+            return send(404, { message: 'Modèle non trouvé' });
+        }
+
         const templateIdMatch = path.match(/^\/course-templates\/(\d+)$/);
         if (method === 'PUT' && templateIdMatch) {
             const { title, description, duration, default_credits_price } = req.body;
@@ -611,7 +630,7 @@ const handleRequest = async (req, res) => {
             const { userId } = req.body;
 
             const [userRows] = await pool.query('SELECT credits_balance FROM users WHERE id = ?', [userId]);
-            const [classRows] = await pool.query('SELECT credits_price, capacity FROM classes WHERE id = ?', [classId]);
+            const [classRows] = await pool.query('SELECT title, credits_price, capacity FROM classes WHERE id = ?', [classId]);
             const [bookingCount] = await pool.query('SELECT COUNT(*) as count FROM bookings WHERE class_id = ?', [classId]);
 
             if (!userRows.length || !classRows.length) return send(404, { message: 'Erreur' });
@@ -629,7 +648,7 @@ const handleRequest = async (req, res) => {
             await pool.query('START TRANSACTION');
             await pool.query('UPDATE users SET credits_balance = credits_balance - ? WHERE id = ?', [cls.credits_price, userId]);
             await pool.query('INSERT INTO bookings (class_id, user_id) VALUES (?, ?)', [classId, userId]);
-            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'booking', -cls.credits_price, `Réservation : ${cls.title}`]);
+            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'booking', -cls.credits_price, `Réservation : ${cls.title || 'Séance'}`]);
             await pool.query('COMMIT');
 
             const [updatedUser] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
@@ -644,7 +663,7 @@ const handleRequest = async (req, res) => {
             // Vérification du délai d'annulation
             const [settings] = await pool.query('SELECT cancellationDelay FROM settings WHERE id = 1');
             const delay = settings[0]?.cancellationDelay || 24;
-            const [cls] = await pool.query('SELECT date, time, credits_price FROM classes WHERE id = ?', [classId]);
+            const [cls] = await pool.query('SELECT title, date, time, credits_price FROM classes WHERE id = ?', [classId]);
             
             if (cls.length) {
                 const classDate = new Date(cls[0].date + 'T' + cls[0].time);
@@ -672,32 +691,62 @@ const handleRequest = async (req, res) => {
         // --- ROUTES AI (Proxy sécurisé) ---
         if (method === 'POST' && path === '/ai/consult') {
             const { prompt, userId } = req.body;
-            const apiKey = process.env.GEMINI_API_KEY;
             
-            if (!apiKey) return send(500, { error: 'Clé API non configurée sur le serveur' });
             if (!prompt) return send(400, { error: 'Prompt vide' });
 
-            // Utilisation de la dernière version Flash (Gemini 2.0 Flash)
-            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-            const response = await fetch(geminiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-            });
-            
-            const data = await response.json();
+            // Récupération du fournisseur configuré
+            const [settings] = await pool.query('SELECT aiProvider FROM settings WHERE id = 1');
+            const provider = settings[0]?.aiProvider || 'gemini';
 
-            if (data.error) {
-                console.error("❌ Erreur API Gemini:", data.error.message);
-                let userMessage = "L'assistant rencontre une erreur technique.";
-                if (data.error.code === 429) {
-                    userMessage = "Quota API dépassé (Limite du mode gratuit). Vérifiez votre console Google AI Studio.";
-                }
-                return send(response.status, { success: false, answer: userMessage });
+            let url, body, apiKey, headers = { 'Content-Type': 'application/json' };
+
+            // Configuration selon le fournisseur
+            switch (provider) {
+                case 'mistral':
+                    apiKey = process.env.MISTRAL_API_KEY;
+                    url = 'https://api.mistral.ai/v1/chat/completions';
+                    headers['Authorization'] = `Bearer ${apiKey}`;
+                    body = { model: 'mistral-large-latest', messages: [{ role: 'user', content: prompt }] };
+                    break;
+                case 'groq':
+                    apiKey = process.env.GROQ_API_KEY;
+                    url = 'https://api.groq.com/openai/v1/chat/completions';
+                    headers['Authorization'] = `Bearer ${apiKey}`;
+                    body = { model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] };
+                    break;
+                case 'openai':
+                    apiKey = process.env.OPENAI_API_KEY;
+                    url = 'https://api.openai.com/v1/chat/completions';
+                    headers['Authorization'] = `Bearer ${apiKey}`;
+                    body = { model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }] };
+                    break;
+                default: // gemini
+                    apiKey = process.env.GEMINI_API_KEY;
+                    url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                    body = { contents: [{ parts: [{ text: prompt }] }] };
             }
 
-            const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "Je n'ai pas pu formuler de réponse.";
-            return send(200, { success: true, answer });
+            if (!apiKey) return send(500, { error: `Clé API pour ${provider} non configurée sur le serveur` });
+
+            try {
+                const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+                const data = await response.json();
+
+                if (data.error) throw new Error(data.error.message || "Erreur API");
+
+                let answer;
+                if (provider === 'gemini') {
+                    answer = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                } else {
+                    // Format OpenAI compatible (Mistral, Groq, OpenAI)
+                    answer = data.choices?.[0]?.message?.content;
+                }
+
+                return send(200, { success: true, answer: answer || "Je n'ai pas pu formuler de réponse." });
+            } catch (err) {
+                console.error(`❌ Erreur API ${provider}:`, err.message);
+                return send(500, { success: false, answer: "L'assistant rencontre une erreur technique." });
+            }
         }
 
         // --- ROUTE DÉSINCRIPTION DIRECTE ---
@@ -890,12 +939,18 @@ const handleRequest = async (req, res) => {
         }
 
         if (method === 'POST' && path === '/settings') {
-            const { studioAddress, studioPhone, studioEmail, cancellationDelay } = req.body;
+            const { studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider } = req.body;
             await pool.query(`
-                INSERT INTO settings (id, studioAddress, studioPhone, studioEmail, cancellationDelay) 
-                VALUES (1, ?, ?, ?, ?) 
-                ON DUPLICATE KEY UPDATE studioAddress = VALUES(studioAddress), studioPhone = VALUES(studioPhone), studioEmail = VALUES(studioEmail), cancellationDelay = VALUES(cancellationDelay)
-            `, [studioAddress, studioPhone, studioEmail, cancellationDelay]);
+                INSERT INTO settings (id, studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider)
+                VALUES (1, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                    studioAddress = COALESCE(?, studioAddress), 
+                    studioPhone = COALESCE(?, studioPhone), 
+                    studioEmail = COALESCE(?, studioEmail), 
+                    cancellationDelay = COALESCE(?, cancellationDelay), 
+                    aiProvider = COALESCE(?, aiProvider)
+            `, [studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider,
+                studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider]);
             
             return send(200, { id: 1, ...req.body });
         }

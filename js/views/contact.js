@@ -30,7 +30,6 @@ export const contactView = (app) => `
                     </div>
                 </div>
                 <div class="bg-stone-50 p-8 rounded-3xl border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
-                    ${getNotificationHtml(app)}
                     <form class="space-y-6" onsubmit="event.preventDefault(); app.showNotification('Message envoyé ! (Simulation)');">
                         <div>
                             <label for="contact-name" class="block text-sm font-medium text-stone-700 mb-2 dark:text-stone-200">Nom complet</label>

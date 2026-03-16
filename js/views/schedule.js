@@ -29,13 +29,19 @@ export const scheduleView = (app) => {
                 const isPast = new Date(`${c.date}T${c.time}`) < new Date();
 
                 return `
-                    <div class="p-4 rounded-xl border ${isBooked ? 'bg-emerald-700 text-white' : (isPast ? 'bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700' : 'bg-white dark:bg-stone-800 dark:border-stone-700')} mb-3 shadow-sm">
+                    <div class="group relative p-4 rounded-xl border ${isBooked ? 'bg-emerald-700 text-white' : (isPast ? 'bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700' : 'bg-white dark:bg-stone-800 dark:border-stone-700')} mb-3 shadow-sm transition-all hover:shadow-md">
                         <div class="font-medium ${isPast && !isBooked ? 'text-stone-400 dark:text-stone-500' : ''}">${c.time} - ${c.title}</div>
                         <div class="text-xs opacity-80 mb-2 ${isPast && !isBooked ? 'text-stone-400 dark:text-stone-500' : ''}">${c.duration} min | ${c.bookedUsers.length}/${c.capacity} pers.</div>
                         <div class="text-xs font-semibold mb-3 ${isBooked ? 'text-emerald-200' : (isPast ? 'text-stone-400' : 'text-emerald-700 dark:text-emerald-400')}">${c.credits_price || 1} crédits</div>
                         <button onclick="app.initiateBooking(${c.id})" ${isBooked || isPast ? 'disabled' : ''} class="w-full py-2 rounded-lg text-sm ${isBooked ? 'bg-emerald-900 text-emerald-200 cursor-default' : (isPast ? 'bg-stone-200 text-stone-400 cursor-not-allowed dark:bg-stone-700 dark:text-stone-500' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-900')}">
                             ${isBooked ? 'Inscrit' : (isPast ? 'Terminé' : 'Réserver')}
                         </button>
+                        
+                        <!-- Info-bulle (Tooltip) -->
+                        <div class="planning-tooltip absolute invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-300 -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-[60] shadow-2xl pointer-events-none">
+                            ${c.description || 'Séance de Pilates'}
+                            <div class="absolute border-8 border-transparent border-t-[rgba(240,253,244,0.92)] dark:border-t-[rgba(6,78,59,0.9)] -bottom-4 left-1/2 -translate-x-1/2"></div>
+                        </div>
                     </div>`;
             }).join('');
 
@@ -52,7 +58,6 @@ export const scheduleView = (app) => {
     return `
         <div class="min-h-[70vh] bg-stone-50 pt-8 pb-12 animate-fade-in dark:bg-stone-900">
             <div class="max-w-7xl mx-auto px-4">
-                ${getNotificationHtml(app)}
                 <!-- Section Assistant IA -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 mb-10 dark:bg-stone-800 dark:border-stone-700">
                     <h2 class="text-xl font-medium text-stone-800 mb-4 flex items-center gap-2 dark:text-stone-100">

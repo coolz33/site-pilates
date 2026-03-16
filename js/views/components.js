@@ -88,21 +88,20 @@ export const renderFooter = (app) => {
 };
 
 export const getNotificationHtml = (app) => {
-    const notif = app.state.notification;
-    if (!notif.visible) return '';
-    return `
-        <div class="mb-6 p-4 rounded-2xl border animate-fade-in ${notif.type === 'error' ? 'bg-red-50 border-red-100 text-red-700 dark:bg-red-900/50 dark:border-red-800 dark:text-red-300' : 'bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:border-emerald-800 dark:text-emerald-300'} font-medium flex items-center gap-3 shadow-sm">
-            ${notif.type === 'error' ? '⚠️' : '✅'} ${notif.message}
-        </div>`;
+    return '';
 };
 
 export const renderPaymentModal = (app, container) => {
     if (app.state.showPaymentModal && app.state.selectedClassForPayment) {
         const cls = app.state.selectedClassForPayment;
+        const userBalance = app.state.currentUser.credits_balance || 0;
+        const classCost = cls.credits_price ?? 1;
+        const isInsufficient = userBalance < classCost;
+
         const modalHtml = `
             <div class="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in dark:bg-black/70">
-                <div class="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-xl dark:bg-stone-800 dark:border dark:border-stone-700">
-                    <h3 class="text-2xl font-light text-stone-800 mb-2 dark:text-stone-100">Confirmation de réservation</h3>
+                <div class="bg-emerald-50/95 backdrop-blur-md rounded-3xl p-6 md:p-8 max-w-xl w-full shadow-2xl border border-emerald-100 dark:bg-stone-800/95 dark:border dark:border-stone-700">
+                    <h3 class="text-2xl font-light text-emerald-900 mb-2 dark:text-stone-100">Confirmation de réservation</h3>
                     <p class="mb-6 border-b pb-4 text-stone-600 dark:text-stone-300 dark:border-stone-700">
                         Réservation : <strong class="text-emerald-800 dark:text-emerald-400">${cls.title ?? 'Cours inconnu'}</strong>
                     </p>
@@ -122,17 +121,19 @@ export const renderPaymentModal = (app, container) => {
                             </div>
                         ` : ''}
 
-                        <div class="bg-emerald-50 p-4 rounded-xl text-center text-emerald-800 flex flex-col gap-1 dark:bg-emerald-900/50 dark:text-emerald-300">
-                            <span class="font-bold">Coût de la séance : ${cls.credits_price ?? 1} crédits</span>
-                            <span class="text-sm opacity-80">Votre solde : ${app.state.currentUser.credits_balance || 0} crédits</span>
-                            <div class="mt-3 pt-3 border-t border-emerald-200/50 flex items-center justify-center gap-2 dark:border-emerald-800">
-                                <input type="checkbox" id="confirm-credits" required class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 dark:bg-stone-600 dark:border-stone-500">
-                                <label for="confirm-credits" class="text-xs font-medium cursor-pointer dark:text-emerald-200">Je confirme l'utilisation de mes crédits</label>
+                        <div class="${isInsufficient ? 'bg-rose-50 text-rose-800 dark:bg-rose-900/20 dark:text-rose-300 border border-rose-100' : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'} p-5 rounded-2xl text-center flex flex-col gap-1">
+                            <span class="font-bold">Coût de la séance : ${classCost} crédits</span>
+                            <span class="text-sm opacity-80">Votre solde : ${userBalance} crédits</span>
+                            <div class="mt-3 pt-3 border-t ${isInsufficient ? 'border-rose-200' : 'border-emerald-200/50'} flex items-center justify-center gap-2">
+                                <input type="checkbox" id="confirm-credits" ${isInsufficient ? 'disabled' : 'required'} class="w-4 h-4 text-emerald-600 rounded disabled:opacity-30">
+                                <label for="confirm-credits" class="text-xs font-medium ${isInsufficient ? 'text-rose-400' : 'text-emerald-800 dark:text-emerald-200'}">
+                                    ${isInsufficient ? 'Solde insuffisant pour réserver' : 'Je confirme l\'utilisation de mes crédits'}
+                                </label>
                             </div>
                         </div>
                         <div class="flex gap-3">
                             <button type="button" onclick="app.cancelPayment()" class="flex-1 py-3 border rounded-xl dark:border-stone-600 dark:hover:bg-stone-700">Annuler</button>
-                            <button type="submit" class="flex-1 py-3 bg-emerald-800 text-white rounded-xl dark:bg-emerald-700 dark:hover:bg-emerald-600">
+                            <button type="submit" ${isInsufficient ? 'disabled' : ''} class="flex-1 py-3 ${isInsufficient ? 'bg-stone-300 text-stone-500 cursor-not-allowed' : 'bg-emerald-800 hover:bg-emerald-900 text-white'} rounded-xl transition-all shadow-md">
                                 Confirmer
                             </button>
                         </div>

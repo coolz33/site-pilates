@@ -169,6 +169,14 @@ export const classService = {
         app.render();
     },
 
+    async deleteTemplate(app, id) {
+        if (!confirm("Voulez-vous vraiment supprimer ce modèle ? Tous les cours planifiés avec ce nom seront également supprimés.")) return;
+        
+        const res = await fetch(`${API_URL}/course-templates/${id}`, { method: 'DELETE' });
+        if (res.ok) app.showNotification("Modèle et cours associés supprimés.");
+        app.init();
+    },
+
     async saveAsTemplate(app) {
         const template = {
             title: document.getElementById('template-title').value,

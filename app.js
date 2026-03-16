@@ -61,6 +61,7 @@ class PilatesApp {
             studioPhone: '',
             studioEmail: '',
             cancellationDelay: 24,
+            aiProvider: 'gemini',
             quill: null,
             newsletterContent: '',
             isHtmlView: false,
@@ -68,6 +69,7 @@ class PilatesApp {
             selectedUserDetails: null,
             adminUserQuill: null,
             adminUserMessageContent: '',
+            isSendingAdminMessage: false, // Nouvelle propriété pour gérer l'état d'envoi du message admin
             cookieNoticeAccepted: localStorage.getItem('pilates_cookie_accepted') === 'true'
         };
         // Bind 'this' to methods that are used as event handlers
@@ -215,6 +217,7 @@ class PilatesApp {
             this.state.studioPhone = results[0].studioPhone || '';
             this.state.studioEmail = results[0].studioEmail || '';
             this.state.cancellationDelay = results[0].cancellationDelay || 24;
+            this.state.aiProvider = results[0].aiProvider || 'gemini';
             this.state.classes = results[1] || [];
             this.state.courseTemplates = results[2] || [];
             this.state.creditPackages = results[3] || [];
@@ -268,8 +271,16 @@ class PilatesApp {
     /**
      * Change l'onglet admin et initialise la liste des destinataires si newsletter.
      */
-    setAdminTab(tab) {
+    async setAdminTab(tab) {
         this.state.adminTab = tab;
+        if (tab === 'users') {
+            try {
+                const res = await fetch(`${API_URL}/users`);
+                if (res.ok) {
+                    this.state.users = await res.json();
+                }
+            } catch (e) { console.error("[ADMIN] Refresh error:", e); }
+        }
         if (tab === 'newsletter') {
             // Par défaut, on sélectionne ceux qui ont coché la case
             this.state.selectedNewsletterRecipients = this.state.users
@@ -294,12 +305,29 @@ class PilatesApp {
      */
     showNotification(message, type = 'success') {
         this.state.notification = { message, type, visible: true };
-        this.render();
+        this.renderNotification();
         
         setTimeout(() => {
             this.state.notification.visible = false;
-            this.render();
+            this.renderNotification();
         }, 3000);
+    }
+
+    renderNotification() {
+        let container = document.getElementById('notification-toast');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'notification-toast';
+            document.body.appendChild(container);
+        }
+        const { message, type, visible } = this.state.notification;
+        container.className = `fixed top-6 right-6 z-[200] transition-all duration-500 transform ${visible ? 'translate-y-0 opacity-100' : '-translate-y-8 opacity-0 pointer-events-none'}`;
+        const bgColor = type === 'success' ? 'bg-emerald-600' : 'bg-rose-600';
+        container.innerHTML = `
+            <div class="${bgColor} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+                ${type === 'success' ? '✅' : '⚠️'} <span>${message}</span>
+            </div>
+        `;
     }
 
     /** @section Helpers de validation */
@@ -365,7 +393,15 @@ class PilatesApp {
     changeWeek(offset) { classService.changeWeek(this, offset); }
     jumpToDate(dateString) { classService.jumpToDate(this, dateString); }
     initiateBooking(classId) { classService.initiateBooking(this, classId); }
-    async confirmPayment(e) { await classService.confirmPayment(this, e); }
+    async confirmPayment(e) { 
+        if (e) e.preventDefault();
+        const cls = this.state.selectedClassForPayment;
+        if (this.state.paymentMethod === 'credits' && cls && this.state.currentUser.credits_balance < cls.credits_price) {
+            this.showNotification("Crédits insuffisants.", "error");
+            return;
+        }
+        await classService.confirmPayment(this, e); 
+    }
     cancelPayment() { classService.cancelPayment(this); }
     async sendNewsletter(e) { await newsletterService.sendNewsletter(this, e); }
     toggleNewsletterRecipient(userId) { newsletterService.toggleNewsletterRecipient(this, userId); }
@@ -486,7 +522,17 @@ class PilatesApp {
         }
     }
     async adjustCredits(e, userId) { await userService.adjustCredits(this, e, userId); }
-    async sendUserMessage(e, userId) { await userService.sendUserMessage(this, e, userId); }
+    async sendUserMessage(e, userId) {
+        e.preventDefault(); // Empêche le rechargement de la page
+        this.state.isSendingAdminMessage = true;
+        this.render(); // Met à jour l'interface pour désactiver le bouton
+        try {
+            await userService.sendUserMessage(this, e, userId);
+        } finally {
+            this.state.isSendingAdminMessage = false;
+            this.render(); // Met à jour l'interface pour réactiver le bouton
+        }
+    }
     async askAi() { await aiService.askAi(this); }
     async deleteClass(id) { await classService.cancelBooking(this, id); } // Pour le profil utilisateur
     async adminDeleteClass(id) { await classService.adminDeleteClass(this, id); } // Pour l'admin
@@ -495,6 +541,7 @@ class PilatesApp {
     applyTemplate() { classService.applyTemplate(this); }
     editTemplate(id) { classService.editTemplate(this, id); }
     cancelEditTemplate() { classService.cancelEditTemplate(this); }
+    async deleteTemplate(id) { await classService.deleteTemplate(this, id); }
     async saveAsTemplate() { await classService.saveAsTemplate(this); }
 
     /** 

@@ -9,8 +9,6 @@ export const creditsView = (app) => {
                     <p class="text-stone-600 dark:text-stone-300">Choisissez le pack de crédits qui vous convient. Plus vous en prenez, moins c'est cher !</p>
                 </div>
                 
-                ${getNotificationHtml(app)}
-
                 <div class="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 max-w-2xl mx-auto dark:bg-stone-800 dark:border-stone-700">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left">

@@ -110,3 +110,27 @@ textarea:focus,
     border-bottom: 2px solid transparent;
     transition: all 0.2s;
 }
+
+/* --- Amélioration des info-bulles et fenêtres du planning --- */
+/* La largeur est gérée par max-width, width: fit-content et min-width pour s'adapter au contenu tout en garantissant une taille minimale */
+.planning-tooltip, .planning-modal-content {
+    max-width: 600px !important; /* Encore plus large pour limiter davantage le nombre de lignes */
+    width: fit-content; /* S'adapte au contenu */
+    min-width: 300px; /* Largeur minimale pour éviter un affichage trop étroit */
+    background-color: rgba(240, 253, 244, 0.92) !important; /* Vert émeraude très clair (emerald-50) avec transparence */
+    backdrop-filter: blur(8px);
+    border: 1px solid #10b981 !important; /* Bordure verte émeraude (emerald-500) */
+    color: #064e3b !important; /* Texte vert foncé pour un bon contraste */
+    padding: 1.5rem;
+    border-radius: 1.25rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    z-index: 100;
+}
+
+.dark .planning-tooltip, .dark .planning-modal-content {
+    background-color: rgba(6, 78, 59, 0.9) !important; /* Fond vert foncé transparent en mode sombre */
+    border-color: #059669 !important;
+    color: #ecfdf5 !important;
+}
