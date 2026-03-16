@@ -35,10 +35,10 @@ export const adminView = (app) => {
                         ${st.isAdminAiLoading ? '<div class="p-10 text-center text-stone-500 animate-pulse">Chargement des données...</div>' : ''}
 
                         ${!st.isAdminAiLoading && (st.adminTab === 'planning' || st.adminTab === 'past_sessions') ? `
-                    <div class="grid md:grid-cols-3 gap-8">
+                    <div class="grid md:grid-cols-5 gap-8">
                         <!-- Colonne principale: Séances à venir / Historique des séances -->
-                        <div class="${st.adminTab === 'planning' ? 'md:col-span-2' : 'md:col-span-3'} bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden dark:bg-stone-800 dark:border-stone-700">
-                            <div class="p-6 border-b border-stone-100 bg-stone-50 dark:bg-stone-800 dark:border-stone-700">
+                        <div class="${st.adminTab === 'planning' ? 'md:col-span-3' : 'md:col-span-5'} bg-white rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
+                            <div class="p-6 border-b border-stone-100 bg-stone-50 rounded-t-3xl dark:bg-stone-800 dark:border-stone-700">
                                 <h2 class="text-xl font-medium text-stone-800 dark:text-stone-100">${st.adminTab === 'planning' ? 'Séances à venir' : 'Historique des séances'}</h2>
                             </div>
                             <div class="overflow-x-auto">
@@ -63,10 +63,22 @@ export const adminView = (app) => {
                                                     <div class="font-medium text-emerald-800 dark:text-emerald-400">${c.title}</div>
                                                     <div class="text-xs text-stone-400 dark:text-stone-500">${c.credits_price || 1} crédits</div>
                                                 </td>
-                                                <td class="p-4 text-center whitespace-nowrap">
+                                                <td class="p-4 text-center whitespace-nowrap relative group">
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.bookedUsers.length >= c.capacity ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'}">
                                                         ${c.bookedUsers.length} / ${c.capacity}
                                                     </span>
+                                                    ${c.bookedUsers.length > 0 ? `
+                                                        <div class="planning-tooltip admin-booked-users-tooltip absolute invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-300 -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-[100] shadow-2xl pointer-events-none">
+                                                            <h4 class="font-bold mb-1 text-sm">Inscrits:</h4>
+                                                            <ul class="list-disc list-inside text-left text-xs space-y-0.5">
+                                                                ${c.bookedUsers.map(userId => {
+                                                                    const user = st.users.find(u => u.id === userId);
+                                                                    return user ? `<li>${user.firstName} ${user.lastName}</li>` : '';
+                                                                }).join('')}
+                                                            </ul>
+                                                            <div class="absolute border-8 border-transparent border-t-[rgba(240,253,244,0.92)] dark:border-t-[rgba(6,78,59,0.9)] -bottom-4 left-1/2 -translate-x-1/2"></div>
+                                                        </div>
+                                                    ` : ''}
                                                 </td>
                                                 <td class="p-4 text-right whitespace-nowrap">
                                                     <button onclick="app.adminDeleteClass(${c.id})" class="text-red-400 hover:text-red-600 p-2 transition" title="Supprimer">
@@ -79,8 +91,8 @@ export const adminView = (app) => {
                                 </table>
                             </div>
                         </div>
-                        <!-- Colonne de droite: Ajouter un cours & Paramètres -->
-                        <div class="md:col-span-1">
+                        <!-- Colonne de droite: Ajouter un cours & Paramètres (occupe 2/5 de la largeur) -->
+                        <div class="md:col-span-2">
                             ${st.adminTab === 'planning' ? `
                             <div class="space-y-6">
                             <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
