@@ -27,14 +27,36 @@ export const scheduleView = (app) => {
             : dayClasses.map(c => {
                 const isBooked = st.currentUser && c.bookedUsers.includes(st.currentUser.id);
                 const isPast = new Date(`${c.date}T${c.time}`) < new Date();
+                const isFull = c.bookedUsers.length >= c.capacity;
+
+                let buttonText;
+                let buttonClasses;
+                let buttonDisabled = '';
+
+                if (isBooked) {
+                    buttonText = 'Inscrit';
+                    buttonClasses = 'bg-emerald-900 text-emerald-200 cursor-default';
+                    buttonDisabled = 'disabled';
+                } else if (isPast) {
+                    buttonText = 'Terminé';
+                    buttonClasses = 'bg-stone-200 text-stone-400 cursor-not-allowed dark:bg-stone-700 dark:text-stone-500';
+                    buttonDisabled = 'disabled';
+                } else if (isFull) {
+                    buttonText = 'Complet';
+                    buttonClasses = 'bg-red-100 text-red-800 cursor-not-allowed opacity-75 dark:bg-red-900/50 dark:text-red-300';
+                    buttonDisabled = 'disabled';
+                } else {
+                    buttonText = 'Réserver';
+                    buttonClasses = 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-900';
+                }
 
                 return `
                     <div class="group relative p-4 rounded-xl border ${isBooked ? 'bg-emerald-700 text-white' : (isPast ? 'bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700' : 'bg-white dark:bg-stone-800 dark:border-stone-700')} mb-3 shadow-sm transition-all hover:shadow-md">
                         <div class="font-medium ${isPast && !isBooked ? 'text-stone-400 dark:text-stone-500' : ''}">${c.time} - ${c.title}</div>
                         <div class="text-xs opacity-80 mb-2 ${isPast && !isBooked ? 'text-stone-400 dark:text-stone-500' : ''}">${c.duration} min | ${c.bookedUsers.length}/${c.capacity} pers.</div>
                         <div class="text-xs font-semibold mb-3 ${isBooked ? 'text-emerald-200' : (isPast ? 'text-stone-400' : 'text-emerald-700 dark:text-emerald-400')}">${c.credits_price || 1} crédits</div>
-                        <button onclick="app.initiateBooking(${c.id})" ${isBooked || isPast ? 'disabled' : ''} class="w-full py-2 rounded-lg text-sm ${isBooked ? 'bg-emerald-900 text-emerald-200 cursor-default' : (isPast ? 'bg-stone-200 text-stone-400 cursor-not-allowed dark:bg-stone-700 dark:text-stone-500' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-900')}">
-                            ${isBooked ? 'Inscrit' : (isPast ? 'Terminé' : 'Réserver')}
+                        <button onclick="app.initiateBooking(${c.id})" ${buttonDisabled} class="w-full py-2 rounded-lg text-sm ${buttonClasses}">
+                            ${buttonText}
                         </button>
                         
                         <!-- Info-bulle (Tooltip) -->
