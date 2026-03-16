@@ -525,7 +525,8 @@ class PilatesApp {
     async sendUserMessage(e, userId) {
         e.preventDefault(); // Empêche le rechargement de la page
         this.state.isSendingAdminMessage = true;
-        this.render(); // Met à jour l'interface pour désactiver le bouton
+        // On ne re-render pas ici pour éviter de détruire l'instance Quill avant l'envoi
+        // Le bouton sera désactivé via l'état isSendingAdminMessage dans le HTML
         try {
             await userService.sendUserMessage(this, e, userId);
         } finally {
@@ -533,9 +534,10 @@ class PilatesApp {
             this.render(); // Met à jour l'interface pour réactiver le bouton
         }
     }
-    async askAi() { await aiService.askAi(this); }
-    async deleteClass(id) { await classService.cancelBooking(this, id); } // Pour le profil utilisateur
+    async askAi() { await aiService.askAi(this); } // Pour le profil utilisateur
+    async deleteClass(id) { await classService.cancelBookingByUser(this, id); } // Pour le profil utilisateur
     async adminDeleteClass(id) { await classService.adminDeleteClass(this, id); } // Pour l'admin
+    async adminCancelBookingForUser(classId, userId) { await classService.adminCancelBookingForUser(this, classId, userId); } // Pour l'admin annuler une réservation client
     async generateAdminDescription() { await aiService.generateAdminDescription(this); }
     async submitAddClass(e) { await classService.submitAddClass(this, e); }
     applyTemplate() { classService.applyTemplate(this); }

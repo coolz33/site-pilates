@@ -314,7 +314,20 @@ export const adminView = (app) => {
                             <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
                                 <h3 class="text-lg font-medium mb-4 dark:text-stone-200">Historique des réservations</h3>
                                 <div class="space-y-2 max-h-60 overflow-y-auto">
-                                    ${futureBookings.map(b => `<div class="p-2 bg-emerald-50 rounded-lg text-sm text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">📅 ${new Date(b.date).toLocaleDateString()} à ${b.time} - ${b.title}</div>`).join('')}
+                                    ${futureBookings.map(b => `
+                                        <div class="flex items-center justify-between p-2 bg-emerald-50 rounded-lg text-sm text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                            <span>📅 ${new Date(b.date).toLocaleDateString()} à ${b.time} - ${b.title}</span>
+                                            <button
+                                                onclick="app.adminCancelBookingForUser(${b.class_id}, ${user.id})"
+                                                class="text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-200 transition-colors p-1 rounded-full hover:bg-rose-100 dark:hover:bg-rose-900"
+                                                title="Annuler cette réservation"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    `).join('')}
                                     ${pastBookings.map(b => `<div class="p-2 bg-stone-50 rounded-lg text-sm text-stone-600 dark:bg-stone-700/50 dark:text-stone-400">✔️ ${new Date(b.date).toLocaleDateString()} - ${b.title}</div>`).join('')}
                                     ${bookings.length === 0 ? '<p class="text-stone-400 text-sm">Aucune réservation</p>' : ''}
                                 </div>

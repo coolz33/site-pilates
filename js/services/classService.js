@@ -47,7 +47,8 @@ export const classService = {
         }
     },
 
-    async confirmPayment(app, e) {
+    // Confirmation de paiement (réservation) par l'utilisateur
+    async confirmPayment(app, e) { 
         e.preventDefault();
         const cls = app.state.selectedClassForPayment;
         if (!cls || cls.bookedUsers.length >= cls.capacity) return;
@@ -198,5 +199,28 @@ export const classService = {
         app.showNotification(id ? "Modèle mis à jour !" : "Modèle sauvegardé !");
         app.state.editingTemplateId = null;
         await app.init();
-    }
+    },
+
+    // Annulation par l'administrateur (depuis le détail client)
+    async adminCancelBookingForUser(app, classId, targetUserId) {
+        if (!confirm("Voulez-vous vraiment annuler cette réservation pour ce client ? Le client sera remboursé de ses crédits.")) return;
+        try {
+            const res = await fetch(`${API_URL}/classes/cancel/${classId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: targetUserId }) // Utilise l'ID de l'utilisateur cible
+            });
+            const data = await res.json();
+            if (data.success) {
+                app.showNotification("Réservation annulée et crédits remboursés au client.");
+                // Re-charger les détails du client pour mettre à jour la liste des réservations et le solde de crédits
+                await app.viewUser(targetUserId); 
+            } else {
+                app.showNotification(data.message, 'error');
+            }
+        } catch (err) {
+            console.error("Erreur lors de l'annulation admin:", err);
+            app.showNotification("Erreur technique lors de l'annulation.", "error");
+        }
+    },
 };
