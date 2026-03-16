@@ -180,17 +180,25 @@ export const profileView = (app) => {
                     <h3 class="font-medium text-lg mb-6 text-stone-800 dark:text-stone-100">Utilisation des crédits</h3>
                     ${creditHistory.length === 0 ? '<p class="text-stone-400 dark:text-stone-500">Aucun mouvement.</p>' : 
                     `<div class="space-y-2 max-h-[500px] overflow-y-auto pr-2">
-                        ${creditHistory.map(t => `
-                            <div class="flex justify-between items-center p-2 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors">
-                                <div>
-                                    <div class="text-sm font-medium dark:text-stone-300">${t.description}</div>
-                                    <div class="text-xs text-stone-400">${new Date(t.date).toLocaleDateString('fr-FR')}</div>
-                                </div>
-                                <div class="font-bold ${t.amount > 0 ? 'text-emerald-600' : 'text-stone-600 dark:text-stone-400'}">
-                                    ${t.amount > 0 ? '+' : ''}${t.amount}
-                                </div>
-                            </div>
-                        `).join('')}
+                        ${creditHistory.map(t => {
+                            let descriptionText = t.description;
+                            // Adapte la description pour les réservations et annulations afin de mettre en avant le cours
+                            if (t.type === 'booking' && t.description.startsWith('Réservation : ')) {
+                                descriptionText = `Réservation du cours : ${t.description.substring('Réservation : '.length)}`;
+                            } else if (t.type === 'refund' && t.description.startsWith('Annulation : ')) {
+                                descriptionText = `Annulation du cours : ${t.description.substring('Annulation : '.length)}`;
+                            } else if (t.type === 'adjustment') {
+                                descriptionText = `Ajustement : ${t.description}`;
+                            }
+                            return `
+                                <div class="flex justify-between items-center p-2 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors">
+                                    <div>
+                                        <div class="text-sm font-medium dark:text-stone-300">${descriptionText}</div>
+                                        <div class="text-xs text-stone-400">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                    </div>
+                                    <div class="font-bold ${t.amount > 0 ? 'text-emerald-600' : 'text-stone-600 dark:text-stone-400'}">${t.amount > 0 ? '+' : ''}${t.amount}</div>
+                                </div>`;
+                        }).join('')}
                     </div>`}
                 </div>
             </div>`;

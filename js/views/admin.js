@@ -355,15 +355,24 @@ export const adminView = (app) => {
                                         <h4 class="text-sm font-semibold text-stone-600 dark:text-stone-300 mb-2">Mouvements de crédits</h4>
                                         <div class="space-y-2 max-h-32 overflow-y-auto pr-2">
                                             ${creditHistory.map(t => `
-                                                <div class="flex justify-between items-center p-2 border-b border-stone-50 dark:border-stone-700 last:border-0">
-                                                    <div class="text-xs">
-                                                        <div class="font-medium dark:text-stone-300">${t.description}</div>
-                                                        <div class="text-stone-400">${new Date(t.date).toLocaleDateString()}</div>
-                                                    </div>
-                                                    <div class="text-sm font-bold ${t.amount > 0 ? 'text-emerald-600' : 'text-stone-600'}">
-                                                        ${t.amount > 0 ? '+' : ''}${t.amount}
-                                                    </div>
-                                                </div>
+                                                ${(() => { // IIFE pour définir descriptionText et transactionDate
+                                                    let descriptionText = t.description; // Par défaut, utilise la description brute
+                                                    // Adapte la description pour les réservations et annulations afin de mettre en avant le cours
+                                                    if (t.type === 'booking' && t.description.startsWith('Réservation : ')) { // Vérifie le type et le préfixe
+                                                        descriptionText = `Réservation du cours : ${t.description.substring('Réservation : '.length)}`; // Extrait le titre du cours
+                                                    } else if (t.type === 'refund' && t.description.startsWith('Annulation : ')) { // Vérifie le type et le préfixe
+                                                        descriptionText = `Annulation du cours : ${t.description.substring('Annulation : '.length)}`; // Extrait le titre du cours
+                                                    } else if (t.type === 'adjustment') { // Pour les ajustements manuels
+                                                        descriptionText = `Ajustement : ${t.description}`; // Utilise la description telle quelle
+                                                    }                                                    return `
+                                                        <div class="flex justify-between items-center p-2 border-b border-stone-50 dark:border-stone-700 last:border-0">
+                                                            <div class="text-xs">
+                                                                <div class="font-medium dark:text-stone-300">${descriptionText}</div>
+                                                                <div class="text-stone-400">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                                            </div>
+                                                            <div class="text-sm font-bold ${t.amount > 0 ? 'text-emerald-600' : 'text-stone-600 dark:text-stone-400'}">${t.amount > 0 ? '+' : ''}${t.amount}</div>
+                                                        </div>`;
+                                                })()}
                                             `).join('')}
                                             ${creditHistory.length === 0 ? '<p class="text-stone-400 text-xs">Aucun mouvement</p>' : ''}
                                         </div>
