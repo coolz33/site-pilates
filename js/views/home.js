@@ -3,7 +3,7 @@ import { getNotificationHtml } from './components.js';
 
 export const homeView = (app) => `
     <div class="animate-fade-in">
-        <section class="relative min-h-[35vh] md:min-h-[40vh] flex items-center justify-center bg-stone-100 dark:bg-stone-950/50 overflow-hidden py-8 md:py-12">
+        <section class="relative min-h-[35vh] md:min-h-[40vh] flex items-center justify-center bg-stone-100 dark:bg-stone-950/50 overflow-hidden py-8 md:py-12 max-w-screen-2xl mx-auto">
             <div class="absolute top-0 left-0 w-full h-full opacity-40 pointer-events-none">
                 <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-200 mix-blend-multiply filter blur-[80px]"></div>
                 <div class="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-stone-300 mix-blend-multiply filter blur-[80px]"></div>

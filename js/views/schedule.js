@@ -56,7 +56,7 @@ export const scheduleView = (app) => {
     }).join('');
 
     return `
-        <div class="min-h-[70vh] bg-stone-50 pt-8 pb-12 animate-fade-in dark:bg-stone-900">
+        <div class="min-h-[70vh] bg-stone-50 pt-8 pb-12 animate-fade-in dark:bg-stone-900 max-w-screen-2xl mx-auto">
             <div class="max-w-7xl mx-auto px-4">
                 <!-- Section Assistant IA -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 mb-10 dark:bg-stone-800 dark:border-stone-700">

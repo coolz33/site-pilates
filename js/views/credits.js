@@ -2,7 +2,7 @@ import { getNotificationHtml } from './components.js';
 
 export const creditsView = (app) => {
     return `
-        <div class="pt-20 pb-24 bg-stone-50 min-h-[80vh] animate-fade-in dark:bg-stone-900">
+        <div class="pt-20 pb-24 bg-stone-50 min-h-[80vh] animate-fade-in dark:bg-stone-900 max-w-5xl mx-auto">
             <div class="max-w-4xl mx-auto px-4">
                 <div class="text-center mb-12">
                     <h1 class="text-4xl font-light text-stone-800 mb-4 dark:text-stone-100">Nos Tarifs</h1>

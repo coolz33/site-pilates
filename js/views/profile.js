@@ -197,7 +197,7 @@ export const profileView = (app) => {
     }
 
     return `
-        <div class="pt-24 pb-24 bg-stone-50 min-h-screen animate-fade-in dark:bg-stone-900">
+        <div class="pt-24 pb-24 bg-stone-50 min-h-screen animate-fade-in dark:bg-stone-900 max-w-screen-xl mx-auto">
             <div class="max-w-6xl mx-auto px-4">
                 <div class="mb-8">
                     <h1 class="text-4xl font-light text-stone-800 dark:text-stone-100">Mon Profil</h1>

@@ -111,12 +111,30 @@ textarea:focus,
     transition: all 0.2s;
 }
 
+/* --- Styles pour les listes d'administration --- */
+.truncate-single-line {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-grow: 1; /* Permet à l'élément de prendre l'espace disponible dans un conteneur flex */
+    flex-shrink: 1; /* Permet à l'élément de se réduire si nécessaire */
+    min-width: 0; /* Permet à l'élément de se réduire si nécessaire */
+    display: block; /* Nécessaire pour que overflow: hidden fonctionne */
+}
+
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 /* --- Amélioration des info-bulles et fenêtres du planning --- */
 /* La largeur est gérée par max-width, width: fit-content et min-width pour s'adapter au contenu tout en garantissant une taille minimale */
-.planning-tooltip, .planning-modal-content {
-    max-width: 600px !important; /* Encore plus large pour limiter davantage le nombre de lignes */
+.planning-tooltip, .planning-modal-content { /* Appliqué à l'infobulle du planning et au modal de confirmation */
+    max-width: 700px !important; /* Largeur maximale pour éviter un texte trop étiré */
     width: fit-content; /* S'adapte au contenu */
-    min-width: 300px; /* Largeur minimale pour éviter un affichage trop étroit */
+    min-width: 450px !important; /* Largeur minimale pour assurer une bonne lisibilité */
     background-color: rgba(240, 253, 244, 0.92) !important; /* Vert émeraude très clair (emerald-50) avec transparence */
     backdrop-filter: blur(8px);
     border: 1px solid #10b981 !important; /* Bordure verte émeraude (emerald-500) */

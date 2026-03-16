@@ -13,7 +13,7 @@ export const adminView = (app) => {
     const clients = st.users.filter(u => u.role !== 'admin');
 
     return `
-        <div class="min-h-screen bg-stone-50 pt-12 pb-24 animate-fade-in dark:bg-stone-900">
+        <div class="min-h-screen bg-stone-50 pt-12 pb-24 animate-fade-in dark:bg-stone-900 max-w-screen-xl mx-auto">
             <div class="max-w-6xl mx-auto px-4">
                 <div class="flex flex-col md:flex-row gap-8">
                     <!-- Menu Latéral -->
@@ -36,8 +36,53 @@ export const adminView = (app) => {
 
                         ${!st.isAdminAiLoading && (st.adminTab === 'planning' || st.adminTab === 'past_sessions') ? `
                     <div class="grid md:grid-cols-3 gap-8">
-                        ${st.adminTab === 'planning' ? `
-                        <div class="space-y-6">
+                        <!-- Colonne principale: Séances à venir / Historique des séances -->
+                        <div class="${st.adminTab === 'planning' ? 'md:col-span-2' : 'md:col-span-3'} bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden dark:bg-stone-800 dark:border-stone-700">
+                            <div class="p-6 border-b border-stone-100 bg-stone-50 dark:bg-stone-800 dark:border-stone-700">
+                                <h2 class="text-xl font-medium text-stone-800 dark:text-stone-100">${st.adminTab === 'planning' ? 'Séances à venir' : 'Historique des séances'}</h2>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="text-sm text-stone-500 border-b border-stone-100 dark:text-stone-400 dark:border-stone-700">
+                                            <th class="p-4 font-medium w-1/4">Date & Heure</th>
+                                            <th class="p-4 font-medium w-1/2">Cours</th>
+                                            <th class="p-4 font-medium text-center w-1/8">Inscrits</th>
+                                            <th class="p-4 font-medium text-right w-1/8">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${displayClasses.length === 0 ? `<tr><td colspan="4" class="p-8 text-center text-stone-400 dark:text-stone-500">Aucune séance</td></tr>` : 
+                                        displayClasses.map(c => `
+                                            <tr class="border-b border-stone-50 hover:bg-stone-50/50 transition dark:border-stone-700/50 dark:hover:bg-stone-700/50">
+                                                <td class="p-4 whitespace-nowrap">
+                                                    <div class="font-medium text-stone-800 dark:text-stone-200">${new Date(c.date).toLocaleDateString('fr-FR')}</div>
+                                                    <div class="text-xs text-stone-500 dark:text-stone-400">${c.time} (${c.duration} min)</div>
+                                                </td>
+                                                <td class="p-4 truncate-single-line">
+                                                    <div class="font-medium text-emerald-800 dark:text-emerald-400">${c.title}</div>
+                                                    <div class="text-xs text-stone-400 dark:text-stone-500">${c.credits_price || 1} crédits</div>
+                                                </td>
+                                                <td class="p-4 text-center whitespace-nowrap">
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.bookedUsers.length >= c.capacity ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'}">
+                                                        ${c.bookedUsers.length} / ${c.capacity}
+                                                    </span>
+                                                </td>
+                                                <td class="p-4 text-right whitespace-nowrap">
+                                                    <button onclick="app.adminDeleteClass(${c.id})" class="text-red-400 hover:text-red-600 p-2 transition" title="Supprimer">
+                                                        ${icons.trash}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <!-- Colonne de droite: Ajouter un cours & Paramètres -->
+                        <div class="md:col-span-1">
+                            ${st.adminTab === 'planning' ? `
+                            <div class="space-y-6">
                             <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
                                 <h2 class="text-xl font-medium mb-6 dark:text-stone-100">Ajouter un cours</h2>
                                 <form onsubmit="app.submitAddClass(event)" class="space-y-4">
@@ -80,56 +125,30 @@ export const adminView = (app) => {
                                     </div>
                                 </form>
                             </div>
-                        </div>
                         ` : ''}
-                        
-                        <div class="${st.adminTab === 'planning' ? 'md:col-span-2' : 'md:col-span-3'} bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden dark:bg-stone-800 dark:border-stone-700">
-                            <div class="p-6 border-b border-stone-100 bg-stone-50 dark:bg-stone-800 dark:border-stone-700">
-                                <h2 class="text-xl font-medium text-stone-800 dark:text-stone-100">${st.adminTab === 'planning' ? 'Séances à venir' : 'Historique des séances'}</h2>
-                            </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr class="text-sm text-stone-500 border-b border-stone-100 dark:text-stone-400 dark:border-stone-700">
-                                            <th class="p-4 font-medium">Date & Heure</th>
-                                            <th class="p-4 font-medium">Cours</th>
-                                            <th class="p-4 font-medium text-center">Inscrits</th>
-                                            <th class="p-4 font-medium text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${displayClasses.length === 0 ? `<tr><td colspan="4" class="p-8 text-center text-stone-400 dark:text-stone-500">Aucune séance</td></tr>` : 
-                                        displayClasses.map(c => `
-                                            <tr class="border-b border-stone-50 hover:bg-stone-50/50 transition dark:border-stone-700/50 dark:hover:bg-stone-700/50">
-                                                <td class="p-4">
-                                                    <div class="font-medium text-stone-800 dark:text-stone-200">${new Date(c.date).toLocaleDateString('fr-FR')}</div>
-                                                    <div class="text-xs text-stone-500 dark:text-stone-400">${c.time} (${c.duration} min)</div>
-                                                </td>
-                                                <td class="p-4">
-                                                    <div class="font-medium text-emerald-800 dark:text-emerald-400">${c.title}</div>
-                                                    <div class="text-xs text-stone-400 dark:text-stone-500">${c.credits_price || 1} crédits</div>
-                                                </td>
-                                                <td class="p-4 text-center">
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.bookedUsers.length >= c.capacity ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'}">
-                                                        ${c.bookedUsers.length} / ${c.capacity}
-                                                    </span>
-                                                </td>
-                                                <td class="p-4 text-right">
-                                                    <button onclick="app.adminDeleteClass(${c.id})" class="text-red-400 hover:text-red-600 p-2 transition" title="Supprimer">
-                                                        ${icons.trash}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
                         </div>
                     </div>
                 ` : ''}
 
                 ${!st.isAdminAiLoading && st.adminTab === 'templates' ? `
                     <div class="grid md:grid-cols-3 gap-8 animate-fade-in">
+                        <div class="md:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
+                            <h2 class="text-xl font-medium text-stone-800 mb-6 dark:text-stone-100">Catalogue des cours</h2>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                ${st.courseTemplates.map(t => `
+                                    <div class="relative py-2 px-3 border border-stone-100 rounded-2xl hover:border-emerald-300 transition group bg-stone-50/50 dark:border-stone-700 dark:hover:border-emerald-600 dark:bg-stone-700/50">
+                                        <div onclick="app.editTemplate(${t.id})" class="cursor-pointer">
+                                            <div class="font-medium text-emerald-800 group-hover:text-emerald-600 dark:text-emerald-400 dark:group-hover:text-emerald-300 line-clamp-2">${t.title}</div>
+                                            <div class="text-xs text-stone-500 dark:text-stone-400">${t.duration} min • ${t.default_credits_price || 1} crédits</div>
+                                        </div>
+                                        <button onclick="app.deleteTemplate(${t.id})" class="absolute top-1 right-1 p-1 text-stone-400 hover:text-red-500 transition-colors">
+                                            ${icons.trash}
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        
                         <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
                             <h2 class="text-xl font-medium text-stone-800 mb-6 dark:text-stone-100">${st.editingTemplateId ? 'Modifier le modèle' : 'Nouveau modèle'}</h2>
                             <form onsubmit="event.preventDefault(); app.saveAsTemplate()" class="space-y-4">
@@ -162,23 +181,6 @@ export const adminView = (app) => {
                                 </button>
                                 ${st.editingTemplateId ? `<button type="button" onclick="app.cancelEditTemplate()" class="w-full py-2 text-stone-500 text-sm hover:underline dark:text-stone-400">Annuler</button>` : ''}
                             </form>
-                        </div>
-                        <div class="md:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
-                            <h2 class="text-xl font-medium text-stone-800 mb-6 dark:text-stone-100">Catalogue des cours</h2>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                ${st.courseTemplates.map(t => `
-                                    <div class="relative p-4 border border-stone-100 rounded-2xl hover:border-emerald-300 transition group bg-stone-50/50 dark:border-stone-700 dark:hover:border-emerald-600 dark:bg-stone-700/50">
-                                        <div onclick="app.editTemplate(${t.id})" class="cursor-pointer">
-                                            <div class="font-medium text-emerald-800 group-hover:text-emerald-600 dark:text-emerald-400 dark:group-hover:text-emerald-300">${t.title}</div>
-                                            <div class="text-xs text-stone-500 mb-2 dark:text-stone-400">${t.duration} min • ${t.default_credits_price || 1} crédits</div>
-                                            <p class="text-xs text-stone-400 line-clamp-2 dark:text-stone-500">${t.description || 'Aucune description'}</p>
-                                        </div>
-                                        <button onclick="app.deleteTemplate(${t.id})" class="absolute top-2 right-2 p-2 text-stone-400 hover:text-red-500 transition-colors">
-                                            ${icons.trash}
-                                        </button>
-                                    </div>
-                                `).join('')}
-                            </div>
                         </div>
                     </div>
                 ` : ''}
@@ -363,41 +365,8 @@ export const adminView = (app) => {
                 })() : ''}
 
                 ${!st.isAdminAiLoading && st.adminTab === 'newsletter' ? `
-                    <div class="grid md:grid-cols-3 gap-8 animate-fade-in">
-                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
-                            <div class="flex justify-between items-center mb-4">
-                                <h2 class="text-lg font-medium text-stone-800 dark:text-stone-100">Destinataires</h2>
-                                <div class="flex gap-2">
-                                    <button onclick="app.state.selectedNewsletterRecipients = app.state.users.filter(u => u.role !== 'admin').map(u => u.id); app.render()" class="text-[10px] bg-stone-100 px-2 py-1 rounded hover:bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300 dark:hover:bg-stone-600">Tous</button>
-                                    <button onclick="app.setAdminTab('newsletter')" class="text-[10px] bg-emerald-50 px-2 py-1 rounded hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400 dark:hover:bg-emerald-900">Abonnés</button>
-                                </div>
-                            </div>
-                            <div class="space-y-2 max-h-[500px] overflow-y-auto pr-2">
-                                ${clients.map(u => {
-                                    const isSelected = st.selectedNewsletterRecipients.includes(u.id);
-                                    const isSubscribed = Number(u.newsletter_subscribed) === 1;
-                                    return `
-                                        <div onclick="app.toggleNewsletterRecipient(${u.id})" class="flex items-center justify-between p-3 rounded-xl border cursor-pointer transition ${isSelected ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/50 dark:border-emerald-800' : 'bg-stone-50 border-stone-100 opacity-60 dark:bg-stone-700/50 dark:border-stone-700'}">
-                                            <div class="text-sm">
-                                                <div class="flex items-center gap-2">
-                                                    <span class="font-medium ${isSelected ? 'text-emerald-900 dark:text-emerald-200' : 'text-stone-700 dark:text-stone-300'}">${u.firstName} ${u.lastName}</span>
-                                                    ${isSubscribed ? `<span class="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase font-bold dark:bg-emerald-900 dark:text-emerald-300">Abonné</span>` : ''}
-                                                </div>
-                                                <div class="text-xs text-stone-500 dark:text-stone-400">${u.email}</div>
-                                            </div>
-                                            <div class="w-5 h-5 rounded-full border flex items-center justify-center ${isSelected ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-stone-300 dark:bg-stone-600 dark:border-stone-500'}">
-                                                ${isSelected ? '✓' : ''}
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                            <div class="mt-4 pt-4 border-t border-stone-100 text-xs text-stone-500 dark:border-stone-700 dark:text-stone-400">
-                                ${st.selectedNewsletterRecipients.length} destinataire(s) sélectionné(s).
-                            </div>
-                        </div>
-
-                        <div class="md:col-span-2 bg-white p-8 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
+                    <div class="grid md:grid-cols-12 gap-8 animate-fade-in">
+                        <div class="md:col-span-7 bg-white p-8 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
                         <h2 class="text-xl font-medium text-stone-800 mb-6 flex items-center gap-2 dark:text-stone-100">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600 dark:text-emerald-400"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                             Envoyer une Newsletter
@@ -426,6 +395,39 @@ export const adminView = (app) => {
                                 Envoyer aux ${st.selectedNewsletterRecipients.length} destinataires
                             </button>
                         </form>
+                        </div>
+
+                        <div class="md:col-span-5 bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-lg font-medium text-stone-800 dark:text-stone-100">Destinataires</h2>
+                                <div class="flex gap-2">
+                                    <button onclick="app.state.selectedNewsletterRecipients = app.state.users.filter(u => u.role !== 'admin').map(u => u.id); app.render()" class="text-[10px] bg-stone-100 px-2 py-1 rounded hover:bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300 dark:hover:bg-stone-600">Tous</button>
+                                    <button onclick="app.setAdminTab('newsletter')" class="text-[10px] bg-emerald-50 px-2 py-1 rounded hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400 dark:hover:bg-emerald-900">Abonnés</button>
+                                </div>
+                            </div>
+                            <div class="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+                                ${clients.map(u => {
+                                    const isSelected = st.selectedNewsletterRecipients.includes(u.id);
+                                    const isSubscribed = Number(u.newsletter_subscribed) === 1;
+                                    return `
+                                        <div onclick="app.toggleNewsletterRecipient(${u.id})" class="flex flex-col p-3 rounded-xl border cursor-pointer transition ${isSelected ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/50 dark:border-emerald-800' : 'bg-stone-50 border-stone-100 opacity-60 dark:bg-stone-700/50 dark:border-stone-700'} min-w-0">
+                                            <div class="text-sm flex items-center justify-between gap-2 mb-1">
+                                                <div class="flex items-center gap-2 truncate-single-line">
+                                                <span class="font-medium ${isSelected ? 'text-emerald-900 dark:text-emerald-200' : 'text-stone-700 dark:text-stone-300'}">${u.firstName} ${u.lastName}</span>
+                                                ${isSubscribed ? `<span class="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase font-bold dark:bg-emerald-900 dark:text-emerald-300 flex-shrink-0">Abonné</span>` : ''}
+                                            </div>
+                                            <div class="w-5 h-5 rounded-full border flex items-center justify-center ${isSelected ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-stone-300 dark:bg-stone-600 dark:border-stone-500'}">
+                                                ${isSelected ? '✓' : ''}
+                                            </div>
+                                        </div>
+                                            <span class="text-xs text-stone-500 dark:text-stone-400 truncate-single-line">${u.email}</span>
+                                    </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-stone-100 text-xs text-stone-500 dark:border-stone-700 dark:text-stone-400">
+                                ${st.selectedNewsletterRecipients.length} destinataire(s) sélectionné(s).
+                            </div>
                         </div>
                     </div>
                 ` : ''}
