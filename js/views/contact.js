@@ -18,11 +18,21 @@ export const contactView = (app) => `
                         </div>
                         <div class="flex items-center gap-4 text-stone-600 dark:text-stone-300">
                             <div class="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-emerald-700 flex-shrink-0 dark:bg-stone-800 dark:text-emerald-400">${icons.phone}</div>
-                            <div><div class="font-medium text-stone-800 dark:text-stone-100">Téléphone</div><div>${app.state.studioPhone}</div></div>
+                            <div>
+                                <div class="font-medium text-stone-800 dark:text-stone-100">Téléphone</div>
+                                <a href="tel:${app.state.studioPhone.replace(/\s/g, '')}" class="hover:text-emerald-700 transition-colors">
+                                    ${app.state.studioPhone}
+                                </a>
+                            </div>
                         </div>
                         <div class="flex items-center gap-4 text-stone-600 dark:text-stone-300">
                             <div class="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center text-emerald-700 flex-shrink-0 dark:bg-stone-800 dark:text-emerald-400">${icons.mail}</div>
-                            <div><div class="font-medium text-stone-800 dark:text-stone-100">Email</div><div>${app.state.studioEmail}</div></div>
+                            <div>
+                                <div class="font-medium text-stone-800 dark:text-stone-100">Email</div>
+                                <a href="mailto:${app.state.studioEmail}" class="hover:text-emerald-700 transition-colors underline decoration-stone-200 underline-offset-4 dark:decoration-stone-700">
+                                    ${app.state.studioEmail}
+                                </a>
+                            </div>
                         </div>
                     </div>
                     <div class="mt-10 rounded-2xl overflow-hidden border border-stone-200 shadow-sm h-64 dark:border-stone-700">

@@ -561,5 +561,6 @@ class PilatesApp {
 
 /** Instanciation et démarrage de l'application */
 window.app = new PilatesApp();
-window.addEventListener('DOMContentLoaded', () => {    window.app.init();
+window.addEventListener('DOMContentLoaded', () => {
+    window.app.init();
 });
