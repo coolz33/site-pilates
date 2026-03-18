@@ -55,7 +55,8 @@ CREATE TABLE `classes` (
   `capacity` int(11) DEFAULT NULL,
   `description` text DEFAULT NULL,
   `points_price` int(11) DEFAULT 1,
-  `credits_price` int(11) DEFAULT 1
+  `credits_price` int(11) DEFAULT 1,
+  `recurrence_id` varchar(50) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 --

@@ -231,3 +231,45 @@ export const renderCalendarModal = (app, container) => {
         modal.innerHTML = modalHtml; // Met à jour le contenu du modal existant ou nouvellement créé
     }
 };
+
+export const renderConfirmModal = (app) => {
+    let modal = document.getElementById('confirm-modal');
+    
+    if (!app.state.confirmModal || !app.state.confirmModal.isOpen) {
+        if (modal) modal.remove();
+        return;
+    }
+
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'confirm-modal';
+        document.body.appendChild(modal);
+    }
+
+    const { message, confirmText, cancelText, type } = app.state.confirmModal;
+    
+    let confirmBtnClass = "bg-emerald-600 hover:bg-emerald-700 text-white";
+    if (type === 'danger') {
+        confirmBtnClass = "bg-red-600 hover:bg-red-700 text-white dark:bg-red-700 dark:hover:bg-red-600";
+    }
+
+    const iconHtml = type === 'danger' 
+        ? '<span class="text-red-500 text-2xl">⚠️</span>' 
+        : '<span class="text-amber-500 text-2xl">❓</span>';
+
+    modal.innerHTML = `
+        <div class="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-fade-in dark:bg-black/70">
+            <div class="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
+                <div class="flex items-center gap-3 mb-4">
+                    ${iconHtml}
+                    <h3 class="text-xl font-medium text-stone-800 dark:text-stone-100">${type === 'danger' ? 'Attention' : 'Confirmation'}</h3>
+                </div>
+                <p class="mb-8 text-stone-600 dark:text-stone-300 whitespace-pre-line leading-relaxed">${message}</p>
+                <div class="flex gap-3 justify-end">
+                    <button type="button" onclick="app.state.confirmModal.onCancel()" class="px-5 py-2.5 border rounded-xl text-stone-600 hover:bg-stone-50 dark:border-stone-600 dark:text-stone-300 dark:hover:bg-stone-700 transition-colors font-medium">${cancelText}</button>
+                    <button type="button" onclick="app.state.confirmModal.onConfirm()" class="px-5 py-2.5 rounded-xl transition-all shadow-md font-medium ${confirmBtnClass}">${confirmText}</button>
+                </div>
+            </div>
+        </div>
+    `;
+};

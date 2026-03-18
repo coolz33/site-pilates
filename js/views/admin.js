@@ -8,7 +8,6 @@ export const adminView = (app) => {
     const todayStr = new Date().toISOString().split('T')[0];
     const upcomingClasses = st.classes.filter(c => c.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
     const pastClasses = st.classes.filter(c => c.date < todayStr).sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
-    const displayClasses = st.adminTab === 'past_sessions' ? pastClasses : upcomingClasses;
 
     const query = (st.userSearchQuery || '').toLowerCase();
     const clients = st.users.filter(u => u.role !== 'admin').filter(u => {
@@ -19,49 +18,100 @@ export const adminView = (app) => {
                 u.phone?.includes(query));
     });
 
+    // Logique de filtrage avancée pour les séances
+    const f = st.adminClassFilters;
+    let filteredClasses = st.adminTab === 'past_sessions' ? pastClasses : upcomingClasses;
+    
+    filteredClasses = filteredClasses.filter(c => {
+        if (f.startDate && c.date < f.startDate) return false;
+        if (f.endDate && c.date > f.endDate) return false;
+        if (f.startTime && c.time < f.startTime) return false;
+        if (f.endTime && c.time > f.endTime) return false;
+        if (f.titles.length > 0 && !f.titles.includes(c.title)) return false;
+        if (f.minBooked !== '' && c.bookedUsers.length < parseInt(f.minBooked)) return false;
+        if (f.maxBooked !== '' && c.bookedUsers.length > parseInt(f.maxBooked)) return false;
+        if (f.userName) {
+            const q = f.userName.toLowerCase();
+            const hasUser = c.bookedUsers.some(uid => {
+                const u = st.users.find(user => user.id === uid);
+                return u && (u.firstName.toLowerCase().includes(q) || u.lastName.toLowerCase().includes(q));
+            });
+            if (!hasUser) return false;
+        }
+        return true;
+    });
+
+    const allTitles = [...new Set(st.classes.map(c => c.title))].sort();
+
     return `
-        <div class="min-h-screen bg-stone-50 pt-12 pb-24 animate-fade-in dark:bg-stone-900 max-w-screen-xl mx-auto">
-            <div class="max-w-6xl mx-auto px-4">
-                <div class="flex flex-col md:flex-row gap-8">
+        <div class="min-h-screen bg-stone-50 pt-12 pb-24 animate-fade-in dark:bg-stone-900 max-w-[85%] md:max-w-[80%] mx-auto">
+            <div class="w-full px-4">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
                     <!-- Menu Latéral -->
-                    <aside class="w-full md:w-64 flex-shrink-0 bg-white dark:bg-stone-800 p-4 rounded-2xl self-start">
+                    <aside class="md:col-span-3 bg-white dark:bg-stone-800 p-4 rounded-2xl self-start shadow-sm border border-stone-100 dark:border-stone-700">
                         <h1 class="text-2xl font-light text-stone-800 mb-6 px-2 dark:text-stone-100">Administration</h1>
                         <nav class="space-y-1">
-                            <button onclick="app.setAdminTab('planning')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'planning' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">📅 Séances à venir</button>
-                            <button onclick="app.setAdminTab('past_sessions')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'past_sessions' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">🕰️ Séances passées</button>
-                            <button onclick="app.setAdminTab('templates')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'templates' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">📋 Modèles de cours</button>
-                            <button onclick="app.setAdminTab('packages')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'packages' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">💳 Tarifs & Packs</button>
-                            <button onclick="app.setAdminTab('users')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'users' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">👥 Clients</button>
-                            <button onclick="app.setAdminTab('newsletter')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'newsletter' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">✉️ Newsletter</button>
-                            <button onclick="app.setAdminTab('settings')" class="w-full text-left px-4 py-3 rounded-xl transition-colors ${st.adminTab === 'settings' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">⚙️ Studio</button>
+                            <button onclick="app.setAdminTab('planning')" class="w-full text-left px-4 py-3 rounded-xl transition-colors whitespace-nowrap ${st.adminTab === 'planning' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">📅 Séances à venir</button>
+                            <button onclick="app.setAdminTab('past_sessions')" class="w-full text-left px-4 py-3 rounded-xl transition-colors whitespace-nowrap ${st.adminTab === 'past_sessions' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">🕰️ Séances passées</button>
+                            <button onclick="app.setAdminTab('templates')" class="w-full text-left px-4 py-3 rounded-xl transition-colors whitespace-nowrap ${st.adminTab === 'templates' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">📋 Modèles de cours</button>
+                            <button onclick="app.setAdminTab('packages')" class="w-full text-left px-4 py-3 rounded-xl transition-colors whitespace-nowrap ${st.adminTab === 'packages' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">💳 Tarifs & Packs</button>
+                            <button onclick="app.setAdminTab('users')" class="w-full text-left px-4 py-3 rounded-xl transition-colors whitespace-nowrap ${st.adminTab === 'users' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">👥 Clients</button>
+                            <button onclick="app.setAdminTab('newsletter')" class="w-full text-left px-4 py-3 rounded-xl transition-colors whitespace-nowrap ${st.adminTab === 'newsletter' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">✉️ Newsletter</button>
+                            <button onclick="app.setAdminTab('settings')" class="w-full text-left px-4 py-3 rounded-xl transition-colors whitespace-nowrap ${st.adminTab === 'settings' ? 'bg-emerald-50 text-emerald-800 font-medium dark:bg-emerald-900/50 dark:text-emerald-300' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-700'}">⚙️ Studio</button>
                         </nav>
                     </aside>
 
-                    <!-- Contenu Principal -->
-                    <div class="flex-1 min-w-0">
-                        ${st.isAdminAiLoading ? '<div class="p-10 text-center text-stone-500 animate-pulse">Chargement des données...</div>' : ''}
+                    ${st.isAdminAiLoading ? '<div class="md:col-span-9 p-10 text-center text-stone-500 animate-pulse">Chargement des données...</div>' : ''}
 
-                        ${!st.isAdminAiLoading && (st.adminTab === 'planning' || st.adminTab === 'past_sessions') ? `
-                    <div class="grid md:grid-cols-5 gap-8">
-                        <!-- Colonne principale: Séances à venir / Historique des séances -->
-                        <div class="${st.adminTab === 'planning' ? 'md:col-span-3' : 'md:col-span-5'} bg-white rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
+                    ${!st.isAdminAiLoading && (st.adminTab === 'planning' || st.adminTab === 'past_sessions') ? `
+                        <!-- Colonne 2: Liste des Séances (Élargie) -->
+                        <div class="md:col-span-6 space-y-6">
+                            <div class="bg-white rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
+                                ${st.selectedAdminClasses.length > 0 ? `
+                                    <div class="p-4 bg-red-50 border-b border-red-100 rounded-t-3xl flex justify-between items-center animate-fade-in dark:bg-red-900/20 dark:border-red-900/30">
+                                        <span class="text-sm font-medium text-red-800 dark:text-red-300">${st.selectedAdminClasses.length} séance(s) sélectionnée(s)</span>
+                                        <button onclick="app.adminBulkDeleteClasses()" class="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition-all flex items-center gap-2">
+                                            ${icons.trash} Supprimer la sélection
+                                        </button>
+                                    </div>
+                                ` : `
                             <div class="p-6 border-b border-stone-100 bg-stone-50 rounded-t-3xl dark:bg-stone-800 dark:border-stone-700">
-                                <h2 class="text-xl font-medium text-stone-800 dark:text-stone-100">${st.adminTab === 'planning' ? 'Séances à venir' : 'Historique des séances'}</h2>
+                                <div class="flex justify-between items-center">
+                                    <h2 class="text-xl font-medium text-stone-800 dark:text-stone-100">${st.adminTab === 'planning' ? 'Séances à venir' : 'Historique des séances'}</h2>
+                                    <span class="text-xs text-stone-400">${filteredClasses.length} résultat(s)</span>
+                                </div>
                             </div>
+                                `}
                             <div class="overflow-x-auto">
                                 <table class="w-full text-left border-collapse">
                                     <thead>
                                         <tr class="text-sm text-stone-500 border-b border-stone-100 dark:text-stone-400 dark:border-stone-700">
-                                            <th class="p-4 font-medium w-1/4">Date & Heure</th>
+                                            <th class="p-4 w-10">
+                                                <input 
+                                                    type="checkbox" 
+                                                    onchange="app.toggleAllAdminClasses(this.checked, ${JSON.stringify(filteredClasses.map(c => c.id)).replace(/"/g, '&quot;')})" 
+                                                    ${st.selectedAdminClasses.length === filteredClasses.length && filteredClasses.length > 0 ? 'checked' : ''}
+                                                    class="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                                                >
+                                            </th>
+                                            <th class="p-4 font-medium">Date & Heure</th>
                                             <th class="p-4 font-medium w-1/2">Cours</th>
                                             <th class="p-4 font-medium text-center w-1/8">Inscrits</th>
                                             <th class="p-4 font-medium text-right w-1/8">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${displayClasses.length === 0 ? `<tr><td colspan="4" class="p-8 text-center text-stone-400 dark:text-stone-500">Aucune séance</td></tr>` : 
-                                        displayClasses.map(c => `
-                                            <tr class="border-b border-stone-50 hover:bg-stone-50/50 transition dark:border-stone-700/50 dark:hover:bg-stone-700/50">
+                                        ${filteredClasses.length === 0 ? `<tr><td colspan="5" class="p-8 text-center text-stone-400 dark:text-stone-500">Aucune séance trouvée</td></tr>` : 
+                                        filteredClasses.map(c => `
+                                            <tr class="border-b border-stone-50 hover:bg-stone-50/50 transition dark:border-stone-700/50 dark:hover:bg-stone-700/50 ${st.selectedAdminClasses.includes(c.id) ? 'bg-emerald-50/30 dark:bg-emerald-900/10' : ''}">
+                                                <td class="p-4">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        onchange="app.toggleAdminClassSelection(${c.id})" 
+                                                        ${st.selectedAdminClasses.includes(c.id) ? 'checked' : ''}
+                                                        class="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                                                    >
+                                                </td>
                                                 <td class="p-4 whitespace-nowrap">
                                                     <div class="font-medium text-stone-800 dark:text-stone-200">${new Date(c.date).toLocaleDateString('fr-FR')}</div>
                                                     <div class="text-xs text-stone-500 dark:text-stone-400">${c.time} (${c.duration} min)</div>
@@ -98,39 +148,119 @@ export const adminView = (app) => {
                                 </table>
                             </div>
                         </div>
-                        <!-- Colonne de droite: Ajouter un cours & Paramètres (occupe 2/5 de la largeur) -->
-                        <div class="md:col-span-2">
+                        </div>
+                        <!-- Colonne 3: Filtres, Ajouter un cours & Paramètres -->
+                        <div class="md:col-span-3 space-y-6">
+                            <!-- Zone de Filtres Avancés -->
+                            <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
+                                <h3 class="text-sm font-bold text-stone-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    ${icons.sparkles} Filtres de recherche
+                                </h3>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-stone-400 uppercase mb-1">Période (Du / Au)</label>
+                                        <div class="flex gap-2">
+                                            <input type="date" id="filter-date-start" value="${f.startDate}" oninput="app.handleAdminClassFilterChange('startDate', this.value)" class="w-full p-2 text-xs border border-stone-100 rounded-lg dark:bg-stone-700 dark:border-stone-600 dark:[color-scheme:dark]">
+                                            <input type="date" id="filter-date-end" value="${f.endDate}" oninput="app.handleAdminClassFilterChange('endDate', this.value)" class="w-full p-2 text-xs border border-stone-100 rounded-lg dark:bg-stone-700 dark:border-stone-600 dark:[color-scheme:dark]">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-stone-400 uppercase mb-1">Heures (De / À)</label>
+                                        <div class="flex gap-2">
+                                            <input type="time" id="filter-time-start" value="${f.startTime}" oninput="app.handleAdminClassFilterChange('startTime', this.value)" class="w-full p-2 text-xs border border-stone-100 rounded-lg dark:bg-stone-700 dark:border-stone-600 dark:[color-scheme:dark]">
+                                            <input type="time" id="filter-time-end" value="${f.endTime}" oninput="app.handleAdminClassFilterChange('endTime', this.value)" class="w-full p-2 text-xs border border-stone-100 rounded-lg dark:bg-stone-700 dark:border-stone-600 dark:[color-scheme:dark]">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-stone-400 uppercase mb-1">Nb Inscrits (Min / Max)</label>
+                                        <div class="flex gap-2">
+                                            <input type="number" placeholder="Min" value="${f.minBooked}" oninput="app.handleAdminClassFilterChange('minBooked', this.value)" class="w-full p-2 text-xs border border-stone-100 rounded-lg dark:bg-stone-700 dark:border-stone-600">
+                                            <input type="number" placeholder="Max" value="${f.maxBooked}" oninput="app.handleAdminClassFilterChange('maxBooked', this.value)" class="w-full p-2 text-xs border border-stone-100 rounded-lg dark:bg-stone-700 dark:border-stone-600">
+                                        </div>
+                                    </div>
+                                    <div class="relative">
+                                        <label class="block text-[10px] font-bold text-stone-400 uppercase mb-1">Nom inscrit</label>
+                                        <input list="filter-users-list" id="filter-user-name" placeholder="Rechercher un client..." value="${f.userName}" oninput="app.handleAdminClassFilterChange('userName', this.value)" class="w-full p-2 pr-7 text-xs border border-stone-100 rounded-lg dark:bg-stone-700 dark:border-stone-600">
+                                        <datalist id="filter-users-list">
+                                            ${st.users.filter(u => u.role !== 'admin').map(u => `<option value="${u.firstName} ${u.lastName}">`).join('')}
+                                        </datalist>
+                                        ${f.userName ? `
+                                            <button 
+                                                type="button"
+                                                onclick="app.handleAdminClassFilterChange('userName', ''); document.getElementById('filter-user-name')?.focus();" 
+                                                class="absolute right-2 top-[22px] text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition-colors p-1"
+                                                title="Effacer"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-stone-400 uppercase mb-1">Type de cours</label>
+                                        <input list="filter-titles-list" placeholder="Sélectionner un cours..." value="${f.titles[0] || ''}" oninput="app.handleAdminClassFilterChange('titles', this.value ? [this.value] : [])" class="w-full p-2 text-xs border border-stone-100 rounded-lg dark:bg-stone-700 dark:border-stone-600">
+                                        <datalist id="filter-titles-list">
+                                            ${allTitles.map(t => `<option value="${t}">`).join('')}
+                                        </datalist>
+                                    </div>
+                                </div>
+                                ${Object.values(f).some(v => v !== '' && (!Array.isArray(v) || v.length > 0)) ? `
+                                    <button onclick="app.state.adminClassFilters = {startDate:'',endDate:'',startTime:'',endTime:'',titles:[],minBooked:'',maxBooked:'',userName:''}; app.render();" class="mt-4 text-[10px] text-stone-400 hover:text-red-500 underline uppercase tracking-tighter">
+                                        Réinitialiser tous les filtres
+                                    </button>
+                                ` : ''}
+                            </div>
+
                             ${st.adminTab === 'planning' ? `
-                            <div class="space-y-6">
                             <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
                                 <h2 class="text-xl font-medium mb-6 dark:text-stone-100">Ajouter un cours</h2>
-                                <form onsubmit="app.submitAddClass(event)" class="space-y-4">
+                                <form onsubmit="app.submitAddClass(event)" id="add-class-form" class="space-y-4">
                                     <div>
                                         <label class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Modèle de cours</label>
-                                        <select id="planning-template-select" onchange="app.applyTemplate()" class="w-full p-2 border border-stone-200 rounded-lg bg-stone-50 text-sm dark:bg-stone-700 dark:border-stone-600">
+                                        <select id="planning-template-select" onchange="app.handleAdminAddClassFormChange('templateId', this.value); app.applyTemplate();" class="w-full p-2 border border-stone-200 rounded-lg bg-stone-50 text-sm dark:bg-stone-700 dark:border-stone-600">
                                             <option value="">-- Sélectionner --</option>
-                                            ${st.courseTemplates.map(t => `<option value="${t.id}">${t.title}</option>`).join('')}
+                                            ${st.courseTemplates.map(t => `<option value="${t.id}" ${st.adminAddClassForm.templateId == t.id ? 'selected' : ''}>${t.title}</option>`).join('')}
                                         </select>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Date</label>
-                                        <input type="date" id="planning-date" required class="w-full p-2 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600 dark:[color-scheme:dark]">
+                                        <input type="date" id="planning-date" value="${st.adminAddClassForm.date}" oninput="app.handleAdminAddClassFormChange('date', this.value)" required class="w-full p-2 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600 dark:[color-scheme:dark]">
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Heure</label>
-                                        <input type="time" id="planning-time" required class="w-full p-2 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600 dark:[color-scheme:dark]">
+                                        <input type="time" id="planning-time" value="${st.adminAddClassForm.time}" oninput="app.handleAdminAddClassFormChange('time', this.value)" required class="w-full p-2 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600 dark:[color-scheme:dark]">
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Capacité</label>
-                                        <input type="number" id="planning-capacity" value="10" min="1" class="w-full p-2 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600">
+                                        <input type="number" id="planning-capacity" value="${st.adminAddClassForm.capacity}" oninput="app.handleAdminAddClassFormChange('capacity', this.value)" min="1" class="w-full p-2 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600">
+                                    </div>
+                                    <div>
+                                        <label class="flex items-center gap-2 cursor-pointer mb-2">
+                                            <input type="checkbox" id="planning-is-recurring" onchange="app.toggleAdminRecurring()" ${st.isAdminRecurring ? 'checked' : ''} class="w-4 h-4 text-emerald-600 rounded">
+                                            <span class="text-sm font-medium text-stone-700 dark:text-stone-200">Rendre ce cours récurrent</span>
+                                        </label>
+                                    </div>
+                                    <div id="recurring-fields" class="${st.isAdminRecurring ? '' : 'hidden'} space-y-4 p-4 bg-stone-50 rounded-xl border border-stone-100 dark:bg-stone-700/30 dark:border-stone-600 animate-fade-in">
+                                        <div>
+                                            <label class="block text-xs font-medium text-stone-500 mb-1 dark:text-stone-400">Fréquence</label>
+                                            <select id="planning-recurrence-type" onchange="app.handleAdminAddClassFormChange('recurrenceType', this.value)" class="w-full p-2 border border-stone-200 rounded-lg text-sm dark:bg-stone-700 dark:border-stone-600">
+                                                <option value="daily" ${st.adminAddClassForm.recurrenceType === 'daily' ? 'selected' : ''}>Quotidienne</option>
+                                                <option value="weekly" ${st.adminAddClassForm.recurrenceType === 'weekly' ? 'selected' : ''}>Hebdomadaire</option>
+                                                <option value="monthly" ${st.adminAddClassForm.recurrenceType === 'monthly' ? 'selected' : ''}>Mensuelle</option>
+                                                <option value="yearly" ${st.adminAddClassForm.recurrenceType === 'yearly' ? 'selected' : ''}>Annuelle</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-stone-500 mb-1 dark:text-stone-400">Jusqu'au (inclus)</label>
+                                            <input type="date" id="planning-recurrence-end" value="${st.adminAddClassForm.recurrenceEnd}" oninput="app.handleAdminAddClassFormChange('recurrenceEnd', this.value)" class="w-full p-2 border border-stone-200 rounded-lg text-sm dark:bg-stone-700 dark:border-stone-600 dark:[color-scheme:dark]">
+                                        </div>
                                     </div>
                                     <button type="submit" class="w-full py-3 bg-gradient-to-r from-emerald-700 to-emerald-900 text-white rounded-xl font-medium hover:shadow-lg transition-all active:scale-[0.98] dark:from-emerald-600 dark:to-emerald-800">Ajouter au planning</button>
                                     
                                     <!-- Champs cachés pour le template -->
-                                    <input type="hidden" id="planning-title">
-                                    <textarea id="planning-desc" class="hidden"></textarea>
-                                    <input type="hidden" id="planning-duration">
-                                    <input type="hidden" id="planning-credits-price">
+                                    <input type="hidden" id="planning-title" value="${st.adminAddClassForm.title}">
+                                    <textarea id="planning-desc" class="hidden">${st.adminAddClassForm.description}</textarea>
+                                    <input type="hidden" id="planning-duration" value="${st.adminAddClassForm.duration}">
+                                    <input type="hidden" id="planning-credits-price" value="${st.adminAddClassForm.creditsPrice}">
                                 </form>
                             </div>
 
@@ -146,11 +276,10 @@ export const adminView = (app) => {
                             </div>
                         ` : ''}
                         </div>
-                    </div>
-                ` : ''}
+                    ` : ''}
 
                 ${!st.isAdminAiLoading && st.adminTab === 'templates' ? `
-                    <div class="grid md:grid-cols-3 gap-8 animate-fade-in">
+                    <div class="md:col-span-9 grid md:grid-cols-3 gap-8 animate-fade-in">
                         <div class="md:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
                             <h2 class="text-xl font-medium text-stone-800 mb-6 dark:text-stone-100">Catalogue des cours</h2>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -205,7 +334,7 @@ export const adminView = (app) => {
                 ` : ''}
 
                 ${!st.isAdminAiLoading && st.adminTab === 'packages' ? `
-                    <div class="bg-white p-8 rounded-3xl shadow-sm border border-stone-100 animate-fade-in dark:bg-stone-800 dark:border-stone-700">
+                    <div class="md:col-span-9 bg-white p-8 rounded-3xl shadow-sm border border-stone-100 animate-fade-in dark:bg-stone-800 dark:border-stone-700">
                         <h2 class="text-xl font-medium text-stone-800 mb-6 dark:text-stone-100">Gestion des Tarifs (Packs de crédits)</h2>
                         <div class="space-y-6">
                             ${st.creditPackages.map(pkg => `
@@ -240,7 +369,7 @@ export const adminView = (app) => {
                 ` : ''}
 
                 ${!st.isAdminAiLoading && st.adminTab === 'users' ? `
-                    <div class="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden animate-fade-in dark:bg-stone-800 dark:border-stone-700">
+                    <div class="md:col-span-9 bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden animate-fade-in dark:bg-stone-800 dark:border-stone-700">
                         <div class="p-6 border-b border-stone-100 bg-stone-50 flex flex-col md:flex-row justify-between items-center gap-4 dark:bg-stone-800 dark:border-stone-700">
                             <h2 class="text-xl font-medium text-stone-800 dark:text-stone-100">Clients inscrits</h2>
                             <div class="relative w-full md:w-80">
@@ -302,8 +431,7 @@ export const adminView = (app) => {
                     const creditHistory = transactions.filter(t => t.type !== 'purchase');
                     const paymentHistory = transactions.filter(t => t.type === 'purchase');
 
-                    return `
-                    <div class="space-y-6 animate-fade-in">
+                    return `<div class="md:col-span-9 space-y-6 animate-fade-in">
                         <button onclick="app.setAdminTab('users')" class="flex items-center gap-2 text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200 mb-4">
                             ← Retour à la liste
                         </button>
@@ -429,7 +557,7 @@ export const adminView = (app) => {
                 })() : ''}
 
                 ${!st.isAdminAiLoading && st.adminTab === 'newsletter' ? `
-                    <div class="grid md:grid-cols-12 gap-8 animate-fade-in">
+                    <div class="md:col-span-9 grid md:grid-cols-12 gap-8 animate-fade-in">
                         <div class="md:col-span-7 bg-white p-8 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
                         <h2 class="text-xl font-medium text-stone-800 mb-6 flex items-center gap-2 dark:text-stone-100">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600 dark:text-emerald-400"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
@@ -497,7 +625,7 @@ export const adminView = (app) => {
                 ` : ''}
 
                 ${!st.isAdminAiLoading && st.adminTab === 'settings' ? `
-                    <div class="max-w-md bg-white p-8 rounded-3xl shadow-sm border border-stone-100 animate-fade-in dark:bg-stone-800 dark:border-stone-700">
+                    <div class="md:col-span-9 max-w-md bg-white p-8 rounded-3xl shadow-sm border border-stone-100 animate-fade-in dark:bg-stone-800 dark:border-stone-700">
                         <h2 class="text-xl font-medium text-stone-800 mb-6 dark:text-stone-100">Paramètres du Studio</h2>
                         <form onsubmit="app.updateStudioSettings(event)" class="space-y-4">
                             <div>
@@ -525,7 +653,6 @@ export const adminView = (app) => {
                         </form>
                     </div>
                 ` : ''}
-                    </div>
                 </div>
             </div>
         </div>`;

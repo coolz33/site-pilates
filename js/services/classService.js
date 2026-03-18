@@ -121,7 +121,8 @@ export const classService = {
 
     // Annulation par le client (Profil)
     async cancelBookingByUser(app, classId) { // Renommée pour éviter la confusion avec l'annulation admin
-        if (!confirm("Confirmer l'annulation de ce cours ?")) return;
+        const confirmed = await app.confirmDialog("Confirmer l'annulation de ce cours ?");
+        if (!confirmed) return;
         const res = await fetch(`${API_URL}/classes/cancel/${classId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -138,49 +139,145 @@ export const classService = {
 
     // Suppression par l'admin (Planning)
     async adminDeleteClass(app, id) {
-        if (confirm("Voulez-vous vraiment supprimer ce cours ?")) {
+        const cls = app.state.classes.find(c => c.id === id);
+        if (!cls) return;
+
+        if (cls.recurrence_id) {
+            const deleteAll = await app.confirmDialog(
+                "Cette séance fait partie d'une série récurrente.\n\nVoulez-vous supprimer TOUTE LA SÉRIE ou UNIQUEMENT CETTE SÉANCE ?",
+                { confirmText: 'Toute la série', cancelText: 'Uniquement cette séance' }
+            );
+            
+            if (deleteAll) {
+                const confirmAll = await app.confirmDialog("Confirmez-vous la suppression de TOUTES les séances de cette série ?", { type: 'danger' });
+                if (confirmAll) {
+                    await fetch(`${API_URL}/classes/series/${cls.recurrence_id}`, { method: 'DELETE' });
+                    app.showNotification("La série de cours a été supprimée.");
+                    app.init();
+                }
+                return;
+            }
+        }
+
+        const confirmSingle = await app.confirmDialog(cls.recurrence_id ? "Supprimer uniquement cette séance ?" : "Voulez-vous vraiment supprimer ce cours ?", { type: 'danger' });
+        if (confirmSingle) {
             await fetch(`${API_URL}/classes/${id}`, { method: 'DELETE' });
+            app.showNotification("Séance supprimée.");
             app.init();
+        }
+    },
+
+    async adminBulkDeleteClasses(app) {
+        const ids = app.state.selectedAdminClasses;
+        if (!ids || ids.length === 0) return;
+        
+        const confirmed = await app.confirmDialog(`Voulez-vous vraiment supprimer ces ${ids.length} séances sélectionnées ?`, { type: 'danger', confirmText: 'Supprimer' });
+        if (confirmed) {
+            try {
+                const res = await fetch(`${API_URL}/classes/bulk`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    app.showNotification(data.message || (ids.length > 1 ? `${ids.length} séances supprimées.` : "Séance supprimée.")); // Show success notification
+                    app.state.selectedAdminClasses = [];
+                    await app.init();
+                } else {
+                    app.showNotification(data.message || data.error || "Erreur lors de la suppression.", "error");
+                }
+            } catch (err) {
+                console.error(err);
+                app.showNotification("Erreur réseau lors de la suppression groupée.", "error");
+            }
         }
     },
 
     async submitAddClass(app, e) {
         e.preventDefault();
-        const title = document.getElementById('planning-title').value;
-        const date = document.getElementById('planning-date').value;
-        const time = document.getElementById('planning-time').value;
+        const form = app.state.adminAddClassForm;
+        const title = form.title;
+        const startDateStr = form.date;
+        const time = form.time;
 
         if (!title) return app.showNotification("Veuillez choisir un modèle de cours.", "error");
-        if (!date || !time) return app.showNotification("Veuillez saisir une date et une heure.", "error");
+        if (!startDateStr || !time) return app.showNotification("Veuillez saisir une date et une heure.", "error");
 
-        const newClass = {
+        const isRecurring = document.getElementById('planning-is-recurring').checked;
+        const recurrenceType = form.recurrenceType;
+        const endDateStr = form.recurrenceEnd;
+
+        if (isRecurring && !endDateStr) {
+            return app.showNotification("Veuillez saisir une date de fin pour la récurrence.", "error");
+        }
+
+        const baseClass = {
             title: title,
-            description: document.getElementById('planning-desc').value,
-            date: date,
+            description: form.description,
             time: time,
-            duration: parseInt(document.getElementById('planning-duration').value) || 0,
-            capacity: parseInt(document.getElementById('planning-capacity').value) || 10,
-            credits_price: parseInt(document.getElementById('planning-credits-price').value) || 1,
+            duration: parseInt(form.duration) || 0,
+            capacity: parseInt(form.capacity) || 10,
+            credits_price: parseInt(form.creditsPrice) || 1,
             bookedUsers: []
         };
-        await fetch(`${API_URL}/classes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newClass)
-        });
-        app.showNotification("Séance ajoutée.");
+
+        const recurrenceId = isRecurring ? `rec_${Date.now()}_${Math.random().toString(36).substr(2, 5)}` : null;
+
+        const datesToCreate = [startDateStr];
+
+        if (isRecurring && endDateStr) {
+            const start = new Date(startDateStr);
+            const end = new Date(endDateStr);
+            let current = new Date(start);
+
+            while (true) {
+                if (recurrenceType === 'daily') current.setDate(current.getDate() + 1);
+                else if (recurrenceType === 'weekly') current.setDate(current.getDate() + 7);
+                else if (recurrenceType === 'monthly') current.setMonth(current.getMonth() + 1);
+                else if (recurrenceType === 'yearly') current.setFullYear(current.getFullYear() + 1);
+
+                if (current > end) break;
+                
+                const y = current.getFullYear();
+                const m = String(current.getMonth() + 1).padStart(2, '0');
+                const d = String(current.getDate()).padStart(2, '0');
+                datesToCreate.push(`${y}-${m}-${d}`);
+            }
+        }
+
+        if (datesToCreate.length > 50) {
+            const confirmed = await app.confirmDialog(`Vous allez créer ${datesToCreate.length} séances.\n\nÊtes-vous sûr de vouloir continuer ?`);
+            if (!confirmed) return;
+        }
+
+        try {
+            for (const date of datesToCreate) {
+                await fetch(`${API_URL}/classes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...baseClass, date, recurrence_id: recurrenceId })
+                });
+            }
+            app.showNotification(datesToCreate.length > 1 ? `${datesToCreate.length} séances ajoutées.` : "Séance ajoutée.");
+            app.state.isAdminRecurring = false; // Réinitialiser après succès
+        } catch (err) {
+            app.showNotification("Erreur lors de la création.", "error");
+        }
+
         app.init();
     },
 
     applyTemplate(app) {
         const templateId = document.getElementById('planning-template-select').value;
         if (!templateId) return;
-        const t = app.state.courseTemplates.find(x => x.id == templateId);
+        const t = app.state.courseTemplates.find(x => x.id == templateId); // Utilisation de == pour la comparaison
         if (!t) return;
-        document.getElementById('planning-title').value = t.title;
-        document.getElementById('planning-desc').value = t.description;
-        document.getElementById('planning-duration').value = t.duration;
-        document.getElementById('planning-credits-price').value = t.default_credits_price || 1;
+        app.state.adminAddClassForm.title = t.title;
+        app.state.adminAddClassForm.description = t.description;
+        app.state.adminAddClassForm.duration = t.duration;
+        app.state.adminAddClassForm.creditsPrice = t.default_credits_price || 1;
+        app.render(); // Re-render pour mettre à jour les champs du formulaire
     },
 
     editTemplate(app, id) {
@@ -194,7 +291,8 @@ export const classService = {
     },
 
     async deleteTemplate(app, id) {
-        if (!confirm("Voulez-vous vraiment supprimer ce modèle ? Tous les cours planifiés avec ce nom seront également supprimés.")) return;
+        const confirmed = await app.confirmDialog("Voulez-vous vraiment supprimer ce modèle ?\n\nTous les cours planifiés avec ce nom seront également supprimés.", { type: 'danger', confirmText: 'Supprimer' });
+        if (!confirmed) return;
         
         const res = await fetch(`${API_URL}/course-templates/${id}`, { method: 'DELETE' });
         if (res.ok) app.showNotification("Modèle et cours associés supprimés.");
@@ -226,7 +324,8 @@ export const classService = {
 
     // Annulation par l'administrateur (depuis le détail client)
     async adminCancelBookingForUser(app, classId, targetUserId) {
-        if (!confirm("Voulez-vous vraiment annuler cette réservation pour ce client ? Le client sera remboursé de ses crédits.")) return;
+        const confirmed = await app.confirmDialog("Voulez-vous vraiment annuler cette réservation pour ce client ?\n\nLe client sera remboursé de ses crédits.", { type: 'danger' });
+        if (!confirmed) return;
         try {
             const res = await fetch(`${API_URL}/classes/cancel/${classId}`, {
                 method: 'POST',

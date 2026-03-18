@@ -53,7 +53,8 @@ const seedDB = async () => {
                 duration INT,
                 capacity INT,
                 credits_price INT DEFAULT 1,
-                description TEXT
+                description TEXT,
+                recurrence_id VARCHAR(50) DEFAULT NULL
             )
         `);
 
@@ -124,6 +125,7 @@ const seedDB = async () => {
         try { await pool.query(`ALTER TABLE users ADD COLUMN newsletter_subscribed BOOLEAN DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE settings ADD COLUMN cancellationDelay INT DEFAULT 24`); } catch (e) {}
         try { await pool.query(`ALTER TABLE settings ADD COLUMN aiProvider VARCHAR(50) DEFAULT 'gemini'`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE classes ADD COLUMN recurrence_id VARCHAR(50) DEFAULT NULL`); } catch (e) {}
         // Migration des anciens noms vers les nouveaux si nécessaire
         try { await pool.query(`ALTER TABLE users CHANGE points_balance credits_balance INT DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE classes CHANGE points_price credits_price INT DEFAULT 1`); } catch (e) {}
@@ -568,11 +570,11 @@ const handleRequest = async (req, res) => {
 
         if (method === 'GET' && path === '/classes') {
             const [rows] = await pool.query(`
-                SELECT c.id, c.title, DATE_FORMAT(c.date, '%Y-%m-%d') as date, c.time, c.duration, c.capacity, c.credits_price, c.description, 
+                SELECT c.id, c.title, DATE_FORMAT(c.date, '%Y-%m-%d') as date, c.time, c.duration, c.capacity, c.credits_price, c.description, c.recurrence_id,
                 GROUP_CONCAT(b.user_id) as bookedUsersStr 
                 FROM classes c 
                 LEFT JOIN bookings b ON c.id = b.class_id 
-                GROUP BY c.id, c.title, c.date, c.time, c.duration, c.capacity, c.credits_price, c.description
+                GROUP BY c.id, c.title, c.date, c.time, c.duration, c.capacity, c.credits_price, c.description, c.recurrence_id
             `);
             
             const classes = rows.map(c => {
@@ -584,12 +586,27 @@ const handleRequest = async (req, res) => {
         }
 
         if (method === 'POST' && path === '/classes') {
-            const { title, date, time, duration, capacity, credits_price, description } = req.body;
+            const { title, date, time, duration, capacity, credits_price, description, recurrence_id } = req.body;
             const [result] = await pool.query(
-                'INSERT INTO classes (title, date, time, duration, capacity, credits_price, description) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [title, date, time, duration, capacity, credits_price, description]
+                'INSERT INTO classes (title, date, time, duration, capacity, credits_price, description, recurrence_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [title, date, time, duration, capacity, credits_price, description, recurrence_id || null]
             );
             return send(200, { id: result.insertId, ...req.body, bookedUsers: [] });
+        }
+
+        console.log(`[API DEBUG] Checking route: ${method} ${path}`); // Ajout d'un log de débogage
+        if (method === 'DELETE' && path === '/classes/bulk') {
+            const { ids } = req.body;
+            if (!ids || !ids.length) return send(400, { success: false, message: 'Aucun cours sélectionné' });
+            await pool.query('DELETE FROM classes WHERE id IN (?)', [[...ids]]);
+            return send(200, { success: true, message: 'Séances supprimées' });
+        }
+
+        const deleteSeriesMatch = path.match(/^\/classes\/series\/(.+)$/);
+        if (method === 'DELETE' && deleteSeriesMatch) {
+            const rid = decodeURIComponent(deleteSeriesMatch[1]);
+            await pool.query('DELETE FROM classes WHERE recurrence_id = ?', [rid]);
+            return send(200, { success: true, message: 'Série de cours supprimée' });
         }
 
         const deleteClassMatch = path.match(/^\/classes\/(\d+)$/);

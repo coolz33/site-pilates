@@ -20,7 +20,7 @@ import { legalView } from './js/views/legal.js';
 import { scheduleView } from './js/views/schedule.js';
 import { paymentSuccessView } from './js/views/paymentSuccess.js';
 import { adminView } from './js/views/admin.js';
-import { renderNavbar, renderFooter, renderPaymentModal, renderCalendarModal } from './js/views/components.js';
+import { renderNavbar, renderFooter, renderPaymentModal, renderCalendarModal, renderConfirmModal } from './js/views/components.js';
 
 /**
  * Classe PilatesApp
@@ -72,8 +72,41 @@ class PilatesApp {
             adminUserQuill: null,
             adminUserMessageContent: '',
             isSendingAdminMessage: false, // Nouvelle propriété pour gérer l'état d'envoi du message admin
+            adminAddClassForm: { // État pour le formulaire d'ajout de cours
+                templateId: '',
+                title: '',
+                description: '',
+                date: '',
+                time: '',
+                duration: 60,
+                capacity: 10,
+                creditsPrice: 1,
+                recurrenceType: 'weekly',
+                recurrenceEnd: ''
+            },
+            isAdminRecurring: false, // État persistant pour l'affichage de la récurrence
+            adminClassFilters: {
+                startDate: '',
+                endDate: '',
+                startTime: '',
+                endTime: '',
+                titles: [],
+                minBooked: '',
+                maxBooked: '',
+                userName: ''
+            },
+            selectedAdminClasses: [], // IDs des séances sélectionnées pour action groupée
             userSearchQuery: '', // Requête pour le filtrage dynamique des clients
-            cookieNoticeAccepted: localStorage.getItem('pilates_cookie_accepted') === 'true'
+            cookieNoticeAccepted: localStorage.getItem('pilates_cookie_accepted') === 'true',
+            confirmModal: {
+                isOpen: false,
+                message: '',
+                onConfirm: null,
+                onCancel: null,
+                confirmText: 'Confirmer',
+                cancelText: 'Annuler',
+                type: 'warning'
+            }
         };
         this.lastView = null;
         // Bind 'this' to methods that are used as event handlers
@@ -156,6 +189,20 @@ class PilatesApp {
         this.state.aiResponse = '';
         this.state.userSearchQuery = '';
         this.state.showCalendarModal = false;
+        this.state.selectedAdminClasses = [];
+        // Reset admin add class form on init
+        this.state.adminAddClassForm = {
+            templateId: '',
+            title: '',
+            description: '',
+            date: '',
+            time: '',
+            duration: 60,
+            capacity: 10,
+            creditsPrice: 1,
+            recurrenceType: 'weekly',
+            recurrenceEnd: ''
+        };
         this.state.classForCalendar = null;
         
         // Sécurité : scroller en haut seulement si on n'est pas dans un popup
@@ -261,8 +308,23 @@ class PilatesApp {
         this.render();
     }
 
+    handleAdminAddClassFormChange(key, value) {
+        this.state.adminAddClassForm[key] = value;
+        this.render();
+    }
+
+    toggleAdminRecurring() {
+        this.state.isAdminRecurring = !this.state.isAdminRecurring;
+        if (!this.state.isAdminRecurring) { // Si la récurrence est désactivée, on nettoie les champs associés
+            this.state.adminAddClassForm.recurrenceType = 'weekly';
+            this.state.adminAddClassForm.recurrenceEnd = '';
+        }
+        this.render();
+    }
+
     setAdminTab(tab) {
         this.state.adminTab = tab;
+        this.state.selectedAdminClasses = []; // Reset selection on tab change
         if (tab === 'newsletter') {
             this.state.selectedNewsletterRecipients = this.state.users
                 .filter(u => Number(u.newsletter_subscribed) === 1 && u.role !== 'admin')
@@ -329,6 +391,53 @@ class PilatesApp {
         this.switchTheme(newTheme, element);
     }
 
+    confirmDialog(message, options = {}) {
+        return new Promise((resolve) => {
+            this.state.confirmModal = {
+                isOpen: true,
+                message,
+                confirmText: options.confirmText || 'Confirmer',
+                cancelText: options.cancelText || 'Annuler',
+                type: options.type || 'warning',
+                onConfirm: () => {
+                    this.state.confirmModal.isOpen = false;
+                    this.render();
+                    resolve(true);
+                },
+                onCancel: () => {
+                    this.state.confirmModal.isOpen = false;
+                    this.render();
+                    resolve(false);
+                }
+            };
+            this.render();
+        });
+    }
+
+    handleAdminClassFilterChange(key, value) {
+        this.state.adminClassFilters[key] = value;
+        this.render();
+    }
+
+    handleAdminClassTitleToggle(title) {
+        const idx = this.state.adminClassFilters.titles.indexOf(title);
+        if (idx > -1) this.state.adminClassFilters.titles.splice(idx, 1);
+        else this.state.adminClassFilters.titles.push(title);
+        this.render();
+    }
+
+    toggleAdminClassSelection(id) {
+        const idx = this.state.selectedAdminClasses.indexOf(id);
+        if (idx > -1) this.state.selectedAdminClasses.splice(idx, 1);
+        else this.state.selectedAdminClasses.push(id);
+        this.render();
+    }
+
+    toggleAllAdminClasses(checked, ids) {
+        this.state.selectedAdminClasses = checked ? [...ids] : [];
+        this.render();
+    }
+
     acceptCookies() {
         localStorage.setItem('pilates_cookie_accepted', 'true');
         this.state.cookieNoticeAccepted = true;
@@ -353,8 +462,11 @@ class PilatesApp {
 
     async deleteAccount(userId, isAdmin = false) {
         const msg1 = isAdmin ? "Voulez-vous vraiment supprimer ce compte client ?" : "Êtes-vous sûr de vouloir supprimer votre compte ?";
-        if (!confirm(`⚠️ ${msg1} Cette action est irréversible.`)) return;
-        if (!confirm("🛑 DERNIER AVERTISSEMENT : Toutes les données seront effacées. Confirmer ?")) return;
+        const confirmed1 = await this.confirmDialog(msg1 + "\n\nCette action est irréversible.", { type: 'danger', confirmText: 'Supprimer' });
+        if (!confirmed1) return;
+        
+        const confirmed2 = await this.confirmDialog("DERNIER AVERTISSEMENT : Toutes les données (crédits, réservations, historique) seront définitivement effacées du serveur.\n\nConfirmer la suppression ?", { type: 'danger', confirmText: 'Supprimer définitivement' });
+        if (!confirmed2) return;
 
         try {
             const res = await fetch(`${API_URL}/users/${userId}`, { method: 'DELETE' });
@@ -429,6 +541,7 @@ class PilatesApp {
     async deleteClass(id) { await classService.cancelBookingByUser(this, id); }
     async adminCancelBookingForUser(classId, userId) { await classService.adminCancelBookingForUser(this, classId, userId); }
     async adminDeleteClass(id) { await classService.adminDeleteClass(this, id); }
+    async adminBulkDeleteClasses() { await classService.adminBulkDeleteClasses(this); }
     async generateAdminDescription() { await aiService.generateAdminDescription(this); }
     async submitAddClass(e) { await classService.submitAddClass(this, e); }
     applyTemplate() { classService.applyTemplate(this); }
@@ -475,6 +588,7 @@ class PilatesApp {
 
         renderPaymentModal(this, mainContainer);
         renderCalendarModal(this);
+        renderConfirmModal(this);
         this.renderCookieBanner();
 
         // Restauration du focus et du curseur après le rendu
