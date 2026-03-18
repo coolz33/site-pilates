@@ -20,7 +20,7 @@ import { legalView } from './js/views/legal.js';
 import { scheduleView } from './js/views/schedule.js';
 import { paymentSuccessView } from './js/views/paymentSuccess.js';
 import { adminView } from './js/views/admin.js';
-import { renderNavbar, renderFooter, renderPaymentModal } from './js/views/components.js';
+import { renderNavbar, renderFooter, renderPaymentModal, renderCalendarModal } from './js/views/components.js';
 
 /**
  * Classe PilatesApp
@@ -49,6 +49,8 @@ class PilatesApp {
             selectedClassForPayment: null,
             modalMessage: null,
             editingTemplateId: null,
+            showCalendarModal: false, // Nouvelle propriété pour contrôler l'affichage du modal calendrier
+            classForCalendar: null,   // Nouvelle propriété pour stocker les détails du cours à ajouter au calendrier
             notification: { message: '', type: 'success', visible: false },
             isVerifyingEmail: false, // True when waiting for email code
             resendCodeTimer: 0,      // Countdown for resend button
@@ -72,8 +74,11 @@ class PilatesApp {
             isSendingAdminMessage: false, // Nouvelle propriété pour gérer l'état d'envoi du message admin
             cookieNoticeAccepted: localStorage.getItem('pilates_cookie_accepted') === 'true'
         };
+        this.lastView = null;
         // Bind 'this' to methods that are used as event handlers
         this.handleRouteChange = this.handleRouteChange.bind(this);
+        this.openCalendarModal = this.openCalendarModal.bind(this);
+        this.closeCalendarModal = this.closeCalendarModal.bind(this);
     }
 
     /**
@@ -148,6 +153,8 @@ class PilatesApp {
         this.state.resendCodeTimer = 0;
         this.state.isMenuOpen = false;
         this.state.aiResponse = '';
+        this.state.showCalendarModal = false;
+        this.state.classForCalendar = null;
         
         // Sécurité : scroller en haut seulement si on n'est pas dans un popup
         if (!window.opener) {
@@ -170,20 +177,16 @@ class PilatesApp {
         }
 
         // Determine the view based on pathname
-        // Pour le NAS : on récupère uniquement le dernier segment de l'URL
         const segments = path.split('/').filter(Boolean);
         let view = segments.length > 0 ? segments[segments.length - 1] : 'accueil';
 
         // Handle reset-password token
         if (view === 'reset-password' && queryParams.has('token')) {
             this.state.resetPasswordToken = queryParams.get('token');
-            // Clean the token from the URL after reading it, but keep the path
             history.replaceState(null, '', window.location.pathname);
         } else if (view === 'reset-password' && !queryParams.has('token')) {
-            // If navigating to /reset-password without a token, ensure token is null
             this.state.resetPasswordToken = null;
         } else {
-            // For any other view, ensure resetPasswordToken is null
             this.state.resetPasswordToken = null;
         }
 
@@ -192,7 +195,7 @@ class PilatesApp {
         if (this.state.view === 'planning') this.state.currentDate = new Date();
 
         try {
-            // Ajout d'un contrôleur d'abandon pour éviter le chargement infini (utile sur NAS)
+            console.log("[APP] Chargement des données initiales...");
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 secondes max
 
@@ -217,7 +220,6 @@ class PilatesApp {
             this.state.studioPhone = results[0].studioPhone || '';
             this.state.studioEmail = results[0].studioEmail || '';
             this.state.cancellationDelay = results[0].cancellationDelay || 24;
-            this.state.aiProvider = results[0].aiProvider || 'gemini';
             this.state.classes = results[1] || [];
             this.state.courseTemplates = results[2] || [];
             this.state.creditPackages = results[3] || [];
@@ -232,57 +234,34 @@ class PilatesApp {
                     this.state.users = results[5] || [];
                 }
             }
-        } catch (err) {
-            console.error("[APP] Erreur critique au chargement des données:", err);
-            if (err.name === 'AbortError') {
-                this.showNotification("Le serveur met trop de temps à répondre.", "error");
-            }
+        } catch (e) {
+            console.error("[APP] Erreur critique au démarrage:", e);
+            this.showNotification("Erreur de connexion au serveur (Timeout).", "error");
         }
 
         this.render();
     }
 
-    /**
-     * Change la vue active et réinitialise certains états.
-     * @param {string} view - L'identifiant de la vue (ex: 'home', 'schedule').
-     */
     navigate(view) {
         const currentPath = window.location.pathname.replace(/^\/+|\/+$/g, '') || 'accueil';
         if (currentPath === view) {
-            // Si on est déjà sur la vue, on force la fermeture du menu et le scroll en haut
             this.state.isMenuOpen = false;
             window.scrollTo(0, 0);
             this.render();
         } else {
             history.pushState(null, '', `/${view}`);
-            this.handleRouteChange(); // Manuellement appeler le gestionnaire pour pushState
+            this.handleRouteChange();
         }
     }
 
-    /**
-     * Change l'onglet actif dans le profil utilisateur.
-     * @param {string} tab - L'identifiant de l'onglet ('infos', 'sessions', 'payments').
-     */
     setProfileTab(tab) {
         this.state.profileTab = tab;
         this.render();
     }
 
-    /**
-     * Change l'onglet admin et initialise la liste des destinataires si newsletter.
-     */
-    async setAdminTab(tab) {
+    setAdminTab(tab) {
         this.state.adminTab = tab;
-        if (tab === 'users') {
-            try {
-                const res = await fetch(`${API_URL}/users`);
-                if (res.ok) {
-                    this.state.users = await res.json();
-                }
-            } catch (e) { console.error("[ADMIN] Refresh error:", e); }
-        }
         if (tab === 'newsletter') {
-            // Par défaut, on sélectionne ceux qui ont coché la case
             this.state.selectedNewsletterRecipients = this.state.users
                 .filter(u => Number(u.newsletter_subscribed) === 1 && u.role !== 'admin')
                 .map(u => u.id);
@@ -290,52 +269,25 @@ class PilatesApp {
         this.render();
     }
 
-    /** 
-     * Ouvre ou ferme le menu de navigation sur mobile.
-     */
     toggleMenu() {
         this.state.isMenuOpen = !this.state.isMenuOpen;
         this.render();
     }
 
-    /**
-     * Affiche un message d'information ou d'erreur à l'utilisateur.
-     * @param {string} message - Texte à afficher.
-     * @param {string} [type='success'] - Type de notification ('success' ou 'error').
-     */
     showNotification(message, type = 'success') {
         this.state.notification = { message, type, visible: true };
-        this.renderNotification();
+        this.render();
         
         setTimeout(() => {
             this.state.notification.visible = false;
-            this.renderNotification();
+            this.render();
         }, 3000);
     }
 
-    renderNotification() {
-        let container = document.getElementById('notification-toast');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'notification-toast';
-            document.body.appendChild(container);
-        }
-        const { message, type, visible } = this.state.notification;
-        container.className = `fixed top-6 left-1/2 -translate-x-1/2 z-[200] transition-all duration-500 transform ${visible ? 'translate-y-0 opacity-100' : '-translate-y-8 opacity-0 pointer-events-none'}`;
-        const bgColor = type === 'success' ? 'bg-emerald-600' : 'bg-rose-600';
-        container.innerHTML = `
-            <div class="${bgColor} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3">
-                ${type === 'success' ? '✅' : '⚠️'} <span>${message}</span>
-            </div>
-        `;
-    }
-
-    /** @section Helpers de validation */
     validateEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
     validatePhone(phone) { return /^(\+33|0)[1-9][0-9]{8}$/.test(phone.replace(/\s/g, '')); }
     validatePassword(pwd) { return pwd.length >= 5; }
 
-    /** @section Theme Management */
     applyTheme(theme) {
         this.state.theme = theme;
         if (theme === 'dark') {
@@ -344,14 +296,11 @@ class PilatesApp {
             document.documentElement.classList.remove('dark');
         }
         localStorage.setItem('pilates_theme', theme);
-        this.render(); // Re-render to update icons etc.
+        this.render();
     }
 
     async switchTheme(theme, element) {
-        if (
-          !document.startViewTransition ||
-          window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ) {
+        if (!document.startViewTransition || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
           this.applyTheme(theme);
           return;
         }
@@ -359,9 +308,7 @@ class PilatesApp {
         const { top, left, width, height } = element.getBoundingClientRect();
         const x = left + width / 2;
         const y = top + height / 2;
-        const right = window.innerWidth - x;
-        const bottom = window.innerHeight - y;
-        const radius = Math.hypot(Math.max(x, right), Math.max(y, bottom));
+        const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
     
         const transition = document.startViewTransition(() => {
           this.applyTheme(theme);
@@ -380,9 +327,6 @@ class PilatesApp {
         this.switchTheme(newTheme, element);
     }
 
-    /**
-     * Accepte la notice d'information sur le stockage local.
-     */
     acceptCookies() {
         localStorage.setItem('pilates_cookie_accepted', 'true');
         this.state.cookieNoticeAccepted = true;
@@ -393,15 +337,7 @@ class PilatesApp {
     changeWeek(offset) { classService.changeWeek(this, offset); }
     jumpToDate(dateString) { classService.jumpToDate(this, dateString); }
     initiateBooking(classId) { classService.initiateBooking(this, classId); }
-    async confirmPayment(e) { 
-        if (e) e.preventDefault();
-        const cls = this.state.selectedClassForPayment;
-        if (this.state.paymentMethod === 'credits' && cls && this.state.currentUser.credits_balance < cls.credits_price) {
-            this.showNotification("Crédits insuffisants.", "error");
-            return;
-        }
-        await classService.confirmPayment(this, e); 
-    }
+    async confirmPayment(e) { await classService.confirmPayment(this, e); }
     cancelPayment() { classService.cancelPayment(this); }
     async sendNewsletter(e) { await newsletterService.sendNewsletter(this, e); }
     toggleNewsletterRecipient(userId) { newsletterService.toggleNewsletterRecipient(this, userId); }
@@ -413,87 +349,52 @@ class PilatesApp {
     async updatePackage(e, id) { await userService.updatePackage(this, e, id); }
     async createPackage(e) { await userService.createPackage(this, e); }
 
-    /**
-     * Supprime définitivement un compte utilisateur avec double confirmation.
-     */
     async deleteAccount(userId, isAdmin = false) {
         const msg1 = isAdmin ? "Voulez-vous vraiment supprimer ce compte client ?" : "Êtes-vous sûr de vouloir supprimer votre compte ?";
         if (!confirm(`⚠️ ${msg1} Cette action est irréversible.`)) return;
-        
-        if (!confirm("🛑 DERNIER AVERTISSEMENT : Toutes les données (crédits, réservations, historique) seront définitivement effacées du serveur. Confirmer la suppression ?")) return;
+        if (!confirm("🛑 DERNIER AVERTISSEMENT : Toutes les données seront effacées. Confirmer ?")) return;
 
         try {
             const res = await fetch(`${API_URL}/users/${userId}`, { method: 'DELETE' });
-            const data = await res.json();
-            
-            if (data.success || res.ok) {
+            if (res.ok) {
                 this.showNotification("Le compte a été supprimé définitivement.");
-                if (!isAdmin) {
-                    this.logout();
-                } else {
+                if (!isAdmin) this.logout();
+                else {
                     this.state.selectedUserDetails = null;
                     this.state.adminTab = 'users';
-                    const resUsers = await fetch(`${API_URL}/users`);
-                    this.state.users = await resUsers.json() || [];
-                    this.render();
+                    this.init();
                 }
-            } else {
-                this.showNotification(data.message || "Erreur lors de la suppression", "error");
             }
-        } catch (err) {
-            this.showNotification("Erreur technique lors de la suppression.", "error");
-        }
+        } catch (err) { this.showNotification("Erreur lors de la suppression.", "error"); }
     }
 
-    /**
-     * Relance l'envoi du code de vérification par email.
-     */
     async resendVerificationCode() {
         if (this.state.resendCodeTimer > 0 || !this.state.registrationData?.email) return;
-
-        this.state.resendCodeTimer = 60; // Start 60-second countdown
+        this.state.resendCodeTimer = 60;
         this.state.resendCodeInterval = setInterval(() => {
             this.state.resendCodeTimer--;
-            if (this.state.resendCodeTimer <= 0) {
-                clearInterval(this.state.resendCodeInterval);
-                this.state.resendCodeInterval = null;
-            }
-            this.render(); // Re-render to update button text
+            if (this.state.resendCodeTimer <= 0) clearInterval(this.state.resendCodeInterval);
+            this.render();
         }, 1000);
-
         try {
             await authService.sendVerificationCode(this, this.state.registrationData.email);
             this.showNotification("Nouveau code envoyé !");
-        } catch (err) {
-            this.showNotification("Erreur lors du renvoi du code.", "error");
-        }
+        } catch (err) { this.showNotification("Erreur lors du renvoi.", "error"); }
     }
 
-    /**
-     * Annule la vérification d'inscription et revient au formulaire initial.
-     */
     cancelRegistrationVerification() {
         this.state.isVerifyingEmail = false;
-        // On ne vide pas registrationData pour que les champs soient pré-remplis si l'utilisateur revient
-        // this.state.registrationData = null;
         clearInterval(this.state.resendCodeInterval);
         this.state.resendCodeTimer = 0;
-        this.state.resendCodeInterval = null;
-        this.render(); // Utilise render pour revenir à l'état initial
-        this.showNotification("Vérification annulée. Veuillez réessayer.", "error");
+        this.render();
+        this.showNotification("Vérification annulée.", "error");
     }
 
-    /**
-     * Rend spécifiquement la vue d'authentification.
-     * Permet de basculer entre l'inscription et la saisie du code sans recharger tout le site.
-     */
     renderAuthView() {
         const mainContainer = document.getElementById('main');
         const v = this.state.view;
         if (mainContainer && (v === 'connexion' || v === 'inscription' || v === 'reset-password')) {
-            // On injecte le HTML de la vue auth
             mainContainer.innerHTML = authView(this, v);
-            // On attache les écouteurs d'événements sur les nouveaux éléments du DOM
             authService.attachAuthEvents(this, v);
         }
     }
@@ -501,64 +402,43 @@ class PilatesApp {
     async viewUser(userId) {
         try {
             this.state.isAdminAiLoading = true;
-            this.state.adminUserQuill = null; // Détruire la référence à l'ancienne instance
-            this.state.adminUserMessageContent = ''; // Vider le contenu du message précédent
+            this.state.adminUserQuill = null;
+            this.state.adminUserMessageContent = '';
             this.render();
             const details = await userService.getUserDetails(this, userId);
-            
-            // Correction : on gère aussi 'error' (500) et on vérifie que les données sont complètes
-            if (details.message || details.error) {
-                throw new Error(details.message || details.error);
-            }
-            
+            if (details.message || details.error) throw new Error(details.message || details.error);
             this.state.selectedUserDetails = details;
             this.state.adminTab = 'user_details';
         } catch (err) {
-            console.error("Erreur chargement client:", err);
-            this.showNotification("Impossible de charger les détails du client.", "error");
+            this.showNotification("Impossible de charger les détails.", "error");
         } finally {
             this.state.isAdminAiLoading = false;
             this.render();
         }
     }
+
     async adjustCredits(e, userId) { await userService.adjustCredits(this, e, userId); }
-    async sendUserMessage(e, userId) {
-        e.preventDefault(); // Empêche le rechargement de la page
-        this.state.isSendingAdminMessage = true;
-        // On ne re-render pas ici pour éviter de détruire l'instance Quill avant l'envoi
-        // Le bouton sera désactivé via l'état isSendingAdminMessage dans le HTML
-        try {
-            await userService.sendUserMessage(this, e, userId);
-        } finally {
-            this.state.isSendingAdminMessage = false;
-            this.render(); // Met à jour l'interface pour réactiver le bouton
-        }
-    }
-    async askAi() { await aiService.askAi(this); } // Pour le profil utilisateur
-    async deleteClass(id) { await classService.cancelBookingByUser(this, id); } // Pour le profil utilisateur
-    async adminDeleteClass(id) { await classService.adminDeleteClass(this, id); } // Pour l'admin
-    async adminCancelBookingForUser(classId, userId) { await classService.adminCancelBookingForUser(this, classId, userId); } // Pour l'admin annuler une réservation client
+    async sendUserMessage(e, userId) { await userService.sendUserMessage(this, e, userId); }
+    async askAi() { await aiService.askAi(this); }
+    async deleteClass(id) { await classService.cancelBookingByUser(this, id); }
+    async adminCancelBookingForUser(classId, userId) { await classService.adminCancelBookingForUser(this, classId, userId); }
+    async adminDeleteClass(id) { await classService.adminDeleteClass(this, id); }
     async generateAdminDescription() { await aiService.generateAdminDescription(this); }
     async submitAddClass(e) { await classService.submitAddClass(this, e); }
     applyTemplate() { classService.applyTemplate(this); }
     editTemplate(id) { classService.editTemplate(this, id); }
     cancelEditTemplate() { classService.cancelEditTemplate(this); }
-    async deleteTemplate(id) { await classService.deleteTemplate(this, id); }
     async saveAsTemplate() { await classService.saveAsTemplate(this); }
 
-    /** 
-     * Fonction maîtresse de rendu. 
-     * Analyse l'état actuel pour afficher la bonne vue et les composants globaux.
-     */
     render() {
         renderNavbar(this);
         renderFooter(this);
         
-        const mainContainer = document.getElementById('main'); // Ensure mainContainer is defined
+        const mainContainer = document.getElementById('main');
         const v = this.state.view;
 
         if (v === 'connexion' || v === 'inscription' || v === 'reset-password') {
-            this.renderAuthView(); // Utilise la nouvelle fonction pour l'auth
+            this.renderAuthView();
         } else {
             const viewMap = {
                 accueil: homeView,
@@ -569,71 +449,45 @@ class PilatesApp {
                 planning: scheduleView,
                 'paiement-succes': paymentSuccessView,
                 administration: adminView,
-                'mentions-legales': (app) => legalView(app, 'mentions-legales'), // Keep these views
-                'politique-confidentialite': (app) => legalView(app, 'politique-confidentialite'), // Keep these views
+                'mentions-legales': (app) => legalView(app, 'mentions-legales'),
+                'politique-confidentialite': (app) => legalView(app, 'politique-confidentialite'),
             };
-            mainContainer.innerHTML = viewMap[v] ? viewMap[v](this) : '';
+            let html = viewMap[v] ? viewMap[v](this) : '';
+            
+            // Si on est déjà sur la même vue (changement d'onglet ou fermeture modal),
+            // on neutralise les animations pour éviter de rejouer les effets d'apparition.
+            if (v === this.lastView) {
+                html = html.replace(/animate-(fade-in|slide-up|bounce|pulse)/g, ' ');
+            }
+            mainContainer.innerHTML = html;
         }
 
         renderPaymentModal(this, mainContainer);
+        renderCalendarModal(this);
         this.renderCookieBanner();
 
-        // Initialisation de Quill pour la newsletter
-        if (v === 'administration' && this.state.adminTab === 'newsletter' && !this.state.isHtmlView && typeof Quill !== 'undefined') {
-            const editorContainer = document.getElementById('nl-editor');
-            if (editorContainer) {
-                this.state.quill = new Quill('#nl-editor', {
-                    theme: 'snow',
-                    modules: {
-                        toolbar: [
-                            [{ 'header': [1, 2, 3, false] }],
-                            ['bold', 'italic', 'underline', 'strike'],
-                            [{ 'color': [] }, { 'background': [] }],
-                            [{ 'align': [] }],
-                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                            ['link', 'image', 'clean']
-                        ]
-                    },
-                    placeholder: 'Rédigez votre message ici...'
-                });
+        this.lastView = v;
 
-                // Restaurer le contenu sauvegardé
-                if (this.state.newsletterContent) {
-                    this.state.quill.root.innerHTML = this.state.newsletterContent;
+        // Initialisation de Quill (Administration)
+        if (v === 'administration' && typeof Quill !== 'undefined') {
+            if (this.state.adminTab === 'newsletter' && !this.state.isHtmlView) {
+                const editorContainer = document.getElementById('nl-editor');
+                if (editorContainer) {
+                    this.state.quill = new Quill('#nl-editor', { theme: 'snow', placeholder: 'Rédigez...' });
+                    if (this.state.newsletterContent) this.state.quill.root.innerHTML = this.state.newsletterContent;
+                    this.state.quill.on('text-change', () => { this.state.newsletterContent = this.state.quill.root.innerHTML; });
                 }
-
-                // Sauvegarder le contenu à chaque modification pour ne pas le perdre au re-render
-                this.state.quill.on('text-change', () => {
-                    this.state.newsletterContent = this.state.quill.root.innerHTML;
-                });
             }
-        }
-
-        // Initialisation de Quill pour le message personnel à un client
-        if (v === 'administration' && this.state.adminTab === 'user_details' && typeof Quill !== 'undefined') {
-            const editorContainer = document.getElementById('user-message-editor');
-            if (editorContainer && !this.state.adminUserQuill) { // Ne réinitialise pas si déjà présent
-                this.state.adminUserQuill = new Quill('#user-message-editor', {
-                    theme: 'snow',
-                    modules: {
-                        toolbar: [
-                            ['bold', 'italic', 'underline'],
-                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                            ['link', 'clean']
-                        ]
-                    },
-                    placeholder: 'Rédigez votre message ici...'
-                });
-                this.state.adminUserQuill.on('text-change', () => {
-                    this.state.adminUserMessageContent = this.state.adminUserQuill.root.innerHTML;
-                });
+            if (this.state.adminTab === 'user_details') {
+                const userEditor = document.getElementById('user-message-editor');
+                if (userEditor && !this.state.adminUserQuill) {
+                    this.state.adminUserQuill = new Quill('#user-message-editor', { theme: 'snow' });
+                    this.state.adminUserQuill.on('text-change', () => { this.state.adminUserMessageContent = this.state.adminUserQuill.root.innerHTML; });
+                }
             }
         }
     }
 
-    /**
-     * Affiche une bannière d'information sur les cookies/storage.
-     */
     renderCookieBanner() {
         if (this.state.cookieNoticeAccepted) {
             const existing = document.getElementById('cookie-banner');
@@ -653,15 +507,56 @@ class PilatesApp {
             <div class="flex flex-col gap-4">
                 <p class="text-sm text-stone-600 dark:text-stone-300">
                     <span class="font-semibold text-stone-800 dark:text-white block mb-1">Respect de votre vie privée</span>
-                    Nous utilisons uniquement des données strictement nécessaires à votre navigation (session, thème). Aucun traceur publicitaire n'est utilisé.
+                    Nous utilisons uniquement des données strictement nécessaires à votre navigation.
                 </p>
-                <button onclick="app.acceptCookies()" class="w-full bg-emerald-800 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors dark:bg-emerald-700 dark:hover:bg-emerald-600">
+                <button onclick="app.acceptCookies()" class="w-full bg-emerald-800 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
                     J'ai compris
                 </button>
             </div>
         `;
     }
 
+    /**
+     * Ouvre le modal d'ajout au calendrier pour un cours donné.
+     * @param {Object} cls - Les détails du cours.
+     */
+    openCalendarModal(cls) {
+        this.state.classForCalendar = cls;
+        this.state.showCalendarModal = true;
+        this.render();
+    }
+
+    /**
+     * Ferme le modal d'ajout au calendrier.
+     */
+    async closeCalendarModal() {
+        this.state.showCalendarModal = false;
+        this.state.classForCalendar = null;
+        
+        // Nettoyage forcé du DOM pour s'assurer que le modal disparaît
+        const modal = document.getElementById('calendar-modal-overlay') || document.getElementById('calendar-modal');
+        if (modal) modal.remove();
+
+        // Rafraîchissement silencieux des données pour mettre à jour le statut "Inscrit" 
+        // et le solde de crédits sans recharger toute la page (pas de scroll top).
+        try {
+            const [classesRes, userRes] = await Promise.all([
+                fetch(`${API_URL}/classes`),
+                this.state.currentUser ? fetch(`${API_URL}/users/${this.state.currentUser.id}`) : Promise.resolve(null)
+            ]);
+
+            if (classesRes.ok) this.state.classes = await classesRes.json();
+            if (userRes && userRes.ok) {
+                const freshUser = await userRes.json();
+                this.state.currentUser = freshUser;
+                localStorage.setItem('pilates_user', JSON.stringify(freshUser));
+            }
+        } catch (err) {
+            console.error("Erreur lors du rafraîchissement des données:", err);
+        }
+
+        this.render();
+    }
 }
 
 /** Instanciation et démarrage de l'application */

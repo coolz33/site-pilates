@@ -92,7 +92,20 @@ export const getNotificationHtml = (app) => {
 };
 
 export const renderPaymentModal = (app, container) => {
-    if (app.state.showPaymentModal && app.state.selectedClassForPayment) {
+    let modal = document.getElementById('payment-modal');
+
+    if (!app.state.showPaymentModal || !app.state.selectedClassForPayment) {
+        if (modal) modal.remove(); // Supprime le modal s'il ne doit plus être affiché
+        return;
+    }
+
+    // Si le modal doit être affiché mais n'existe pas, on le crée
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'payment-modal'; // Assigne un ID pour pouvoir le cibler et le supprimer
+        document.body.appendChild(modal); // Attache au body pour qu'il persiste
+    }
+
         const cls = app.state.selectedClassForPayment;
         const userBalance = app.state.currentUser.credits_balance || 0;
         const classCost = cls.credits_price ?? 1;
@@ -100,7 +113,7 @@ export const renderPaymentModal = (app, container) => {
 
         const modalHtml = `
             <div class="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in dark:bg-black/70">
-                <div class="bg-emerald-50/95 backdrop-blur-md rounded-3xl p-6 md:p-8 max-w-xl w-full shadow-2xl border border-emerald-100 dark:bg-stone-800/95 dark:border dark:border-stone-700">
+                <div class="bg-emerald-50/95 backdrop-blur-md rounded-3xl p-6 md:p-8 max-w-xl w-full shadow-2xl border border-emerald-100 dark:bg-stone-800/95 dark:border dark:border-stone-700 relative">
                     <h3 class="text-2xl font-light text-emerald-900 mb-2 dark:text-stone-100">Confirmation de réservation</h3>
                     <p class="mb-6 border-b pb-4 text-stone-600 dark:text-stone-300 dark:border-stone-700">
                         Réservation : <strong class="text-emerald-800 dark:text-emerald-400">${cls.title ?? 'Cours inconnu'}</strong>
@@ -139,7 +152,80 @@ export const renderPaymentModal = (app, container) => {
                         </div>
                     </form>
                 </div>
+            </div>`; // Note: J'ai ajouté 'relative' à la div interne pour une meilleure gestion des positions absolues si besoin.
+        modal.innerHTML = modalHtml; // Met à jour le contenu du modal existant ou nouvellement créé
+};
+
+// Helper function to format date/time for calendar links
+const formatDateForCalendar = (dateStr, timeStr, durationMin) => {
+    const startDateTime = new Date(`${dateStr}T${timeStr}:00`);
+    const endDateTime = new Date(startDateTime.getTime() + durationMin * 60 * 1000);
+
+    const format = (dt) => {
+        const year = dt.getFullYear();
+        const month = (dt.getMonth() + 1).toString().padStart(2, '0');
+        const day = dt.getDate().toString().padStart(2, '0');
+        const hours = dt.getHours().toString().padStart(2, '0');
+        const minutes = dt.getMinutes().toString().padStart(2, '0');
+        const seconds = dt.getSeconds().toString().padStart(2, '0');
+        return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+    };
+
+    return {
+        start: format(startDateTime),
+        end: format(endDateTime)
+    };
+};
+
+export const renderCalendarModal = (app, container) => {
+    if (app.state.showCalendarModal && app.state.classForCalendar) {
+        const cls = app.state.classForCalendar;
+        const { start, end } = formatDateForCalendar(cls.date, cls.time, cls.duration);
+        const title = encodeURIComponent(cls.title);
+        const description = encodeURIComponent(cls.description || 'Cours de Pilates');
+        const location = encodeURIComponent(app.state.studioAddress || 'Studio Équilibre Pilates');
+
+        // Liens pour les calendriers web
+        const googleCalendarLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${description}&location=${location}&sf=true&output=xml`;
+        const outlookCalendarLink = `https://outlook.office.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&startdt=${start}&enddt=${end}&subject=${title}&body=${description}&location=${location}`;
+        
+        // Contenu pour le fichier .ics (compatible Apple Calendar, Thunderbird, etc.)
+        const icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//PilatesApp//NONSGML v1.0//EN\nBEGIN:VEVENT\nUID:${cls.id}-${start}\nDTSTAMP:${new Date().toISOString().replace(/[-:]|\.\d{3}/g, '')}\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:${title}\nDESCRIPTION:${description}\nLOCATION:${location}\nEND:VEVENT\nEND:VCALENDAR`;
+        const icsDataUri = `data:text/calendar;charset=utf8,${encodeURIComponent(icsContent)}`;
+
+        let modal = document.getElementById('calendar-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'calendar-modal';
+            document.body.appendChild(modal); // Attache au body pour qu'il persiste
+        }
+
+        const modalHtml = `
+            <div class="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in dark:bg-black/70">
+                <div class="bg-white rounded-3xl p-6 md:p-8 max-w-xl w-full shadow-2xl border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
+                    <h3 class="text-2xl font-light text-stone-800 mb-2 dark:text-stone-100">Ajouter au calendrier</h3>
+                    <p class="mb-6 border-b pb-4 text-stone-600 dark:text-stone-300 dark:border-stone-700">
+                        Votre réservation pour <strong class="text-emerald-800 dark:text-emerald-400">${cls.title}</strong> est confirmée.
+                        Ajoutez-la à votre calendrier pour ne rien oublier !
+                    </p>
+                    <div class="space-y-4">
+                        <a href="${googleCalendarLink}" target="_blank" rel="noopener noreferrer" class="block w-full py-3 bg-blue-600 text-white rounded-xl text-center font-medium hover:bg-blue-700 transition-all shadow-md">
+                            Ajouter à Google Calendar
+                        </a>
+                        <a href="${outlookCalendarLink}" target="_blank" rel="noopener noreferrer" class="block w-full py-3 bg-blue-800 text-white rounded-xl text-center font-medium hover:bg-blue-900 transition-all shadow-md">
+                            Ajouter à Outlook Calendar
+                        </a>
+                        <a href="${icsDataUri}" download="${cls.title.replace(/\s/g, '_')}.ics" class="block w-full py-3 bg-gray-700 text-white rounded-xl text-center font-medium hover:bg-gray-800 transition-all shadow-md">
+                            Télécharger le fichier .ics (Apple, autres)
+                        </a>
+                    </div>
+                    <div class="mt-6 flex justify-end">
+                        <button type="button" onclick="app.closeCalendarModal()" class="px-6 py-2 border border-stone-200 rounded-xl text-stone-600 hover:bg-stone-50 dark:border-stone-600 dark:text-stone-300 dark:hover:bg-stone-700">
+                            Fermer
+                        </button>
+                    </div>
+                </div>
             </div>`;
-        container.insertAdjacentHTML('beforeend', modalHtml);
+        modal.innerHTML = modalHtml; // Met à jour le contenu du modal existant ou nouvellement créé
     }
 };

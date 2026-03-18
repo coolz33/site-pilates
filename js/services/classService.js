@@ -70,14 +70,36 @@ export const classService = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: app.state.currentUser.id })
             });
-            const data = await res.json();
-            if (data.success) {
-                if (data.user) app.state.currentUser = data.user;
+
+            if (!res.ok) {
+                // Si la réponse n'est pas OK (ex: 400, 500), on essaie de parser le message d'erreur
+                const errorData = await res.json().catch(() => ({ message: `Erreur serveur (${res.status})` }));
+                console.error("[classService] La réservation a échoué avec le statut:", res.status, "Message:", errorData.message);
+                app.state.modalMessage = { type: 'error', text: errorData.message || `Erreur lors de la réservation (Code: ${res.status})` };
+                app.render();
+                return;
+            }
+
+            // Si la réponse est OK, on parse le JSON
+            const data = await res.json().catch(async (jsonErr) => {
+                console.error("[classService] Erreur de parsing JSON après une réponse réussie:", jsonErr);
+                const rawText = await res.text();
+                console.error("[classService] Texte brut de la réponse:", rawText);
+                throw new Error("Erreur de format de réponse du serveur."); // On relance l'erreur pour qu'elle soit capturée par le catch externe
+            });
+
+            if (data && data.success) { // Vérifier l'existence de data et de la propriété success
+                if (data.user) {
+                    app.state.currentUser = data.user;
+                    localStorage.setItem('pilates_user', JSON.stringify(data.user)); // Mettre à jour le local storage
+                }
                 app.showNotification("Réservation confirmée !");
+                app.openCalendarModal(cls); // Ouvre le modal d'ajout au calendrier
                 app.state.showPaymentModal = false;
                 app.state.selectedClassForPayment = null;
-                app.init();
+                app.render();
             } else {
+                console.error("[classService] Le backend a signalé un échec (data.success est false):", data.message);
                 app.state.modalMessage = { type: 'error', text: data.message };
                 if (data.message === 'Solde de crédits insuffisant') {
                     app.state.modalMessage.isInsufficientCredits = true;
@@ -85,7 +107,8 @@ export const classService = {
                 app.render();
             }
         } catch (err) { 
-            app.state.modalMessage = { type: 'error', text: "Erreur lors de la réservation" };
+            console.error("[classService] Erreur générale pendant le processus de réservation:", err);
+            app.state.modalMessage = { type: 'error', text: err.message || "Erreur lors de la réservation" };
             app.render();
         }
     },
@@ -97,7 +120,7 @@ export const classService = {
     },
 
     // Annulation par le client (Profil)
-    async cancelBooking(app, classId) {
+    async cancelBookingByUser(app, classId) { // Renommée pour éviter la confusion avec l'annulation admin
         if (!confirm("Confirmer l'annulation de ce cours ?")) return;
         const res = await fetch(`${API_URL}/classes/cancel/${classId}`, {
             method: 'POST',
