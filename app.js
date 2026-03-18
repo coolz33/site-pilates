@@ -72,6 +72,7 @@ class PilatesApp {
             adminUserQuill: null,
             adminUserMessageContent: '',
             isSendingAdminMessage: false, // Nouvelle propriété pour gérer l'état d'envoi du message admin
+            userSearchQuery: '', // Requête pour le filtrage dynamique des clients
             cookieNoticeAccepted: localStorage.getItem('pilates_cookie_accepted') === 'true'
         };
         this.lastView = null;
@@ -153,6 +154,7 @@ class PilatesApp {
         this.state.resendCodeTimer = 0;
         this.state.isMenuOpen = false;
         this.state.aiResponse = '';
+        this.state.userSearchQuery = '';
         this.state.showCalendarModal = false;
         this.state.classForCalendar = null;
         
@@ -420,6 +422,10 @@ class PilatesApp {
     async adjustCredits(e, userId) { await userService.adjustCredits(this, e, userId); }
     async sendUserMessage(e, userId) { await userService.sendUserMessage(this, e, userId); }
     async askAi() { await aiService.askAi(this); }
+    handleUserSearch(query) {
+        this.state.userSearchQuery = query;
+        this.render();
+    }
     async deleteClass(id) { await classService.cancelBookingByUser(this, id); }
     async adminCancelBookingForUser(classId, userId) { await classService.adminCancelBookingForUser(this, classId, userId); }
     async adminDeleteClass(id) { await classService.adminDeleteClass(this, id); }
@@ -431,6 +437,11 @@ class PilatesApp {
     async saveAsTemplate() { await classService.saveAsTemplate(this); }
 
     render() {
+        // Sauvegarde de l'élément ayant le focus et de la position du curseur AVANT toute modification du DOM
+        const activeElementId = document.activeElement?.id;
+        const selectionStart = document.activeElement?.selectionStart;
+        const selectionEnd = document.activeElement?.selectionEnd;
+
         renderNavbar(this);
         renderFooter(this);
         
@@ -465,6 +476,16 @@ class PilatesApp {
         renderPaymentModal(this, mainContainer);
         renderCalendarModal(this);
         this.renderCookieBanner();
+
+        // Restauration du focus et du curseur après le rendu
+        if (activeElementId) {
+            const elementToFocus = document.getElementById(activeElementId);
+            if (elementToFocus && (elementToFocus instanceof HTMLInputElement || elementToFocus instanceof HTMLTextAreaElement)) {
+                elementToFocus.focus();
+                // Restauration de la position du curseur pour éviter qu'il ne saute à la fin
+                if (selectionStart !== null) elementToFocus.setSelectionRange(selectionStart, selectionEnd);
+            }
+        }
 
         this.lastView = v;
 

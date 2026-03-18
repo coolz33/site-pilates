@@ -23,8 +23,10 @@ export const renderNavbar = (app) => {
                         </button>
                         <div class="hidden md:flex items-center pl-4 border-l border-stone-200 dark:border-stone-700">
                             ${st.currentUser ? `
-                            <div class="flex items-center gap-3">
-                                <button onclick="app.navigate('profil')" class="text-sm transition-colors flex items-center gap-2 ${st.view === 'profil' ? 'text-emerald-800 dark:text-emerald-400 font-bold' : 'text-stone-600 hover:text-emerald-700 dark:text-stone-300 dark:hover:text-emerald-400'}">${icons.user} ${st.currentUser.firstName}</button>
+                            <div class="flex items-center gap-6">
+                                <button onclick="app.navigate('profil')" class="text-sm transition-colors flex items-center gap-2 ${st.view === 'profil' ? 'text-emerald-800 dark:text-emerald-400 font-bold' : 'text-stone-600 hover:text-emerald-700 dark:text-stone-300 dark:hover:text-emerald-400'}">
+                                    ${icons.user} ${st.currentUser.firstName}<span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-md text-[10px] font-bold dark:bg-emerald-900/40 dark:text-emerald-400">${st.currentUser.credits_balance || 0}</span>
+                                </button>
                                 ${st.currentUser.role === 'admin' ? `<button onclick="app.navigate('administration')" class="text-sm font-medium transition-colors flex items-center gap-2 ${st.view === 'administration' ? 'text-emerald-800 dark:text-emerald-400 underline underline-offset-4' : 'text-emerald-700 dark:text-emerald-400 hover:underline'}">${icons.settings} Administration</button>` : ''}
                                 <button onclick="app.logout()" class="text-sm text-red-600 hover:text-red-800">Déconnexion</button>
                             </div>` : `
@@ -48,7 +50,7 @@ export const renderNavbar = (app) => {
                 <button onclick="app.navigate('contact')" class="text-left py-3 px-4 rounded-r-xl border-l-4 transition-all flex items-center gap-3 ${st.view === 'contact' ? 'bg-emerald-50 border-emerald-700 text-emerald-800 font-semibold dark:bg-emerald-900/50 dark:border-emerald-500 dark:text-emerald-300' : 'border-transparent text-stone-600 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-700'}">${icons.mail} Contact</button>
                 <div class="border-t border-stone-100 pt-2 mt-2 dark:border-stone-700">
                     ${st.currentUser ? `
-                        <button onclick="app.navigate('profil')" class="block w-full text-left py-3 px-4 rounded-r-xl border-l-4 transition-all flex items-center gap-3 ${st.view === 'profil' ? 'bg-emerald-50 border-emerald-700 text-emerald-800 font-semibold dark:bg-emerald-900/50 dark:border-emerald-500 dark:text-emerald-300' : 'border-transparent text-stone-600 dark:text-stone-300'}">${icons.user} Mon Profil (${st.currentUser.firstName})</button>
+                        <button onclick="app.navigate('profil')" class="block w-full text-left py-3 px-4 rounded-r-xl border-l-4 transition-all flex items-center gap-3 ${st.view === 'profil' ? 'bg-emerald-50 border-emerald-700 text-emerald-800 font-semibold dark:bg-emerald-900/50 dark:border-emerald-500 dark:text-emerald-300' : 'border-transparent text-stone-600 dark:text-stone-300'}">${icons.user} Mon Profil (${st.currentUser.firstName} : ${st.currentUser.credits_balance || 0} )</button>
                         ${st.currentUser.role === 'admin' ? `<button onclick="app.navigate('administration')" class="block w-full text-left py-3 px-4 rounded-r-xl border-l-4 transition-all flex items-center gap-3 ${st.view === 'administration' ? 'bg-emerald-50 border-emerald-700 text-emerald-800 font-semibold dark:bg-emerald-900/50 dark:border-emerald-500 dark:text-emerald-300' : 'border-transparent text-emerald-700 dark:text-emerald-400'}">${icons.settings} Administration</button>` : ''}
                         <button onclick="app.logout()" class="block py-2 text-red-600">Déconnexion</button>
                     ` : `

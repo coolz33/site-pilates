@@ -10,7 +10,14 @@ export const adminView = (app) => {
     const pastClasses = st.classes.filter(c => c.date < todayStr).sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
     const displayClasses = st.adminTab === 'past_sessions' ? pastClasses : upcomingClasses;
 
-    const clients = st.users.filter(u => u.role !== 'admin');
+    const query = (st.userSearchQuery || '').toLowerCase();
+    const clients = st.users.filter(u => u.role !== 'admin').filter(u => {
+        if (!query) return true;
+        return (u.firstName?.toLowerCase().includes(query) || 
+                u.lastName?.toLowerCase().includes(query) || 
+                u.email?.toLowerCase().includes(query) || 
+                u.phone?.includes(query));
+    });
 
     return `
         <div class="min-h-screen bg-stone-50 pt-12 pb-24 animate-fade-in dark:bg-stone-900 max-w-screen-xl mx-auto">
@@ -234,9 +241,32 @@ export const adminView = (app) => {
 
                 ${!st.isAdminAiLoading && st.adminTab === 'users' ? `
                     <div class="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden animate-fade-in dark:bg-stone-800 dark:border-stone-700">
-                        <div class="p-6 border-b border-stone-100 bg-stone-50 flex justify-between items-center dark:bg-stone-800 dark:border-stone-700">
+                        <div class="p-6 border-b border-stone-100 bg-stone-50 flex flex-col md:flex-row justify-between items-center gap-4 dark:bg-stone-800 dark:border-stone-700">
                             <h2 class="text-xl font-medium text-stone-800 dark:text-stone-100">Clients inscrits</h2>
-                            <span class="text-sm text-stone-500 dark:text-stone-400">${clients.length} client(s)</span>
+                            <div class="relative w-full md:w-80">
+                                <input 
+                                    type="text" 
+                                    id="admin-user-search"
+                                    placeholder="Nom, email ou téléphone..." 
+                                    value="${st.userSearchQuery || ''}"
+                                    oninput="app.handleUserSearch(this.value)"
+                                    class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-stone-200 bg-white text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all dark:bg-stone-700 dark:border-stone-600 dark:text-stone-200"
+                                >
+                                <div class="absolute left-3 top-3 text-stone-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                                </div>
+                                ${st.userSearchQuery ? `
+                                    <button 
+                                        type="button"
+                                        onclick="app.handleUserSearch(''); document.getElementById('admin-user-search')?.focus();" 
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition-colors p-1 focus:outline-none"
+                                        title="Effacer le filtre"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                    </button>
+                                ` : ''}
+                            </div>
+                            <span class="text-sm text-stone-500 font-medium dark:text-stone-400">${clients.length} client(s)</span>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse">
