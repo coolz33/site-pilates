@@ -480,6 +480,24 @@ export const adminView = (app) => {
                             const creditHistory = transactions.filter(t => t.type !== 'purchase');
                             const paymentHistory = transactions.filter(t => t.type === 'purchase');
 
+                            let subExpirationAdmin = '';
+                            if (user.is_subscribed) {
+                                if (activeBatches && activeBatches.length > 0) {
+                                    const expiringBatches = [...activeBatches].filter(b => b.expires_at).sort((a, b) => new Date(b.expires_at) - new Date(a.expires_at));
+                                    if (expiringBatches.length > 0) {
+                                        subExpirationAdmin = new Date(expiringBatches[0].expires_at).toLocaleDateString('fr-FR');
+                                    }
+                                }
+                                if (!subExpirationAdmin) {
+                                    const subTxs = transactions.filter(t => t.description.toLowerCase().includes('abonnement') || t.description.toLowerCase().includes('abo'));
+                                    if (subTxs.length > 0) {
+                                        const calcDate = new Date(subTxs[0].date);
+                                        calcDate.setFullYear(calcDate.getFullYear() + 1);
+                                        subExpirationAdmin = calcDate.toLocaleDateString('fr-FR');
+                                    }
+                                }
+                            }
+
                             return `<div class="d-flex flex-column gap-4 animate-fade-in">
                                 <div>
                                     <button onclick="app.setAdminTab('users')" class="btn btn-link text-muted p-0 text-decoration-none d-flex align-items-center gap-2">
@@ -529,6 +547,7 @@ export const adminView = (app) => {
                                         </div>
                                         <div class="text-end">
                                             <div class="display-6 fw-light text-emerald">${user.is_subscribed ? 'Abonné' : `${parseInt(user.credits_balance) || 0} <span class="fs-6">cours</span>`}</div>
+                                            ${user.is_subscribed && subExpirationAdmin ? `<div class="small text-muted mt-1">Jusqu'au ${subExpirationAdmin}</div>` : ''}
                                         </div>
                                     </div>
                                     <div class="pt-4 border-top">
@@ -547,7 +566,11 @@ export const adminView = (app) => {
                                                             aggregatedBatches[key].credits += b.credits;
                                                             aggregatedBatches[key].ids.push(b.id);
                                                         });
-                                                        return Object.values(aggregatedBatches).map(b => {
+                                                    
+                                                    const validBatches = Object.values(aggregatedBatches).filter(b => !(user.is_subscribed && b.credits >= 50));
+                                                    if (validBatches.length === 0) return '<p class="small text-muted mb-0">Pas de cours supplémentaires.</p>';
+
+                                                    return validBatches.map(b => {
                                                             let expText = "Pas d'expiration";
                                                             if (b.expires_at) {
                                                                 const expDate = new Date(b.expires_at);
@@ -556,17 +579,11 @@ export const adminView = (app) => {
                                                                 else expText = `Expire le ${expDate.toLocaleDateString('fr-FR')}`;
                                                             }
 
-                                                            let labelHTML = `<span class="fw-bold text-emerald">${b.credits} cours</span>`;
-                                                            if (user.is_subscribed && b.credits >= 50) {
-                                                                labelHTML = `<span class="fw-bold text-emerald">Abonnement</span>`;
-                                                                if (b.expires_at) expText = `expire le ${new Date(b.expires_at).toLocaleDateString('fr-FR')}`;
-                                                            }
-
                                                             const idsJson = JSON.stringify(b.ids);
                                                             return `
                                                             <div class="d-flex justify-content-between align-items-center p-2 border rounded-3 bg-light transition-colors hover-bg-light">
                                                                 <div>
-                                                                    ${labelHTML}
+                                                                <span class="fw-bold text-emerald">${b.credits} cours</span>
                                                                     <span class="text-muted small ms-2">${expText}</span>
                                                                 </div>
                                                                 <div class="d-flex gap-2">

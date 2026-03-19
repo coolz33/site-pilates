@@ -36,40 +36,6 @@ export const profileView = (app) => {
 
     const calculatedBalance = u.activeBatches ? u.activeBatches.reduce((sum, b) => sum + b.credits, 0) : (parseInt(u.credits_balance) || 0);
 
-    let subExpiration = '';
-    
-    console.log("--- DEBUG ABONNEMENT ---");
-    console.log("1. Statut Abonné :", u.is_subscribed);
-    console.log("2. Lots de cours actifs :", u.activeBatches);
-    
-    if (u.is_subscribed) {
-        let hasFoundExp = false;
-        if (u.activeBatches && u.activeBatches.length > 0) {
-            const expiringBatches = [...u.activeBatches].filter(b => b.expires_at).sort((a, b) => new Date(b.expires_at) - new Date(a.expires_at));
-            if (expiringBatches.length > 0) {
-                console.log("3. Date d'expiration trouvée dans les lots :", expiringBatches[0].expires_at);
-                subExpiration = `<div class="fs-6 fw-normal text-white-50 mt-1" style="letter-spacing: 0;">jusqu'au ${new Date(expiringBatches[0].expires_at).toLocaleDateString('fr-FR')}</div>`;
-                hasFoundExp = true;
-            }
-        }
-        
-        if (!hasFoundExp) {
-            console.log("3. Aucune date d'expiration trouvée dans les lots de cours.");
-            const subTxs = transactions.filter(t => t.description.toLowerCase().includes('abonnement') || t.description.toLowerCase().includes('abo'));
-            console.log("4. Historique de transactions d'abonnement :", subTxs);
-            if (subTxs.length > 0) {
-                console.log("5. Date de l'opération retenue :", subTxs[0].date);
-                const calcDate = new Date(subTxs[0].date);
-                calcDate.setFullYear(calcDate.getFullYear() + 1); // +1 an par défaut
-                console.log("6. Date calculée (+ 1 an) :", calcDate);
-                subExpiration = `<div class="fs-6 fw-normal text-white-50 mt-1" style="letter-spacing: 0;">jusqu'au ${calcDate.toLocaleDateString('fr-FR')}</div>`;
-            } else {
-                console.log("5. Aucune transaction d'abonnement trouvée pour calculer la date.");
-            }
-        }
-    }
-    console.log("------------------------");
-
     // Navigation par onglets
     const navTabs = `
         <div class="d-flex border-bottom mb-4 overflow-auto scrollbar-hide">
@@ -169,7 +135,7 @@ export const profileView = (app) => {
                 <div class="col-12 col-lg-4 d-flex flex-column gap-4">
                     <div class="bg-emerald-strong p-4 shadow-sm" style="border-radius: 1.5rem;">
                         <div class="small opacity-75 mb-1">Mon solde actuel</div>
-                        <div class="display-5 fw-light mb-0">${u.is_subscribed ? `Abonné${subExpiration}` : `${calculatedBalance} <span class="fs-5">cours</span>`}</div>
+                        <div class="display-5 fw-light mb-0">${u.is_subscribed ? 'Abonné' : `${calculatedBalance} <span class="fs-5">cours</span>`}</div>
                         ${u.activeBatches && u.activeBatches.length > 0 ? `
                             <div class="mt-4 pt-3 border-top border-light border-opacity-25 d-flex flex-column gap-2">
                                 <div class="small fw-medium mb-1">Détail des expirations :</div>
