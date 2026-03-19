@@ -134,27 +134,30 @@ export const userService = {
 
     async updateAllPackages(app, e) {
         e.preventDefault();
-        const formData = new FormData(e.target);
         const packages = [];
-        const ids = formData.getAll('id');
-        const names = formData.getAll('name');
-        const subtitles = formData.getAll('subtitle');
-        const descriptions = formData.getAll('description');
-        const credits = formData.getAll('credits');
-        const prices = formData.getAll('price');
-        const expiresIns = formData.getAll('expires_in_days');
-
-        for (let i = 0; i < ids.length; i++) {
+        const packageBlocks = e.target.querySelectorAll('.package-block');
+        
+        packageBlocks.forEach(block => {
+            const id = parseInt(block.querySelector('[name="id"]').value);
+            const name = block.querySelector('[name="name"]').value;
+            const subtitle = block.querySelector('[name="subtitle"]').value;
+            const price = parseInt(block.querySelector('[name="price"]').value);
+            const description = block.querySelector('[name="description"]').value;
+            const is_subscription = block.querySelector('[name="is_subscription"]').checked ? 1 : 0;
+            
+            let credits, expires_in_days;
+            if (is_subscription) {
+                credits = 999;
+                expires_in_days = parseInt(block.querySelector('[name="duration_days"]').value) || 365;
+            } else {
+                credits = parseInt(block.querySelector('[name="credits"]').value) || 1;
+                expires_in_days = parseInt(block.querySelector('[name="expires_in_days"]').value) || 0;
+            }
+            
             packages.push({
-                id: parseInt(ids[i]),
-                name: names[i],
-                subtitle: subtitles[i] || '',
-                description: descriptions[i] || '',
-                credits: parseInt(credits[i]),
-                price: parseInt(prices[i]),
-                expires_in_days: parseInt(expiresIns[i]) || 0
+                id, name, subtitle, description, credits, price, expires_in_days, is_subscription
             });
-        }
+        });
         
         await fetch(`${API_URL}/credit-packages/bulk`, {
             method: 'PUT',
@@ -167,14 +170,24 @@ export const userService = {
 
     async createPackage(app, e) {
         e.preventDefault();
-        const formData = new FormData(e.target);
+        const block = e.target;
+        const name = block.querySelector('[name="name"]').value;
+        const subtitle = block.querySelector('[name="subtitle"]').value;
+        const price = parseInt(block.querySelector('[name="price"]').value);
+        const description = block.querySelector('[name="description"]').value;
+        const is_subscription = block.querySelector('[name="is_subscription"]').checked ? 1 : 0;
+        
+        let credits, expires_in_days;
+        if (is_subscription) {
+            credits = 999;
+            expires_in_days = parseInt(block.querySelector('[name="duration_days"]').value) || 365;
+        } else {
+            credits = parseInt(block.querySelector('[name="credits"]').value) || 1;
+            expires_in_days = parseInt(block.querySelector('[name="expires_in_days"]').value) || 0;
+        }
+        
         const pkg = {
-            name: formData.get('name'),
-            subtitle: formData.get('subtitle') || '',
-            description: formData.get('description') || '',
-            credits: parseInt(formData.get('credits')),
-            price: parseInt(formData.get('price')),
-            expires_in_days: parseInt(formData.get('expires_in_days') || 0)
+            name, subtitle, description, credits, price, expires_in_days, is_subscription
         };
         await fetch(`${API_URL}/credit-packages`, {
             method: 'POST',
@@ -190,19 +203,87 @@ export const userService = {
         return await res.json();
     },
 
-    async adjustCredits(app, e, userId) {
+    async adjustUserCredits(app, e, userId) {
         e.preventDefault();
-        const mode = e.submitter.dataset.mode;
-        let amount = parseInt(e.target.amount.value);
-        if (mode === 'remove') amount = -amount;
+        const amount = parseInt(e.target.amount.value);
+        const expires_in_days = parseInt(e.target.expires_in_days?.value || 0);
 
-        await fetch(`${API_URL}/users/${userId}/gift`, {
+        await fetch(`${API_URL}/users/${userId}/batches`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount })
+            body: JSON.stringify({ amount, expires_in_days })
         });
-        app.showNotification(amount > 0 ? 'Crédits ajoutés !' : 'Crédits retirés !');
+        app.showNotification('Cours ajoutés avec succès !');
         app.viewUser(userId); // Rafraîchir la vue
+    },
+
+    async promptRemoveSpecificCredits(app, userId, maxCredits, batchIds) {
+        const amountStr = window.prompt(`Combien de cours voulez-vous retirer de ce lot ? (Maximum : ${maxCredits})`, "1");
+        if (!amountStr) return;
+        const amount = parseInt(amountStr);
+        if (isNaN(amount) || amount <= 0 || amount > maxCredits) {
+            return app.showNotification("Quantité invalide.", "error");
+        }
+        await fetch(`${API_URL}/users/${userId}/remove-batch-credits`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount, batchIds })
+        });
+        app.showNotification('Cours retirés avec succès.');
+        app.viewUser(userId);
+    },
+
+    async removeSpecificCredits(app, userId, amount, batchIds) {
+        const confirmed = await app.confirmDialog("Voulez-vous vraiment supprimer tout ce lot de cours ?", { type: 'danger' });
+        if (!confirmed) return;
+
+        await fetch(`${API_URL}/users/${userId}/remove-batch-credits`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount, batchIds })
+        });
+        app.showNotification('Lot de cours supprimé.');
+        app.viewUser(userId); // Rafraîchir la vue
+    },
+
+    async toggleUserRole(app, userId, currentRole) {
+        const newRole = currentRole === 'admin' ? 'user' : 'admin';
+        const confirmMsg = newRole === 'admin' 
+            ? "Voulez-vous nommer cet utilisateur administrateur ? Il aura accès à tout le panneau de gestion." 
+            : "Voulez-vous retirer les droits d'administration de cet utilisateur ?";
+        
+        const confirmed = await app.confirmDialog(confirmMsg);
+        if (!confirmed) return;
+
+        await fetch(`${API_URL}/users/${userId}/role`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: newRole })
+        });
+        
+        app.showNotification(newRole === 'admin' ? "Utilisateur nommé administrateur." : "Droits d'administration retirés.");
+        const resUsers = await fetch(`${API_URL}/users`);
+        app.state.users = await resUsers.json() || [];
+        await app.viewUser(userId);
+    },
+
+    async toggleSubscription(app, userId, currentStatus) {
+        const newStatus = currentStatus ? 0 : 1;
+        const confirmMsg = newStatus 
+            ? "Activer l'abonnement pour cet utilisateur (limite d'1 cours par semaine) ?" 
+            : "Désactiver l'abonnement pour cet utilisateur ?";
+        
+        const confirmed = await app.confirmDialog(confirmMsg);
+        if (!confirmed) return;
+
+        await fetch(`${API_URL}/users/${userId}/subscription`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_subscribed: newStatus })
+        });
+        
+        app.showNotification(newStatus ? "Abonnement activé." : "Abonnement désactivé.");
+        app.viewUser(userId);
     },
 
     async sendUserMessage(app, e, userId) {

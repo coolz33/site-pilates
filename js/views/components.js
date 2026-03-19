@@ -13,7 +13,7 @@ import { icons } from '../icons.js';
 export const renderNavbar = (app) => {
     const st = app.state;
     const navHtml = `
-        <nav class="custom-navbar sticky-top">
+        <nav class="custom-navbar fixed-top">
             <div class="container-fluid px-3 px-md-4">
                 <div class="d-flex justify-content-between align-items-center" style="height: 5rem;">
                     <!-- Logo -->
@@ -42,7 +42,7 @@ export const renderNavbar = (app) => {
                             ${st.currentUser ? `
                             <div class="d-flex align-items-center gap-3">
                                 <button onclick="app.navigate('profil')" class="btn btn-link text-decoration-none custom-nav-link d-flex align-items-center gap-2 ${st.view === 'profil' ? 'active' : ''}" style="font-size: 0.875rem; --bs-btn-padding-x: 0.3rem;">
-                                    ${icons.user} ${st.currentUser.firstName} <span class="badge badge-emerald ms-1">${st.currentUser.credits_balance || 0}</span>
+                                    ${icons.user} ${st.currentUser.firstName} <span class="badge badge-emerald ms-1">${st.currentUser.is_subscribed ? 'Abo.' : (parseInt(st.currentUser.credits_balance) || 0)}</span>
                                 </button>
                                 ${st.currentUser.role === 'admin' ? `<button onclick="app.navigate('administration')" class="btn btn-link text-decoration-none custom-nav-link d-flex align-items-center gap-2 ${st.view === 'administration' ? 'active text-decoration-underline' : ''}" style="font-size: 0.85rem; --bs-btn-padding-x: 0.3rem;">${icons.settings} Administration</button>` : ''}
                                 <button onclick="app.logout()" class="btn btn-link text-danger text-decoration-none" style="font-size: 0.85rem; --bs-btn-padding-x: 0.3rem;">Déconnexion</button>
@@ -71,7 +71,7 @@ export const renderNavbar = (app) => {
                 <button onclick="app.navigate('contact')" class="btn mobile-nav-btn d-flex align-items-center gap-3 ${st.view === 'contact' ? 'active' : ''}">${icons.mail} Contact</button>
                 <div class="border-top pt-2 mt-2">
                     ${st.currentUser ? `
-                        <button onclick="app.navigate('profil')" class="btn mobile-nav-btn d-flex align-items-center gap-3 ${st.view === 'profil' ? 'active' : ''}">${icons.user} Mon Profil (${st.currentUser.firstName} : ${st.currentUser.credits_balance || 0} )</button>
+                        <button onclick="app.navigate('profil')" class="btn mobile-nav-btn d-flex align-items-center gap-3 ${st.view === 'profil' ? 'active' : ''}">${icons.user} Mon Profil (${st.currentUser.firstName} - ${st.currentUser.is_subscribed ? 'Abo.' : (parseInt(st.currentUser.credits_balance) || 0)} )</button>
                         ${st.currentUser.role === 'admin' ? `<button onclick="app.navigate('administration')" class="btn mobile-nav-btn text-emerald d-flex align-items-center gap-3 ${st.view === 'administration' ? 'active' : ''}">${icons.settings} Administration</button>` : ''}
                         <button onclick="app.logout()" class="btn mobile-nav-btn text-danger">Déconnexion</button>
                     ` : `
@@ -199,16 +199,29 @@ export const renderPaymentModal = (app, container) => {
     }
 
         const cls = app.state.selectedClassForPayment;
-        const userBalance = app.state.currentUser.credits_balance || 0;
+        const userBalance = parseInt(app.state.currentUser?.credits_balance) || 0;
         const classCost = cls.credits_price ?? 1;
-        const isInsufficient = userBalance < classCost;
+        const isSubscriptionLimit = app.state.modalMessage?.isSubscriptionLimit;
+        const isInsufficient = !app.state.currentUser?.is_subscribed && userBalance < classCost;
+        const cannotBook = isInsufficient || isSubscriptionLimit;
+
+        // Calcul de la date d'annulation limite
+        const delayHours = app.state.cancellationDelay || 24;
+        const classDateTime = new Date(`${cls.date}T${cls.time}`);
+        const deadlineDate = new Date(classDateTime.getTime() - delayHours * 60 * 60 * 1000);
+        const isDeadlinePassed = new Date() > deadlineDate;
+        const formattedDeadline = deadlineDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + deadlineDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+        const cancellationInfo = isDeadlinePassed 
+            ? `<span class="text-warning fw-medium">⚠️ Cette réservation sera définitive (délai d'annulation de ${delayHours}h dépassé).</span>`
+            : `ℹ️ Annulation possible jusqu'au <strong>${formattedDeadline}</strong>.`;
 
         const modalHtml = `
             <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 custom-modal-backdrop animate-fade-in">
                 <div class="custom-modal-content custom-modal-emerald p-4 p-md-5 w-100 position-relative" style="max-width: 600px;">
                     <h3 class="fs-4 fw-light text-emerald-dark mb-2">Confirmation de réservation</h3>
-                    <p class="mb-4 pb-3 border-bottom text-muted">
-                        Réservation : <strong class="text-emerald">${cls.title ?? 'Cours inconnu'}</strong>
+                    <p class="mb-3 pb-3 border-bottom text-muted">
+                        Réservation : <strong class="text-emerald">${cls.title ?? 'Cours inconnu'}</strong><br>
+                        <span class="small d-inline-block mt-2">${cancellationInfo}</span>
                     </p>
                     <form onsubmit="app.confirmPayment(event)" class="d-flex flex-column gap-4">
                         
@@ -226,19 +239,36 @@ export const renderPaymentModal = (app, container) => {
                             </div>
                         ` : ''}
 
-                        <div class="p-4 rounded-3 text-center d-flex flex-column gap-1 border ${isInsufficient ? 'bg-danger bg-opacity-10 text-danger border-danger border-opacity-25' : 'bg-success bg-opacity-10 text-success border-success border-opacity-25'}">
-                            <span class="fw-bold">Coût de la séance : ${classCost} cours</span>
-                            <span class="small opacity-75">Votre solde : ${userBalance} cours</span>
-                            <div class="mt-3 pt-3 border-top ${isInsufficient ? 'border-danger border-opacity-25' : 'border-success border-opacity-25'} d-flex align-items-center justify-content-center gap-2">
-                                <input type="checkbox" id="confirm-credits" ${isInsufficient ? 'disabled' : 'required'} class="form-check-input mt-0">
-                                <label for="confirm-credits" class="small fw-medium ${isInsufficient ? 'text-danger' : 'text-success'}">
-                                    ${isInsufficient ? 'Solde insuffisant pour réserver' : 'Je confirme l\'utilisation d\'un cours'}
-                                </label>
+                        ${isSubscriptionLimit ? `
+                            <div class="p-4 rounded-3 text-center d-flex flex-column gap-1 border bg-danger bg-opacity-10 text-danger border-danger border-opacity-25">
+                                <span class="fw-bold">Limite d'abonnement atteinte</span>
+                                <span class="small">Vous avez déjà réservé un cours pour cette semaine.</span>
                             </div>
-                        </div>
+                        ` : (isInsufficient ? `
+                            <div class="p-4 rounded-3 text-center d-flex flex-column gap-1 border bg-danger bg-opacity-10 text-danger border-danger border-opacity-25">
+                                <span class="fw-bold">Solde insuffisant</span>
+                                <span class="small">Votre solde : ${app.state.currentUser?.is_subscribed ? 'Abonné' : userBalance + ' cours'}</span>
+                            </div>
+                        ` : (app.state.currentUser?.is_subscribed ? `
+                            <div class="p-4 rounded-3 text-center d-flex flex-column gap-1 border bg-success bg-opacity-10 text-success border-success border-opacity-25">
+                                <span class="fw-bold">Utilisation de l'abonnement</span>
+                                <span class="small">Cette réservation utilise votre accès abonné (1 cours / semaine).</span>
+                            </div>
+                        ` : `
+                            <div class="p-4 rounded-3 text-center d-flex flex-column gap-1 border bg-success bg-opacity-10 text-success border-success border-opacity-25">
+                                <span class="fw-bold">Coût de la séance : ${classCost} cours</span>
+                                <span class="small opacity-75">Votre solde : ${userBalance} cours</span>
+                                <div class="mt-3 pt-3 border-top border-success border-opacity-25 d-flex align-items-center justify-content-center gap-2">
+                                    <input type="checkbox" id="confirm-credits" required class="form-check-input mt-0">
+                                    <label for="confirm-credits" class="small fw-medium text-success">
+                                        Je confirme l'utilisation d'un cours
+                                    </label>
+                                </div>
+                            </div>
+                        `))}
                         <div class="d-flex gap-3 mt-2">
                             <button type="button" onclick="app.cancelPayment()" class="btn btn-light border w-100">Annuler</button>
-                            <button type="submit" ${isInsufficient ? 'disabled' : ''} class="btn w-100 ${isInsufficient ? 'btn-secondary disabled' : 'btn-emerald'}">
+                            <button type="submit" ${cannotBook ? 'disabled' : ''} class="btn w-100 ${cannotBook ? 'btn-secondary disabled' : 'btn-emerald'}">
                                 Confirmer
                             </button>
                         </div>

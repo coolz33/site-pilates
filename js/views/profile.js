@@ -34,6 +34,42 @@ export const profileView = (app) => {
     const creditHistory = transactions.filter(t => t.type !== 'purchase');
     const paymentHistory = transactions.filter(t => t.type === 'purchase');
 
+    const calculatedBalance = u.activeBatches ? u.activeBatches.reduce((sum, b) => sum + b.credits, 0) : (parseInt(u.credits_balance) || 0);
+
+    let subExpiration = '';
+    
+    console.log("--- DEBUG ABONNEMENT ---");
+    console.log("1. Statut Abonné :", u.is_subscribed);
+    console.log("2. Lots de cours actifs :", u.activeBatches);
+    
+    if (u.is_subscribed) {
+        let hasFoundExp = false;
+        if (u.activeBatches && u.activeBatches.length > 0) {
+            const expiringBatches = [...u.activeBatches].filter(b => b.expires_at).sort((a, b) => new Date(b.expires_at) - new Date(a.expires_at));
+            if (expiringBatches.length > 0) {
+                console.log("3. Date d'expiration trouvée dans les lots :", expiringBatches[0].expires_at);
+                subExpiration = `<div class="fs-6 fw-normal text-white-50 mt-1" style="letter-spacing: 0;">jusqu'au ${new Date(expiringBatches[0].expires_at).toLocaleDateString('fr-FR')}</div>`;
+                hasFoundExp = true;
+            }
+        }
+        
+        if (!hasFoundExp) {
+            console.log("3. Aucune date d'expiration trouvée dans les lots de cours.");
+            const subTxs = transactions.filter(t => t.description.toLowerCase().includes('abonnement') || t.description.toLowerCase().includes('abo'));
+            console.log("4. Historique de transactions d'abonnement :", subTxs);
+            if (subTxs.length > 0) {
+                console.log("5. Date de l'opération retenue :", subTxs[0].date);
+                const calcDate = new Date(subTxs[0].date);
+                calcDate.setFullYear(calcDate.getFullYear() + 1); // +1 an par défaut
+                console.log("6. Date calculée (+ 1 an) :", calcDate);
+                subExpiration = `<div class="fs-6 fw-normal text-white-50 mt-1" style="letter-spacing: 0;">jusqu'au ${calcDate.toLocaleDateString('fr-FR')}</div>`;
+            } else {
+                console.log("5. Aucune transaction d'abonnement trouvée pour calculer la date.");
+            }
+        }
+    }
+    console.log("------------------------");
+
     // Navigation par onglets
     const navTabs = `
         <div class="d-flex border-bottom mb-4 overflow-auto scrollbar-hide">
@@ -58,97 +94,128 @@ export const profileView = (app) => {
         tabContent = `
             <div class="row g-4">
                 <div class="col-12 col-lg-8">
-                    <div class="custom-card p-4 p-md-5">
-                    <form onsubmit="app.updateProfile(event)">
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <label for="prof-firstname" class="form-label small fw-medium">Prénom</label>
-                                <input type="text" id="prof-firstname" value="${u.firstName}" class="form-control">
-                            </div>
-                            <div class="col-md-6">
-                                <label for="prof-lastname" class="form-label small fw-medium">Nom</label>
-                                <input type="text" id="prof-lastname" value="${u.lastName}" class="form-control">
-                            </div>
+                    <div class="custom-card p-4">
+                    <form onsubmit="app.updateProfile(event)" style="max-width: 600px;">
+                        <div class="row mb-2 align-items-center">
+                            <label for="prof-firstname" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted">Prénom</label>
+                            <div class="col-sm-9"><input type="text" id="prof-firstname" value="${u.firstName}" class="form-control form-control-sm"></div>
                         </div>
-                        <div class="mb-3">
-                            <label for="prof-email" class="form-label small fw-medium">Email</label>
-                            <input type="email" id="prof-email" value="${u.email}" class="form-control">
+                        <div class="row mb-2 align-items-center">
+                            <label for="prof-lastname" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted">Nom</label>
+                            <div class="col-sm-9"><input type="text" id="prof-lastname" value="${u.lastName}" class="form-control form-control-sm"></div>
                         </div>
-                        <div class="mb-3">
-                            <label for="prof-password" class="form-label small fw-medium">Nouveau mot de passe</label>
-                            <div class="position-relative">
-                                <input type="${app.state.visiblePasswords.includes('prof-password') ? 'text' : 'password'}" id="prof-password" class="form-control pr-5" placeholder="Laisser vide pour ne pas changer">
-                                <button type="button" onclick="app.togglePasswordVisibility('prof-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-2 text-decoration-none">
+                        <div class="row mb-2 align-items-center">
+                            <label for="prof-email" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted">Email</label>
+                            <div class="col-sm-9"><input type="email" id="prof-email" value="${u.email}" class="form-control form-control-sm"></div>
+                        </div>
+                        <div class="row mb-2 align-items-center">
+                            <label for="prof-password" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted">Nouveau mdp</label>
+                            <div class="col-sm-9 position-relative">
+                                <input type="${app.state.visiblePasswords.includes('prof-password') ? 'text' : 'password'}" id="prof-password" class="form-control form-control-sm pr-5" placeholder="Laisser vide pour ne pas changer">
+                                <button type="button" onclick="app.togglePasswordVisibility('prof-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-1 me-1 text-decoration-none">
                                     ${app.state.visiblePasswords.includes('prof-password') ? eyeSlashIcon : eyeIcon}
                                 </button>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="prof-confirm-password" class="form-label small fw-medium">Confirmer</label>
-                            <div class="position-relative">
-                                <input type="${app.state.visiblePasswords.includes('prof-confirm-password') ? 'text' : 'password'}" id="prof-confirm-password" class="form-control pr-5">
-                                <button type="button" onclick="app.togglePasswordVisibility('prof-confirm-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-2 text-decoration-none">
+                        <div class="row mb-2 align-items-center">
+                            <label for="prof-confirm-password" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted">Confirmer mdp</label>
+                            <div class="col-sm-9 position-relative">
+                                <input type="${app.state.visiblePasswords.includes('prof-confirm-password') ? 'text' : 'password'}" id="prof-confirm-password" class="form-control form-control-sm pr-5">
+                                <button type="button" onclick="app.togglePasswordVisibility('prof-confirm-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-1 me-1 text-decoration-none">
                                     ${app.state.visiblePasswords.includes('prof-confirm-password') ? eyeSlashIcon : eyeIcon}
                                 </button>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="prof-phone" class="form-label small fw-medium">Téléphone</label>
-                            <input type="text" id="prof-phone" value="${u.phone || ''}" class="form-control">
+                        <div class="row mb-2 align-items-center">
+                            <label for="prof-phone" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted">Téléphone</label>
+                            <div class="col-sm-9"><input type="text" id="prof-phone" value="${u.phone || ''}" class="form-control form-control-sm"></div>
                         </div>
-                        <div class="mb-3">
-                            <label for="prof-address" class="form-label small fw-medium">Adresse</label>
-                            <input type="text" id="prof-address" value="${u.address || ''}" class="form-control">
+                        <div class="row mb-2 align-items-center">
+                            <label for="prof-address" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted">Adresse</label>
+                            <div class="col-sm-9"><input type="text" id="prof-address" value="${u.address || ''}" class="form-control form-control-sm"></div>
                         </div>
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-4">
-                                <label for="prof-zipcode" class="form-label small fw-medium">Code Postal</label>
-                                <input type="text" id="prof-zipcode" value="${u.zipCode || ''}" class="form-control">
+                        <div class="row mb-2 align-items-center">
+                            <label for="prof-zipcode" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted">Code Postal</label>
+                            <div class="col-sm-9"><input type="text" id="prof-zipcode" value="${u.zipCode || ''}" class="form-control form-control-sm"></div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <label for="prof-city" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted">Ville</label>
+                            <div class="col-sm-9"><input type="text" id="prof-city" value="${u.city || ''}" class="form-control form-control-sm"></div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-9 offset-sm-3">
+                                <div class="form-check">
+                                    <input type="checkbox" id="prof-newsletter" ${u.newsletter_subscribed ? 'checked' : ''} class="form-check-input mt-1">
+                                    <label for="prof-newsletter" class="form-check-label small text-muted cursor-pointer">
+                                        Je souhaite recevoir les actualités.
+                                    </label>
+                                </div>
                             </div>
-                            <div class="col-md-8">
-                                <label for="prof-city" class="form-label small fw-medium">Ville</label>
-                                <input type="text" id="prof-city" value="${u.city || ''}" class="form-control">
+                        </div>
+                        <div class="pt-3 mt-2 border-top">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <div class="d-flex align-items-center gap-2 text-danger">
+                                    <span style="font-size: 0.85rem;">⚠️</span>
+                                    <h3 class="small fw-bold text-uppercase tracking-wider mb-0" style="font-size: 0.75rem;">Action irréversible</h3>
+                                </div>
+                                <button type="button" onclick="app.deleteAccount(${u.id})" class="btn btn-link text-danger p-0 small fw-bold text-decoration-none" style="font-size: 0.75rem;">Supprimer le compte</button>
                             </div>
+                            <p class="small text-muted mb-0" style="font-size: 0.75rem;">Perte de tous vos cours.</p>
                         </div>
-                        <div class="form-check mb-4">
-                            <input type="checkbox" id="prof-newsletter" ${u.newsletter_subscribed ? 'checked' : ''} class="form-check-input">
-                            <label for="prof-newsletter" class="form-check-label small text-muted cursor-pointer">
-                                Je souhaite recevoir les actualités du studio.
-                            </label>
-                        </div>
-                        <div class="pt-4 mt-4 border-top">
-                            <div class="d-flex align-items-center gap-2 mb-2 text-danger">
-                                <span>⚠️</span>
-                                <h3 class="small fw-bold text-uppercase tracking-wider mb-0">Action irréversible</h3>
-                            </div>
-                            <p class="small text-muted mb-3">La suppression de votre compte est définitive. Vous perdrez tous vos cours restants.</p>
-                            <button type="button" onclick="app.deleteAccount(${u.id})" class="btn btn-link text-danger p-0 small fw-bold text-decoration-none">Supprimer mon compte définitivement</button>
-                        </div>
-                        <button type="submit" class="btn w-100 btn-emerald py-2 mt-4 fw-medium">Enregistrer les modifications</button>
+                        <button type="submit" class="btn btn-sm w-100 btn-emerald py-2 mt-3 fw-medium">Enregistrer les modifications</button>
                     </form>
                     </div>
                 </div>
                 <div class="col-12 col-lg-4 d-flex flex-column gap-4">
                     <div class="bg-emerald-strong p-4 shadow-sm" style="border-radius: 1.5rem;">
                         <div class="small opacity-75 mb-1">Mon solde actuel</div>
-                        <div class="display-5 fw-light mb-0">${u.credits_balance || 0} <span class="fs-5">cours</span></div>
+                        <div class="display-5 fw-light mb-0">${u.is_subscribed ? `Abonné${subExpiration}` : `${calculatedBalance} <span class="fs-5">cours</span>`}</div>
                         ${u.activeBatches && u.activeBatches.length > 0 ? `
                             <div class="mt-4 pt-3 border-top border-light border-opacity-25 d-flex flex-column gap-2">
                                 <div class="small fw-medium mb-1">Détail des expirations :</div>
-                                ${u.activeBatches.map(b => {
-                                    let expText = "Pas d'expiration";
-                                    if (b.expires_at) {
-                                        const expDate = new Date(b.expires_at);
-                                        const daysLeft = Math.ceil((expDate - new Date()) / (1000 * 60 * 60 * 24));
-                                        if (daysLeft <= 7) expText = `<span class="text-warning fw-bold">Expire dans ${daysLeft} jour(s) !</span>`;
-                                        else expText = `Expire le ${expDate.toLocaleDateString('fr-FR')}`;
-                                    }
-                                    return `
-                                    <div class="d-flex justify-content-between align-items-center small text-white-50">
-                                        <span><span class="fw-bold text-white">${b.credits}</span> cours</span>
-                                        <span>${expText}</span>
-                                    </div>`;
-                                }).join('')}
+                                ${(() => {
+                                    const aggregatedBatches = {};
+                                    u.activeBatches.forEach(b => {
+                                        const key = b.expires_at ? new Date(b.expires_at).toLocaleDateString('fr-FR') : 'none';
+                                        if (!aggregatedBatches[key]) {
+                                            aggregatedBatches[key] = { credits: 0, expires_at: b.expires_at };
+                                        }
+                                        aggregatedBatches[key].credits += b.credits;
+                                    });
+                                    
+                                    return Object.values(aggregatedBatches).map(b => {
+                                        let expText = "Pas d'expiration";
+                                        if (b.expires_at) {
+                                            const expDate = new Date(b.expires_at);
+                                            const daysLeft = Math.ceil((expDate - new Date()) / (1000 * 60 * 60 * 24));
+                                            if (daysLeft <= 7) expText = `<span class="text-warning fw-bold">Expire dans ${daysLeft} jour(s) !</span>`;
+                                            else expText = `Expire le ${expDate.toLocaleDateString('fr-FR')}`;
+                                        }
+
+                                        let labelHTML = `<span><span class="fw-bold text-white">${b.credits}</span> cours</span>`;
+                                        if (u.is_subscribed && (b.credits >= 50 || b.expires_at)) {
+                                            labelHTML = `<span><span class="fw-bold text-white">Abonnement</span></span>`;
+                                            if (b.expires_at) expText = `expire le ${new Date(b.expires_at).toLocaleDateString('fr-FR')}`;
+                                        }
+
+                                        return `
+                                        <div class="d-flex justify-content-between align-items-center small text-white-50">
+                                            ${labelHTML}
+                                            <span>${expText}</span>
+                                        </div>`;
+                                    }).join('');
+                                })()}
+                            </div>
+                        ` : ''}
+                        
+                        ${u.is_subscribed ? `
+                            <div class="mt-3 pt-3 border-top border-light border-opacity-25">
+                                <div class="small fw-medium mb-1">Votre semaine en cours :</div>
+                                <div class="d-flex align-items-center gap-2 small">
+                                    ${u.hasUsedWeeklyBooking 
+                                        ? '<span class="text-warning">🔴 Limite atteinte (1/1)</span>' 
+                                        : '<span class="text-white" style="color: var(--emerald-200) !important;">🟢 Réservation disponible</span>'}
+                                </div>
                             </div>
                         ` : ''}
                     </div>
@@ -220,7 +287,7 @@ export const profileView = (app) => {
                                     <div class="small fw-medium">${t.description}</div>
                                     <div class="text-muted" style="font-size:0.75rem;">${new Date(t.date).toLocaleDateString('fr-FR')}</div>
                                 </div>
-                                <div class="fw-bold text-success">+${t.amount} cr.</div>
+                                <div class="fw-bold text-success">+${t.amount} cours</div>
                             </div>
                         `).join('')}
                     </div>`}

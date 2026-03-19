@@ -17,7 +17,7 @@ export const adminView = (app) => {
     const pastClasses = st.classes.filter(c => c.date < todayStr).sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
 
     const query = (st.userSearchQuery || '').toLowerCase();
-    const clients = st.users.filter(u => u.role !== 'admin').filter(u => {
+    const clients = st.users.filter(u => {
         if (!query) return true;
         return (u.firstName?.toLowerCase().includes(query) || 
                 u.lastName?.toLowerCase().includes(query) || 
@@ -332,7 +332,7 @@ export const adminView = (app) => {
                                 <form onsubmit="app.updateAllPackages(event)">
                                     <div class="d-flex flex-column gap-4 mb-4">
                                     ${st.creditPackages.map(pkg => `
-                                        <div class="d-flex flex-column gap-2 p-3 border rounded-3 bg-light">
+                                        <div class="d-flex flex-column gap-2 p-3 border rounded-3 bg-light package-block">
                                             <input type="hidden" name="id" value="${pkg.id}">
                                             <div class="row g-2">
                                                 <div class="col-md-4">
@@ -344,23 +344,37 @@ export const adminView = (app) => {
                                                     <input type="text" name="subtitle" value="${pkg.subtitle || ''}" class="form-control form-control-sm">
                                                 </div>
                                                 <div class="col-md-2">
-                                                    <label class="form-label small text-muted mb-1">Nb. cours</label>
-                                                    <input type="number" name="credits" value="${pkg.credits}" required min="1" class="form-control form-control-sm text-center">
-                                                </div>
-                                                <div class="col-md-2">
                                                     <label class="form-label small text-muted mb-1">Prix (€)</label>
-                                                    <input type="number" name="price" value="${pkg.price}" required min="0" class="form-control form-control-sm text-center">
+                                                    <input type="number" name="price" value="${pkg.price}" required min="0" class="form-control form-control-sm text-center px-1">
                                                 </div>
-                                                <div class="col-md-5">
-                                                    <div class="form-check mt-1">
-                                                        <input type="checkbox" id="exp-cb-${pkg.id}" class="form-check-input cursor-pointer" onchange="document.getElementById('exp-div-${pkg.id}').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('exp-input-${pkg.id}').value = '0';" ${pkg.expires_in_days > 0 ? 'checked' : ''}>
+                                                <div class="col-md-2 pack-credits-col ${pkg.is_subscription ? 'd-none' : ''}">
+                                                    <label class="form-label small text-muted mb-1">Nb. cours</label>
+                                                    <input type="number" name="credits" value="${pkg.is_subscription ? 10 : pkg.credits}" min="1" class="form-control form-control-sm text-center px-1">
+                                                </div>
+
+                                                <div class="col-12 d-flex flex-wrap align-items-center gap-4 mt-2">
+                                                    <div class="form-check mb-0">
+                                                        <input type="checkbox" id="is-sub-${pkg.id}" name="is_subscription" value="1" class="form-check-input cursor-pointer" onchange="this.closest('.package-block').querySelector('.pack-credits-col').classList.toggle('d-none', this.checked); this.closest('.package-block').querySelectorAll('.pack-normal-exp-col').forEach(e => e.classList.toggle('d-none', this.checked)); this.closest('.package-block').querySelector('.pack-sub-duration-col').classList.toggle('d-none', !this.checked);" ${pkg.is_subscription ? 'checked' : ''}>
+                                                        <label class="form-check-label small text-muted cursor-pointer" for="is-sub-${pkg.id}">Format Abonnement</label>
+                                                    </div>
+                                                    <div class="form-check mb-0 pack-normal-exp-col ${pkg.is_subscription ? 'd-none' : ''}">
+                                                        <input type="checkbox" id="exp-cb-${pkg.id}" class="form-check-input cursor-pointer" onchange="document.getElementById('exp-div-${pkg.id}').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('exp-input-${pkg.id}').value = '0';" ${!pkg.is_subscription && pkg.expires_in_days > 0 ? 'checked' : ''}>
                                                         <label class="form-check-label small text-muted cursor-pointer" for="exp-cb-${pkg.id}">A une date d'expiration ?</label>
                                                     </div>
                                                 </div>
-                                                <div class="col-md-7 ${pkg.expires_in_days > 0 ? '' : 'd-none'}" id="exp-div-${pkg.id}">
-                                                    <div class="input-group input-group-sm">
-                                                        <input type="number" id="exp-input-${pkg.id}" name="expires_in_days" value="${pkg.expires_in_days || 0}" min="0" class="form-control text-center">
-                                                        <span class="input-group-text">jours de validité</span>
+
+                                                <div class="col-12 d-flex flex-wrap gap-4 mt-1">
+                                                    <div class="pack-sub-duration-col ${pkg.is_subscription ? '' : 'd-none'} d-flex align-items-center gap-2">
+                                                        <label class="small text-muted mb-0">Durée :</label>
+                                                        <input type="number" name="duration_days" value="${pkg.is_subscription ? (pkg.expires_in_days || 365) : 365}" min="1" class="form-control form-control-sm text-center px-1" style="width: 70px;">
+                                                        <label class="small text-muted mb-0">jours</label>
+                                                    </div>
+                                                    <div class="pack-normal-exp-col ${pkg.is_subscription ? 'd-none' : ''} ${!pkg.is_subscription && pkg.expires_in_days > 0 ? '' : 'd-none'}" id="exp-div-${pkg.id}">
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <label class="small text-muted mb-0">Expire dans :</label>
+                                                            <input type="number" id="exp-input-${pkg.id}" name="expires_in_days" value="${!pkg.is_subscription ? (pkg.expires_in_days || 0) : 0}" min="0" class="form-control form-control-sm text-center px-1" style="width: 70px;">
+                                                            <label class="small text-muted mb-0">jours</label>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div class="col-12">
@@ -376,25 +390,40 @@ export const adminView = (app) => {
                                     
                                 <div class="pt-4 border-top mt-5">
                                         <h3 class="fs-6 fw-medium mb-3">Ajouter un nouveau pack</h3>
-                                    <form onsubmit="app.createPackage(event)" class="d-flex flex-column gap-2 p-3 border rounded-3 bg-light">
+                                    <form onsubmit="app.createPackage(event)" class="d-flex flex-column gap-2 p-3 border rounded-3 bg-light package-block">
                                         <div class="row g-2">
                                             <div class="col-md-4"><input type="text" name="name" placeholder="En-tête" required class="form-control form-control-sm"></div>
                                             <div class="col-md-4"><input type="text" name="subtitle" placeholder="Sous-titre" class="form-control form-control-sm"></div>
-                                            <div class="col-md-2"><input type="number" name="credits" placeholder="Nb. cours" required min="1" class="form-control form-control-sm text-center"></div>
-                                            <div class="col-md-2"><input type="number" name="price" placeholder="Prix €" required min="0" class="form-control form-control-sm text-center"></div>
-                                            
-                                            <div class="col-md-5">
-                                                <div class="form-check mt-1">
+                                            <div class="col-md-2"><input type="number" name="price" placeholder="Prix €" required min="0" class="form-control form-control-sm text-center px-1"></div>
+                                            <div class="col-md-2 pack-credits-col"><input type="number" name="credits" placeholder="Nb. cours" min="1" class="form-control form-control-sm text-center px-1"></div>
+
+                                            <div class="col-12 d-flex flex-wrap align-items-center gap-4 mt-2">
+                                                <div class="form-check mb-0">
+                                                    <input type="checkbox" id="is-sub-new" name="is_subscription" value="1" class="form-check-input cursor-pointer" onchange="this.closest('.package-block').querySelector('.pack-credits-col').classList.toggle('d-none', this.checked); this.closest('.package-block').querySelectorAll('.pack-normal-exp-col').forEach(e => e.classList.toggle('d-none', this.checked)); this.closest('.package-block').querySelector('.pack-sub-duration-col').classList.toggle('d-none', !this.checked);">
+                                                    <label class="form-check-label small text-muted cursor-pointer" for="is-sub-new">Format Abonnement</label>
+                                                </div>
+                                                <div class="form-check mb-0 pack-normal-exp-col">
                                                     <input type="checkbox" id="exp-cb-new" class="form-check-input cursor-pointer" onchange="document.getElementById('exp-div-new').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('exp-input-new').value = '0';">
                                                     <label class="form-check-label small text-muted cursor-pointer" for="exp-cb-new">A une date d'expiration ?</label>
                                                 </div>
                                             </div>
-                                            <div class="col-md-7 d-none" id="exp-div-new">
-                                                <div class="input-group input-group-sm">
-                                                    <input type="number" id="exp-input-new" name="expires_in_days" value="0" min="0" class="form-control text-center">
-                                                    <span class="input-group-text">jours de validité</span>
+
+                                            <div class="col-12 d-flex flex-wrap gap-4 mt-1">
+                                                <div class="pack-sub-duration-col d-none d-flex align-items-center gap-2">
+                                                    <label class="small text-muted mb-0">Durée :</label>
+                                                    <input type="number" name="duration_days" value="365" min="1" class="form-control form-control-sm text-center px-1" style="width: 70px;">
+                                                    <label class="small text-muted mb-0">jours</label>
+                                                </div>
+                                                
+                                                <div class="pack-normal-exp-col d-none" id="exp-div-new">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <label class="small text-muted mb-0">Expire dans :</label>
+                                                        <input type="number" id="exp-input-new" name="expires_in_days" value="0" min="0" class="form-control form-control-sm text-center px-1" style="width: 70px;">
+                                                        <label class="small text-muted mb-0">jours</label>
+                                                    </div>
                                                 </div>
                                             </div>
+
                                             <div class="col-12"><textarea name="description" placeholder="Description..." class="form-control form-control-sm" rows="2"></textarea></div>
                                         </div>
                                         <div class="text-end mt-2"><button type="submit" class="btn btn-emerald btn-sm px-4 fw-medium">Ajouter le pack</button></div>
@@ -419,19 +448,22 @@ export const adminView = (app) => {
                                     <table class="table table-hover align-middle mb-0">
                                         <thead>
                                             <tr class="small text-muted">
-                                                <th class="p-3 fw-medium">Nom</th>
-                                                <th class="p-3 fw-medium">Email</th>
-                                                <th class="p-3 fw-medium">Téléphone</th>
-                                                <th class="p-3 fw-medium">Solde</th>
+                                                <th class="p-3 fw-bold">Nom</th>
+                                                <th class="p-3 fw-bold">Email</th>
+                                                <th class="p-3 fw-bold">Téléphone</th>
+                                                <th class="p-3 fw-bold">Solde</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             ${clients.map(u => `
                                                 <tr onclick="app.viewUser(${u.id})" class="cursor-pointer transition-colors">
-                                                    <td class="p-3 fw-medium">${u.firstName} ${u.lastName}</td>
+                                                    <td class="p-3 fw-medium">
+                                                        ${u.firstName} ${u.lastName}
+                                                        ${u.role === 'admin' ? '<span class="badge bg-dark ms-2" style="font-size: 0.6rem;">Admin</span>' : ''}
+                                                    </td>
                                                     <td class="p-3 small text-muted">${u.email}</td>
                                                     <td class="p-3 small text-muted">${u.phone || '-'}</td>
-                                                    <td class="p-3"><span class="badge badge-emerald">${u.credits_balance || 0} cours</span></td>
+                                                    <td class="p-3"><span class="badge badge-emerald">${u.is_subscribed ? 'Abo.' : (parseInt(u.credits_balance) || 0) + ' cours'}</span></td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
@@ -441,7 +473,7 @@ export const adminView = (app) => {
                         ` : ''}
 
                         ${!st.isAdminAiLoading && st.adminTab === 'user_details' && st.selectedUserDetails && st.selectedUserDetails.user ? (() => {
-                            const { user, bookings, transactions } = st.selectedUserDetails;
+                            const { user, bookings, transactions, activeBatches } = st.selectedUserDetails;
                             const now = new Date();
                             const futureBookings = bookings.filter(b => new Date(b.date + 'T' + b.time) >= now);
                             const pastBookings = bookings.filter(b => new Date(b.date + 'T' + b.time) < now);
@@ -458,32 +490,119 @@ export const adminView = (app) => {
                                 <div class="custom-card p-4">
                                     <div class="d-flex justify-content-between align-items-start mb-4">
                                         <div>
-                                            <h2 class="fs-4 fw-medium mb-1">${user.firstName} ${user.lastName}</h2>
+                                            <h2 class="fs-4 fw-medium mb-1">
+                                                ${user.firstName} ${user.lastName}
+                                                ${user.role === 'admin' ? '<span class="badge bg-dark ms-2 align-middle" style="font-size: 0.7rem;">Admin</span>' : ''}
+                                            </h2>
                                             <p class="text-muted mb-1">${user.email} • ${user.phone || 'Pas de téléphone'}</p>
                                             <p class="small text-muted mb-0">${user.address || ''} ${user.zipCode || ''} ${user.city || ''}</p>
+                                            
+                                            <div class="d-flex align-items-center gap-2 mt-3">
+                                                <div class="position-relative has-tooltip">
+                                                    <button onclick="app.toggleSubscription(${user.id}, ${user.is_subscribed})" class="btn btn-sm ${user.is_subscribed ? 'btn-warning text-dark' : 'btn-outline-warning text-dark'} rounded-circle d-flex align-items-center justify-content-center p-0" style="width: 32px; height: 32px; transition: all 0.2s;">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                                    </button>
+                                                    <div class="planning-tooltip schedule-tooltip icon-tooltip shadow-lg text-center">
+                                                        ${user.is_subscribed ? "Désactiver l'abonnement" : "Activer l'abonnement"}
+                                                        <div class="tooltip-arrow"></div>
+                                                    </div>
+                                                </div>
+                                                <div class="position-relative has-tooltip">
+                                                    <button onclick="app.toggleUserRole(${user.id}, '${user.role}')" class="btn btn-sm ${user.role === 'admin' ? 'btn-secondary' : 'btn-outline-secondary'} rounded-circle d-flex align-items-center justify-content-center p-0" style="width: 32px; height: 32px; transition: all 0.2s;">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                                    </button>
+                                                    <div class="planning-tooltip schedule-tooltip icon-tooltip shadow-lg text-center">
+                                                        ${user.role === 'admin' ? 'Retirer les droits administrateur' : 'Nommer administrateur'}
+                                                        <div class="tooltip-arrow"></div>
+                                                    </div>
+                                                </div>
+                                                <div class="position-relative has-tooltip">
+                                                    <button onclick="app.deleteAccount(${user.id}, true)" class="btn btn-sm btn-outline-danger rounded-circle d-flex align-items-center justify-content-center p-0" style="width: 32px; height: 32px; transition: all 0.2s;">
+                                                        ${icons.trash}
+                                                    </button>
+                                                    <div class="planning-tooltip schedule-tooltip icon-tooltip shadow-lg text-center">
+                                                        Supprimer le compte
+                                                        <div class="tooltip-arrow"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div class="text-end">
-                                            <div class="display-6 fw-light text-emerald">${user.credits_balance} <span class="fs-6">cours</span></div>
+                                            <div class="display-6 fw-light text-emerald">${user.is_subscribed ? 'Abonné' : `${parseInt(user.credits_balance) || 0} <span class="fs-6">cours</span>`}</div>
                                         </div>
                                     </div>
                                     <div class="pt-4 border-top">
-                                        <h3 class="fs-6 fw-medium mb-3">Ajuster les cours</h3>
-                                        <form onsubmit="app.adjustCredits(event, ${user.id})" class="d-flex flex-column gap-2" style="max-width: 250px;">
-                                            <input type="number" name="amount" placeholder="Quantité" required class="form-control form-control-sm">
-                                            <div class="d-flex gap-2">
-                                                <button type="submit" data-mode="add" class="btn btn-emerald btn-sm w-100">Ajouter</button>
-                                                <button type="submit" data-mode="remove" class="btn btn-danger btn-sm w-100">Retirer</button>
+                                        <h3 class="fs-6 fw-medium mb-3">Gestion des cours</h3>
+                                        
+                                        <div class="mb-3">
+                                            ${activeBatches && activeBatches.length > 0 ? `
+                                                <div class="d-flex flex-column gap-1">
+                                                    ${(() => {
+                                                        const aggregatedBatches = {};
+                                                        activeBatches.forEach(b => {
+                                                            const key = b.expires_at ? new Date(b.expires_at).toLocaleDateString('fr-FR') : 'none';
+                                                            if (!aggregatedBatches[key]) {
+                                                                aggregatedBatches[key] = { credits: 0, expires_at: b.expires_at, ids: [] };
+                                                            }
+                                                            aggregatedBatches[key].credits += b.credits;
+                                                            aggregatedBatches[key].ids.push(b.id);
+                                                        });
+                                                        return Object.values(aggregatedBatches).map(b => {
+                                                            let expText = "Pas d'expiration";
+                                                            if (b.expires_at) {
+                                                                const expDate = new Date(b.expires_at);
+                                                                const daysLeft = Math.ceil((expDate - new Date()) / (1000 * 60 * 60 * 24));
+                                                                if (daysLeft <= 7) expText = `<span class="text-danger fw-bold">Expire dans ${daysLeft} j</span>`;
+                                                                else expText = `Expire le ${expDate.toLocaleDateString('fr-FR')}`;
+                                                            }
+
+                                                            let labelHTML = `<span class="fw-bold text-emerald">${b.credits} cours</span>`;
+                                                            if (user.is_subscribed && b.credits >= 50) {
+                                                                labelHTML = `<span class="fw-bold text-emerald">Abonnement</span>`;
+                                                                if (b.expires_at) expText = `expire le ${new Date(b.expires_at).toLocaleDateString('fr-FR')}`;
+                                                            }
+
+                                                            const idsJson = JSON.stringify(b.ids);
+                                                            return `
+                                                            <div class="d-flex justify-content-between align-items-center p-2 border rounded-3 bg-light transition-colors hover-bg-light">
+                                                                <div>
+                                                                    ${labelHTML}
+                                                                    <span class="text-muted small ms-2">${expText}</span>
+                                                                </div>
+                                                                <div class="d-flex gap-2">
+                                                                    <button type="button" onclick="app.promptRemoveSpecificCredits(${user.id}, ${b.credits}, ${idsJson.replace(/"/g, '&quot;')})" class="btn btn-sm btn-outline-secondary py-0 px-2 fw-medium" style="font-size:0.75rem;">Retirer...</button>
+                                                                    <button type="button" onclick="app.removeSpecificCredits(${user.id}, ${b.credits}, ${idsJson.replace(/"/g, '&quot;')})" class="btn btn-sm btn-outline-danger py-0 px-2" title="Supprimer tout ce lot">${icons.trash}</button>
+                                                                </div>
+                                                            </div>`;
+                                                        }).join('');
+                                                    })()}
+                                                </div>
+                                            ` : '<p class="small text-muted mb-0">Aucun cours disponible.</p>'}
+                                        </div>
+
+                                        <form onsubmit="app.adjustUserCredits(event, ${user.id})" class="p-3 bg-light border rounded-3 mt-3">
+                                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                                <label class="fw-medium small mb-0 text-nowrap">Ajouter des cours :</label>
+                                                <input type="number" name="amount" placeholder="Qté" required min="1" class="form-control form-control-sm text-center px-1" style="width: 60px;">
+                                                
+                                                <div class="form-check mb-0 ms-1 d-flex align-items-center gap-2">
+                                                    <input type="checkbox" id="admin-exp-cb" class="form-check-input mt-0 cursor-pointer" onchange="document.getElementById('admin-exp-div').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('admin-exp-input').value = '0';">
+                                                    <label class="form-check-label small text-muted cursor-pointer text-nowrap" style="padding-top: 2px;" for="admin-exp-cb">A une expiration ?</label>
+                                                </div>
+                                                
+                                                <button type="submit" class="btn btn-emerald btn-sm ms-auto px-4">Ajouter</button>
+                                            </div>
+                                            
+                                            <div class="d-none mt-3" id="admin-exp-div">
+                                                <div class="d-flex align-items-center justify-content-end gap-2">
+                                                    <label class="small text-muted mb-0">Expire dans :</label>
+                                                    <div class="input-group input-group-sm" style="max-width: 150px;">
+                                                        <input type="number" id="admin-exp-input" name="expires_in_days" value="0" min="0" class="form-control text-center">
+                                                        <span class="input-group-text">jours</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </form>
-                                    </div>
-                                    <div class="pt-4 mt-4 border-top">
-                                        <div class="d-flex align-items-center gap-2 mb-2 text-danger">
-                                            <span>⚠️</span>
-                                            <h3 class="small fw-bold text-uppercase tracking-wider mb-0">Action irréversible</h3>
-                                        </div>
-                                        <button onclick="app.deleteAccount(${user.id}, true)" class="btn btn-outline-danger btn-sm">
-                                            Supprimer définitivement ce compte client
-                                        </button>
                                     </div>
                                 </div>
 
@@ -556,7 +675,7 @@ export const adminView = (app) => {
                                         <div class="quill-editor-wrapper">
                                             <div id="user-message-editor"></div>
                                         </div>
-                                        <button type="submit" ${st.isSendingAdminMessage ? 'disabled' : ''} class="btn btn-dark w-100">
+                                        <button type="submit" ${st.isSendingAdminMessage ? 'disabled' : ''} class="btn btn-emerald w-100 fw-medium">
                                             ${st.isSendingAdminMessage ? 'Envoi en cours...' : 'Envoyer le message'}
                                         </button>
                                     </form>
@@ -603,7 +722,8 @@ export const adminView = (app) => {
                                         <div class="d-flex justify-content-between align-items-center mb-3">
                                             <h2 class="fs-6 fw-medium mb-0">Destinataires</h2>
                                             <div class="d-flex gap-2">
-                                                <button type="button" onclick="app.state.selectedNewsletterRecipients = app.state.users.filter(u => u.role !== 'admin').map(u => u.id); app.render()" class="btn btn-light btn-sm py-0" style="font-size: 0.75rem;">Tous</button>
+                                                <button type="button" onclick="app.state.selectedNewsletterRecipients = []; app.render()" class="btn btn-outline-secondary btn-sm py-0" style="font-size: 0.75rem;">Aucun</button>
+                                                <button type="button" onclick="app.state.selectedNewsletterRecipients = app.state.users.map(u => u.id); app.render()" class="btn btn-outline-secondary btn-sm py-0" style="font-size: 0.75rem;">Tous</button>
                                                 <button type="button" onclick="app.setAdminTab('newsletter')" class="btn btn-emerald btn-sm py-0" style="font-size: 0.75rem;">Abonnés</button>
                                             </div>
                                         </div>

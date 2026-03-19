@@ -37,7 +37,7 @@ export const paymentSuccessView = (app) => {
                     <p class="text-muted mb-4">
                         Merci pour votre achat ! 
                         ${creditsAdded ? `<span class="d-block display-5 fw-bold text-emerald mt-2 mb-3">${creditsAdded} cours ajoutés</span>` : ''}
-                        Votre solde total est désormais de : <strong class="text-stone-800">${u ? (u.credits_balance || 0) : '...'} cours</strong>
+                        Votre solde sera mis à jour dans quelques instants.
                     </p>
                 `}
                 <div class="d-flex flex-column gap-3">

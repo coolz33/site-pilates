@@ -97,7 +97,8 @@ const seedDB = async () => {
                 credits INT,
                 price INT,
                 description VARCHAR(255) DEFAULT '',
-                expires_in_days INT DEFAULT 0
+                expires_in_days INT DEFAULT 0,
+                is_subscription BOOLEAN DEFAULT 0
             )
         `);
 
@@ -156,6 +157,8 @@ const seedDB = async () => {
         try { await pool.query(`ALTER TABLE credit_packages ADD COLUMN description VARCHAR(255) DEFAULT ''`); } catch (e) {}
         try { await pool.query(`ALTER TABLE credit_packages ADD COLUMN subtitle VARCHAR(255) DEFAULT ''`); } catch (e) {}
         try { await pool.query(`ALTER TABLE credit_packages ADD COLUMN expires_in_days INT DEFAULT 0`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE users ADD COLUMN is_subscribed BOOLEAN DEFAULT 0`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE credit_packages ADD COLUMN is_subscription BOOLEAN DEFAULT 0`); } catch (e) {}
         
         await pool.query(`
             CREATE TABLE IF NOT EXISTS user_batches (
@@ -230,18 +233,18 @@ const seedDB = async () => {
         // 4. Credit Packages (Tarif dégressif)
         const [packages] = await pool.query('SELECT COUNT(*) as count FROM credit_packages');
         if (packages[0].count === 0) {
-            await pool.query('INSERT INTO credit_packages (name, subtitle, description, credits, price, expires_in_days) VALUES ?', [[
-                ["À l'unité", 'Un cours', 'Tout le matériel est fourni sur place.\nSans engagement.', 1, 18, 0],
-                ['Carte', 'Carte 10 cours', 'Soit 15 € le cours.\nValable 6 mois.', 10, 150, 180],
-                ['Abonnement', "Abonnement à l'année", 'Soit 12€50 le cours.\nUn cours fixe par semaine de septembre à fin juin.\nUn cours à chaque vacances scolaires.', 38, 475, 365]
+            await pool.query('INSERT INTO credit_packages (name, subtitle, description, credits, price, expires_in_days, is_subscription) VALUES ?', [[
+                ["À l'unité", 'Un cours', 'Tout le matériel est fourni sur place.\nSans engagement.', 1, 18, 0, 0],
+                ['Carte', 'Carte 10 cours', 'Soit 15 € le cours.\nValable 6 mois.', 10, 150, 180, 0],
+                ['Abonnement', "Abonnement à l'année", 'Soit 12€50 le cours.\nUn cours fixe par semaine de septembre à fin juin.\nUn cours à chaque vacances scolaires.', 999, 475, 365, 1]
             ]]);
         } else {
             // Mise à jour forcée des packs pour correspondre à la demande
             await pool.query('DELETE FROM credit_packages');
-            await pool.query('INSERT INTO credit_packages (name, subtitle, description, credits, price, expires_in_days) VALUES ?', [[
-                ["À l'unité", 'Un cours', 'Tout le matériel est fourni sur place.\nSans engagement.', 1, 18, 0],
-                ['Carte', 'Carte 10 cours', 'Soit 15 € le cours.\nValable 6 mois.', 10, 150, 180],
-                ['Abonnement', "Abonnement à l'année", 'Soit 12€50 le cours.\nUn cours fixe par semaine de septembre à fin juin.\nUn cours à chaque vacances scolaires.', 38, 475, 365]
+            await pool.query('INSERT INTO credit_packages (name, subtitle, description, credits, price, expires_in_days, is_subscription) VALUES ?', [[
+                ["À l'unité", 'Un cours', 'Tout le matériel est fourni sur place.\nSans engagement.', 1, 18, 0, 0],
+                ['Carte', 'Carte 10 cours', 'Soit 15 € le cours.\nValable 6 mois.', 10, 150, 180, 0],
+                ['Abonnement', "Abonnement à l'année", 'Soit 12€50 le cours.\nUn cours fixe par semaine de septembre à fin juin.\nUn cours à chaque vacances scolaires.', 999, 475, 365, 1]
             ]]);
         }
         console.log('✅ Base de données MySQL initialisée');
@@ -294,6 +297,14 @@ const handleRequest = async (req, res) => {
                 if (users.length > 0) {
                     await cleanupExpiredBatches(userId);
                     const [updatedUser] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+                    
+                    if (updatedUser[0].is_subscribed) {
+                        const [weeklyBookings] = await pool.query(`SELECT COUNT(*) as count FROM bookings b JOIN classes c ON b.class_id = c.id WHERE b.user_id = ? AND YEARWEEK(c.date, 1) = YEARWEEK(CURDATE(), 1)`, [userId]);
+                        updatedUser[0].hasUsedWeeklyBooking = weeklyBookings[0].count > 0;
+                    } else {
+                        updatedUser[0].hasUsedWeeklyBooking = false;
+                    }
+                    
                     const { password: _, ...userWithoutPassword } = updatedUser[0];
                     const [transactions] = await pool.query(`
                         SELECT id, type, amount, description, DATE_FORMAT(date, '%Y-%m-%d %H:%i') as date 
@@ -321,7 +332,7 @@ const handleRequest = async (req, res) => {
         if (method === 'GET' && userDetailsMatch) {
             const userId = userDetailsMatch[1];
             await cleanupExpiredBatches(userId);
-            const [user] = await pool.query('SELECT id, firstName, lastName, email, phone, address, zipCode, city, credits_balance, newsletter_subscribed, role FROM users WHERE id = ?', [userId]);
+            const [user] = await pool.query('SELECT id, firstName, lastName, email, phone, address, zipCode, city, credits_balance, newsletter_subscribed, role, is_subscribed FROM users WHERE id = ?', [userId]);
             if (!user.length) return send(404, { message: 'Utilisateur non trouvé' });
 
             const [bookings] = await pool.query(`
@@ -336,21 +347,63 @@ const handleRequest = async (req, res) => {
                 FROM transactions 
                 WHERE user_id = ? ORDER BY date DESC`, [userId]);
 
-            return send(200, { user: user[0], bookings, transactions });
+            const [activeBatches] = await pool.query(`
+                SELECT id, credits, expires_at 
+                FROM user_batches 
+                WHERE user_id = ? AND credits > 0 
+                ORDER BY expires_at IS NULL, expires_at ASC`, [userId]);
+
+            return send(200, { user: user[0], bookings, transactions, activeBatches });
         }
 
-        const giftMatch = path.match(/^\/users\/(\d+)\/gift$/);
-        if (method === 'POST' && giftMatch) {
-            const userId = giftMatch[1];
-            const { amount } = req.body;
+        const roleMatch = path.match(/^\/users\/(\d+)\/role$/);
+        if (method === 'PUT' && roleMatch) {
+            const userId = roleMatch[1];
+            const { role } = req.body;
+            await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
+            return send(200, { success: true });
+        }
+
+        const subMatch = path.match(/^\/users\/(\d+)\/subscription$/);
+        if (method === 'PUT' && subMatch) {
+            const userId = subMatch[1];
+            const { is_subscribed } = req.body;
+            await pool.query('UPDATE users SET is_subscribed = ? WHERE id = ?', [is_subscribed ? 1 : 0, userId]);
+            return send(200, { success: true });
+        }
+
+        const batchAddMatch = path.match(/^\/users\/(\d+)\/batches$/);
+        if (method === 'POST' && batchAddMatch) {
+            const userId = batchAddMatch[1];
+            const { amount, expires_in_days } = req.body;
             await cleanupExpiredBatches(userId);
-            const description = amount > 0 ? 'Ajout de cours (Admin)' : 'Retrait manuel (Admin)';
-            await pool.query('UPDATE users SET credits_balance = GREATEST(0, credits_balance + ?) WHERE id = ?', [amount, userId]);
-            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'adjustment', amount, description]);
-            if (amount > 0) {
-                await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, NULL)', [userId, amount]);
-            } else {
-                let toDeduct = Math.abs(amount);
+            
+            let expiresAtStr = null;
+            if (expires_in_days && parseInt(expires_in_days) > 0) {
+                const d = new Date();
+                d.setDate(d.getDate() + parseInt(expires_in_days));
+                expiresAtStr = d.toISOString().slice(0, 19).replace('T', ' ');
+            }
+            
+            await pool.query('START TRANSACTION');
+            await pool.query('UPDATE users SET credits_balance = GREATEST(0, COALESCE(credits_balance, 0) + ?) WHERE id = ?', [parseInt(amount), userId]);
+            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'adjustment', parseInt(amount), 'Ajout manuel de cours (Admin)']);
+            await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, ?)', [userId, parseInt(amount), expiresAtStr]);
+            await pool.query('COMMIT');
+            
+            await cleanupExpiredBatches(userId);
+            return send(200, { success: true });
+        }
+
+        const removeCreditsMatch = path.match(/^\/users\/(\d+)\/remove-credits$/);
+        if (method === 'POST' && removeCreditsMatch) {
+            const userId = removeCreditsMatch[1];
+            const { amount } = req.body;
+            let toDeduct = parseInt(amount);
+            
+            if (toDeduct > 0) {
+                await pool.query('START TRANSACTION');
+                // On retire en priorité sur les lots qui n'ont pas d'expiration, ou ceux qui expirent le plus tard
                 const [batches] = await pool.query('SELECT id, credits FROM user_batches WHERE user_id = ? AND credits > 0 ORDER BY expires_at IS NULL DESC, expires_at DESC', [userId]);
                 for (const b of batches) {
                     if (toDeduct <= 0) break;
@@ -358,7 +411,63 @@ const handleRequest = async (req, res) => {
                     await pool.query('UPDATE user_batches SET credits = credits - ? WHERE id = ?', [deduction, b.id]);
                     toDeduct -= deduction;
                 }
+                
+                const actualDeducted = parseInt(amount) - toDeduct;
+                if (actualDeducted > 0) {
+                    await pool.query('UPDATE users SET credits_balance = GREATEST(0, COALESCE(credits_balance, 0) - ?) WHERE id = ?', [actualDeducted, userId]);
+                    await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'adjustment', -actualDeducted, 'Retrait manuel de cours (Admin)']);
+                }
+                await pool.query('COMMIT');
+                await cleanupExpiredBatches(userId);
             }
+            return send(200, { success: true });
+        }
+
+        const removeBatchMatch = path.match(/^\/users\/(\d+)\/remove-batch-credits$/);
+        if (method === 'POST' && removeBatchMatch) {
+            const userId = removeBatchMatch[1];
+            const { amount, batchIds } = req.body;
+            let toDeduct = parseInt(amount);
+            
+            if (toDeduct > 0 && Array.isArray(batchIds) && batchIds.length > 0) {
+                await pool.query('START TRANSACTION');
+                
+                const [batches] = await pool.query('SELECT id, credits FROM user_batches WHERE user_id = ? AND id IN (?) AND credits > 0 ORDER BY id ASC', [userId, batchIds]);
+                
+                for (const b of batches) {
+                    if (toDeduct <= 0) break;
+                    const deduction = Math.min(b.credits, toDeduct);
+                    await pool.query('UPDATE user_batches SET credits = credits - ? WHERE id = ?', [deduction, b.id]);
+                    toDeduct -= deduction;
+                }
+                
+                const actualDeducted = parseInt(amount) - toDeduct;
+                if (actualDeducted > 0) {
+                    await pool.query('UPDATE users SET credits_balance = GREATEST(0, COALESCE(credits_balance, 0) - ?) WHERE id = ?', [actualDeducted, userId]);
+                    await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'adjustment', -actualDeducted, 'Retrait ciblé de cours (Admin)']);
+                }
+                await pool.query('COMMIT');
+                await cleanupExpiredBatches(userId);
+            }
+            return send(200, { success: true });
+        }
+
+        const batchDelMatch = path.match(/^\/users\/(\d+)\/batches\/(\d+)$/);
+        if (method === 'DELETE' && batchDelMatch) {
+            const userId = batchDelMatch[1];
+            const batchId = batchDelMatch[2];
+            
+            await pool.query('START TRANSACTION');
+            const [batches] = await pool.query('SELECT credits FROM user_batches WHERE id = ? AND user_id = ?', [batchId, userId]);
+            if (batches.length > 0) {
+                const creditsToRemove = batches[0].credits;
+                await pool.query('DELETE FROM user_batches WHERE id = ?', [batchId]);
+                await pool.query('UPDATE users SET credits_balance = GREATEST(0, COALESCE(credits_balance, 0) - ?) WHERE id = ?', [creditsToRemove, userId]);
+                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'adjustment', -creditsToRemove, 'Retrait manuel de cours (Admin)']);
+            }
+            await pool.query('COMMIT');
+            
+            await cleanupExpiredBatches(userId); // Recalcule le solde exact après l'ajustement
             return send(200, { success: true });
         }
 
@@ -395,6 +504,14 @@ const handleRequest = async (req, res) => {
                 if (match) {
                     await cleanupExpiredBatches(user.id);
                     const [updatedUser] = await pool.query('SELECT * FROM users WHERE id = ?', [user.id]);
+                    
+                    if (updatedUser[0].is_subscribed) {
+                        const [weeklyBookings] = await pool.query(`SELECT COUNT(*) as count FROM bookings b JOIN classes c ON b.class_id = c.id WHERE b.user_id = ? AND YEARWEEK(c.date, 1) = YEARWEEK(CURDATE(), 1)`, [user.id]);
+                        updatedUser[0].hasUsedWeeklyBooking = weeklyBookings[0].count > 0;
+                    } else {
+                        updatedUser[0].hasUsedWeeklyBooking = false;
+                    }
+                    
                     const { password: _, ...userWithoutPassword } = updatedUser[0];
                     const [activeBatches] = await pool.query(`
                         SELECT credits, expires_at 
@@ -630,10 +747,10 @@ const handleRequest = async (req, res) => {
         }
 
         if (method === 'POST' && path === '/credit-packages') {
-            const { name, subtitle, description, credits, price, expires_in_days } = req.body;
+            const { name, subtitle, description, credits, price, expires_in_days, is_subscription } = req.body;
             await pool.query(
-                'INSERT INTO credit_packages (name, subtitle, description, credits, price, expires_in_days) VALUES (?, ?, ?, ?, ?, ?)',
-                [name, subtitle, description, credits, price, expires_in_days]
+                'INSERT INTO credit_packages (name, subtitle, description, credits, price, expires_in_days, is_subscription) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [name, subtitle, description, credits, price, expires_in_days, is_subscription ? 1 : 0]
             );
             return send(200, { success: true });
         }
@@ -646,8 +763,8 @@ const handleRequest = async (req, res) => {
             try {
                 for (const pkg of packages) {
                     await pool.query(
-                        'UPDATE credit_packages SET name=?, subtitle=?, description=?, credits=?, price=?, expires_in_days=? WHERE id=?',
-                        [pkg.name, pkg.subtitle, pkg.description, pkg.credits, pkg.price, pkg.expires_in_days, pkg.id]
+                        'UPDATE credit_packages SET name=?, subtitle=?, description=?, credits=?, price=?, expires_in_days=?, is_subscription=? WHERE id=?',
+                        [pkg.name, pkg.subtitle, pkg.description, pkg.credits, pkg.price, pkg.expires_in_days, pkg.is_subscription ? 1 : 0, pkg.id]
                     );
                 }
                 await pool.query('COMMIT');
@@ -737,7 +854,7 @@ const handleRequest = async (req, res) => {
             const { userId } = req.body;
 
             await cleanupExpiredBatches(userId);
-            const [userRows] = await pool.query('SELECT credits_balance FROM users WHERE id = ?', [userId]);
+            const [userRows] = await pool.query('SELECT credits_balance, is_subscribed FROM users WHERE id = ?', [userId]);
             const [classRows] = await pool.query('SELECT title, credits_price, capacity FROM classes WHERE id = ?', [classId]);
             const [bookingCount] = await pool.query('SELECT COUNT(*) as count FROM bookings WHERE class_id = ?', [classId]);
 
@@ -746,33 +863,60 @@ const handleRequest = async (req, res) => {
             const user = userRows[0];
             const cls = classRows[0];
 
-            if (user.credits_balance < cls.credits_price) {
+            if (!user.is_subscribed && user.credits_balance < cls.credits_price) {
                 return send(400, { success: false, message: 'Solde de cours insuffisant' });
             }
             if (bookingCount[0].count >= cls.capacity) {
                 return send(400, { success: false, message: 'Cours complet' });
             }
 
+            if (userRows[0].is_subscribed) {
+                const [weeklyBookings] = await pool.query(`
+                    SELECT COUNT(*) as count 
+                    FROM bookings b 
+                    JOIN classes c_booked ON b.class_id = c_booked.id 
+                    WHERE b.user_id = ? AND YEARWEEK(c_booked.date, 1) = YEARWEEK(?, 1)
+                `, [userId, cls.date]);
+
+                if (weeklyBookings[0].count >= 1) {
+                    return send(400, { success: false, message: "Limite d'un cours par semaine atteinte (Abonnement)." });
+                }
+            }
+
             await pool.query('START TRANSACTION');
             
-            // Déduire un cours du lot le plus proche de l'expiration
-            const [batches] = await pool.query(`
-                SELECT id, credits 
-                FROM user_batches 
-                WHERE user_id = ? AND credits > 0 AND (expires_at IS NULL OR expires_at > NOW())
-                ORDER BY expires_at IS NULL, expires_at ASC
-                LIMIT 1
-            `, [userId]);
-            if (batches.length > 0) {
-                await pool.query('UPDATE user_batches SET credits = credits - 1 WHERE id = ?', [batches[0].id]);
+            if (!userRows[0].is_subscribed) {
+                // Déduire un cours du lot le plus proche de l'expiration
+                const [batches] = await pool.query(`
+                    SELECT id, credits 
+                    FROM user_batches 
+                    WHERE user_id = ? AND credits > 0 AND (expires_at IS NULL OR expires_at > NOW())
+                    ORDER BY expires_at IS NULL, expires_at ASC
+                    LIMIT 1
+                `, [userId]);
+                if (batches.length > 0) {
+                    await pool.query('UPDATE user_batches SET credits = credits - 1 WHERE id = ?', [batches[0].id]);
+                }
+                
+                await pool.query('UPDATE users SET credits_balance = GREATEST(0, credits_balance - ?) WHERE id = ?', [cls.credits_price, userId]);
+                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'booking', -cls.credits_price, `Réservation : ${cls.title || 'Séance'}`]);
+            } else {
+                // Pour un abonnement, on enregistre une transaction neutre sans toucher aux crédits
+                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'booking', 0, `Réservation (Abonnement) : ${cls.title || 'Séance'}`]);
             }
             
-            await pool.query('UPDATE users SET credits_balance = credits_balance - ? WHERE id = ?', [cls.credits_price, userId]);
             await pool.query('INSERT INTO bookings (class_id, user_id) VALUES (?, ?)', [classId, userId]);
-            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'booking', -cls.credits_price, `Réservation : ${cls.title || 'Séance'}`]);
             await pool.query('COMMIT');
 
             const [updatedUser] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+            
+            if (updatedUser[0].is_subscribed) {
+                const [weeklyBookings] = await pool.query(`SELECT COUNT(*) as count FROM bookings b JOIN classes c ON b.class_id = c.id WHERE b.user_id = ? AND YEARWEEK(c.date, 1) = YEARWEEK(CURDATE(), 1)`, [userId]);
+                updatedUser[0].hasUsedWeeklyBooking = weeklyBookings[0].count > 0;
+            } else {
+                updatedUser[0].hasUsedWeeklyBooking = false;
+            }
+            
             const { password: _, ...userWithoutPassword } = updatedUser[0];
             const [activeBatches] = await pool.query(`SELECT credits, expires_at FROM user_batches WHERE user_id = ? AND credits > 0 ORDER BY expires_at IS NULL, expires_at ASC`, [userId]);
             return send(200, { success: true, user: { ...userWithoutPassword, activeBatches } });
@@ -788,6 +932,9 @@ const handleRequest = async (req, res) => {
             const delay = settings[0]?.cancellationDelay || 24;
             const [cls] = await pool.query('SELECT title, date, time, credits_price FROM classes WHERE id = ?', [classId]);
             
+            const [userRows] = await pool.query('SELECT is_subscribed FROM users WHERE id = ?', [userId]);
+            const isSubscribed = userRows.length > 0 ? userRows[0].is_subscribed : false;
+
             if (cls.length) {
                 const classDate = new Date(cls[0].date + 'T' + cls[0].time);
                 const now = new Date();
@@ -797,7 +944,11 @@ const handleRequest = async (req, res) => {
                 }
             }
 
-            const creditsToRefund = (cls.length && cls[0].credits_price) ? cls[0].credits_price : 0;
+            let creditsToRefund = (cls.length && cls[0].credits_price) ? cls[0].credits_price : 0;
+            
+            if (isSubscribed) {
+                creditsToRefund = 0; // Pas de remboursement de crédit pour les abonnés
+            }
 
             await pool.query('START TRANSACTION');
             const [result] = await pool.query('DELETE FROM bookings WHERE class_id = ? AND user_id = ?', [classId, userId]);
@@ -806,6 +957,8 @@ const handleRequest = async (req, res) => {
                 await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [creditsToRefund, userId]);
                 await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'refund', creditsToRefund, `Annulation : ${cls[0].title}`]);
                 await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, NULL)', [userId, creditsToRefund]);
+            } else if (result.affectedRows > 0 && isSubscribed) {
+                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'refund', 0, `Annulation (Abonnement) : ${cls[0].title}`]);
             }
             await pool.query('COMMIT');
 
@@ -970,7 +1123,7 @@ const handleRequest = async (req, res) => {
                 mode: 'payment',
                 success_url: `http://${req.headers.host}/paiement-succes?package=${encodeURIComponent(pkg.name)}&credits=${pkg.credits}`,
                 cancel_url: `http://${req.headers.host}/#profil?payment=cancel`,
-                metadata: { userId: userId.toString(), credits: pkg.credits.toString(), price: pkg.price.toString(), packageName: pkg.name, expires_in_days: pkg.expires_in_days.toString(), type: 'credits_purchase' }
+                metadata: { userId: userId.toString(), credits: pkg.credits.toString(), price: pkg.price.toString(), packageName: pkg.name, expires_in_days: pkg.expires_in_days.toString(), is_subscription: pkg.is_subscription ? '1' : '0', type: 'credits_purchase' }
             });
             console.log("[STRIPE] Session créée avec succès :", session.id);
             return send(200, { url: session.url });
@@ -991,7 +1144,7 @@ const handleRequest = async (req, res) => {
                 const session = event.data.object;
                 console.log("🔔 Webhook Stripe : checkout.session.completed reçu.");
 
-                const { userId, credits, price, packageName, expires_in_days, type } = session.metadata;
+                const { userId, credits, price, packageName, expires_in_days, is_subscription, type } = session.metadata;
                 
                 if (credits && userId) {
                     console.log(`[WEBHOOK] Traitement achat : User ${userId}, +${credits} cours`);
@@ -1006,10 +1159,16 @@ const handleRequest = async (req, res) => {
 
                     const description = price ? `Achat de cours (${price}€)` : 'Achat de cours';
                     await pool.query('START TRANSACTION');
-                    await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [parseInt(credits), parseInt(userId)]);
+                    await pool.query('UPDATE users SET credits_balance = COALESCE(credits_balance, 0) + ? WHERE id = ?', [parseInt(credits), parseInt(userId)]);
                     await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [parseInt(userId), 'purchase', parseInt(credits), description]);
                     await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, ?)', [parseInt(userId), parseInt(credits), expiresAtStr]);
                     await pool.query('COMMIT');
+                    await cleanupExpiredBatches(parseInt(userId)); // Sécurité pour s'assurer que le compte est parfaitement synchronisé
+                    
+                    const isSubscription = is_subscription === '1' || (packageName && packageName.toLowerCase().includes('abonnement'));
+                    if (isSubscription) {
+                        await pool.query('UPDATE users SET is_subscribed = 1 WHERE id = ?', [parseInt(userId)]);
+                    }
                     console.log(`✅ Cours ajoutés en DB (+${credits}) pour l'utilisateur ${userId}`);
 
                     // Récupérer l'email de l'utilisateur depuis la DB pour être sûr de l'adresse
@@ -1035,7 +1194,6 @@ const handleRequest = async (req, res) => {
                         }
                     });
 
-                    const isSubscription = packageName && packageName.toLowerCase().includes('abonnement');
                     const emailHtml = isSubscription ? `
                         <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px; max-width: 600px; margin: auto;">
                             <h2 style="color: #065f46;">Merci pour votre achat !</h2>

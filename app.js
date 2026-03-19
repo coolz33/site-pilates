@@ -358,7 +358,7 @@ class PilatesApp {
         this.state.selectedAdminClasses = [];
         if (tab === 'newsletter') {
             this.state.selectedNewsletterRecipients = this.state.users
-                .filter(u => Number(u.newsletter_subscribed) === 1 && u.role !== 'admin')
+                .filter(u => Number(u.newsletter_subscribed) === 1)
                 .map(u => u.id);
         }
         this.render();
@@ -610,8 +610,12 @@ class PilatesApp {
         }
     }
 
-    async adjustCredits(e, userId) { await userService.adjustCredits(this, e, userId); }
+    async adjustUserCredits(e, userId) { await userService.adjustUserCredits(this, e, userId); }
+    async promptRemoveSpecificCredits(userId, maxCredits, batchIds) { await userService.promptRemoveSpecificCredits(this, userId, maxCredits, batchIds); }
+    async removeSpecificCredits(userId, amount, batchIds) { await userService.removeSpecificCredits(this, userId, amount, batchIds); }
     async sendUserMessage(e, userId) { await userService.sendUserMessage(this, e, userId); }
+    async toggleUserRole(userId, currentRole) { await userService.toggleUserRole(this, userId, currentRole); }
+    async toggleSubscription(userId, currentStatus) { await userService.toggleSubscription(this, userId, currentStatus); }
     async askAi() { await aiService.askAi(this); }
     handleUserSearch(query) {
         this.state.userSearchQuery = query;

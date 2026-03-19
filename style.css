@@ -29,6 +29,7 @@
     background-color: var(--stone-50);
     color: var(--stone-800);
     font-family: system-ui, -apple-system, sans-serif;
+    padding-top: 5rem; /* Compense la barre de navigation fixe */
 }
 .dark .custom-body { background-color: var(--stone-900); color: var(--stone-200); }
 
@@ -519,6 +520,30 @@
 .form-control::placeholder { color: var(--stone-400) !important; opacity: 1 !important; }
 .dark .form-control::placeholder { color: var(--stone-400) !important; }
 
+/* Cases à cocher moins blanches */
+.form-check-input {
+    background-color: var(--stone-200) !important;
+    border-color: var(--stone-300) !important;
+}
+.form-check-input:checked {
+    background-color: var(--emerald-600) !important;
+    border-color: var(--emerald-600) !important;
+}
+.dark .form-check-input { background-color: var(--stone-700) !important; border-color: var(--stone-600) !important; }
+.dark .form-check-input:checked { background-color: var(--emerald-500) !important; border-color: var(--emerald-500) !important; }
+
+/* Amélioration des flèches des champs numériques */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    opacity: 1; /* Toujours visible */
+    cursor: pointer;
+    padding: 0 4px;
+}
+.dark input[type="number"]::-webkit-inner-spin-button,
+.dark input[type="number"]::-webkit-outer-spin-button {
+    filter: invert(1) hue-rotate(180deg);
+}
+
 /* ------------------------------------------- */
 
 /* Animations et styles personnalisés */
@@ -682,4 +707,11 @@ textarea:focus,
     min-width: 150px !important; /* Conserve la largeur minimale */
     padding: 0.5rem !important; /* Réduit le padding */
     font-size: 0.875rem !important; /* text-sm */
+}
+
+.icon-tooltip {
+    min-width: max-content !important;
+    max-width: 250px !important;
+    padding: 0.4rem 0.8rem !important;
+    font-size: 0.75rem !important;
 }

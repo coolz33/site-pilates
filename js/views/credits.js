@@ -25,10 +25,10 @@ export const creditsView = (app) => {
                                     <div class="price-header mx-auto">${p.name}</div>
                                     <div class="price-body">
                                         <div>
-                                            <div class="price-title">${p.subtitle || p.credits + ' cours'}</div>
+                                            <div class="price-title">${p.subtitle || (p.is_subscription ? 'Abonnement' : p.credits + ' cours')}</div>
                                             <div class="price-divider"></div>
                                             <div class="price-details text-muted">
-                                                ${p.description ? p.description : `<p>${p.credits} cours utilisables librement.</p>`}
+                                                ${p.description ? p.description : `<p>${p.is_subscription ? "Accès abonné" : p.credits + " cours utilisables librement."}</p>`}
                                             </div>
                                         </div>
                                     <button onclick="app.buyCredits(${JSON.stringify(p).replace(/"/g, '&quot;')})" 

@@ -37,8 +37,26 @@ export const classService = {
             app.state.paymentMethod = 'credits'; // Toujours par crédits
             app.state.showPaymentModal = true;
 
-            // Vérifier le solde de crédits immédiatement
-            if (app.state.currentUser.credits_balance < 1) {
+            // Vérifier la limite d'abonnement (1 cours par semaine)
+            let limitReached = false;
+            if (app.state.currentUser.is_subscribed) {
+                const getWeekStart = (dateStr) => {
+                    const [y, m, d] = dateStr.split('-');
+                    const date = new Date(y, m - 1, d);
+                    const day = date.getDay();
+                    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+                    date.setDate(diff);
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                };
+                const targetWeekStart = getWeekStart(cls.date);
+                limitReached = app.state.classes.some(c => 
+                    c.bookedUsers.includes(app.state.currentUser.id) && getWeekStart(c.date) === targetWeekStart
+                );
+            }
+
+            if (limitReached) {
+                app.state.modalMessage = { type: 'error', text: 'Vous avez déjà atteint votre limite d\'un cours pour cette semaine.', isSubscriptionLimit: true };
+            } else if (!app.state.currentUser.is_subscribed && (parseInt(app.state.currentUser.credits_balance) || 0) < 1) {
                 app.state.modalMessage = { type: 'error', text: 'Solde de cours insuffisant', isInsufficientCredits: true };
             } else {
                 app.state.modalMessage = null;
@@ -57,10 +75,12 @@ export const classService = {
         app.state.modalMessage = null;
 
         // Vérification de la case à cocher
-        const confirmCheck = document.getElementById('confirm-credits');
-        if (!confirmCheck || !confirmCheck.checked) {
-            app.state.modalMessage = { type: 'error', text: "Veuillez cocher la case pour confirmer l'utilisation d'un cours." };
-            return app.render();
+        if (!app.state.currentUser.is_subscribed) {
+            const confirmCheck = document.getElementById('confirm-credits');
+            if (!confirmCheck || !confirmCheck.checked) {
+                app.state.modalMessage = { type: 'error', text: "Veuillez cocher la case pour confirmer l'utilisation d'un cours." };
+                return app.render();
+            }
         }
 
         // Paiement par crédits
@@ -323,7 +343,7 @@ export const classService = {
 
     // Annulation par l'administrateur (depuis le détail client)
     async adminCancelBookingForUser(app, classId, targetUserId) {
-        const confirmed = await app.confirmDialog("Voulez-vous vraiment annuler cette réservation pour ce client ?\n\nLe client sera remboursé de son cours.", { type: 'danger' });
+        const confirmed = await app.confirmDialog("Voulez-vous vraiment annuler cette réservation pour ce client ?\n\nS'il n'est pas abonné, son cours lui sera recrédité.", { type: 'danger' });
         if (!confirmed) return;
         try {
             const res = await fetch(`${API_URL}/classes/cancel/${classId}`, {
@@ -333,7 +353,7 @@ export const classService = {
             });
             const data = await res.json();
             if (data.success) {
-                app.showNotification("Réservation annulée et cours recrédité au client.");
+                app.showNotification("Réservation annulée avec succès.");
                 // Re-charger les détails du client pour mettre à jour la liste des réservations et le solde de crédits
                 await app.viewUser(targetUserId); 
             } else {
