@@ -273,6 +273,7 @@ class PilatesApp {
             this.state.studioPhone = results[0].studioPhone || '';
             this.state.studioEmail = results[0].studioEmail || '';
             this.state.cancellationDelay = results[0].cancellationDelay || 24;
+            this.state.aiProvider = results[0].aiProvider || 'gemini';
             this.state.studioFacebook = results[0].facebookUrl || '';
             this.state.studioInstagram = results[0].instagramUrl || '';
             this.state.studioTiktok = results[0].tiktokUrl || '';
@@ -366,34 +367,46 @@ class PilatesApp {
         } else {
             document.documentElement.classList.remove('dark');
         }
-        localStorage.setItem('pilates_theme', theme);
+        try {
+            localStorage.setItem('pilates_theme', theme);
+        } catch (e) {
+            console.warn("Impossible de sauvegarder le thème (localStorage bloqué)");
+        }
         this.render();
     }
 
     async switchTheme(theme, element) {
-        if (!document.startViewTransition || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          this.applyTheme(theme);
-          return;
+        if (!document.startViewTransition || window.matchMedia("(prefers-reduced-motion: reduce)").matches || !element || !element.getBoundingClientRect) {
+            this.applyTheme(theme);
+            return;
         }
     
-        const { top, left, width, height } = element.getBoundingClientRect();
-        const x = left + width / 2;
-        const y = top + height / 2;
-        const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
-    
-        const transition = document.startViewTransition(() => {
-          this.applyTheme(theme);
-        });
-    
-        await transition.ready;
-    
-        document.documentElement.animate(
-          { clipPath: [ `circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)` ] },
-          { duration: 500, easing: "ease-in-out", pseudoElement: "::view-transition-new(root)" }
-        );
+        try {
+            const rect = element.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+        
+            const transition = document.startViewTransition(() => {
+                this.applyTheme(theme);
+            });
+        
+            await transition.ready;
+        
+            document.documentElement.animate(
+                { clipPath: [ `circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)` ] },
+                { duration: 500, easing: "ease-in-out", pseudoElement: "::view-transition-new(root)" }
+            );
+        } catch (err) {
+            console.warn("L'animation de transition a été ignorée :", err);
+            if (this.state.theme !== theme) {
+                this.applyTheme(theme);
+            }
+        }
     }
 
     toggleTheme(element) {
+        console.log("💡 [Thème] Bouton cliqué ! Thème actuel :", this.state.theme);
         const newTheme = this.state.theme === 'light' ? 'dark' : 'light';
         this.switchTheme(newTheme, element);
     }
@@ -583,8 +596,12 @@ class PilatesApp {
     render() {
         // Sauvegarde de l'élément ayant le focus et de la position du curseur AVANT toute modification du DOM
         const activeElementId = document.activeElement?.id;
-        const selectionStart = document.activeElement?.selectionStart;
-        const selectionEnd = document.activeElement?.selectionEnd;
+        let selectionStart = null;
+        let selectionEnd = null;
+        try {
+            selectionStart = document.activeElement?.selectionStart ?? null;
+            selectionEnd = document.activeElement?.selectionEnd ?? null;
+        } catch (e) { /* Ignore pour les inputs ne supportant pas la sélection (ex: email, number) */ }
 
         renderNavbar(this);
         renderFooter(this);
@@ -628,7 +645,11 @@ class PilatesApp {
             if (elementToFocus && (elementToFocus instanceof HTMLInputElement || elementToFocus instanceof HTMLTextAreaElement)) {
                 elementToFocus.focus();
                 // Restauration de la position du curseur pour éviter qu'il ne saute à la fin
-                if (selectionStart !== null) elementToFocus.setSelectionRange(selectionStart, selectionEnd);
+                if (selectionStart !== null) {
+                    try {
+                        elementToFocus.setSelectionRange(selectionStart, selectionEnd);
+                    } catch (e) { /* Ignore si non supporté par le navigateur */ }
+                }
             }
         }
 

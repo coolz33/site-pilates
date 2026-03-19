@@ -143,6 +143,10 @@ const server = http.createServer((req, res) => {
                     if (contentType.includes('text') || contentType.includes('javascript') || contentType.includes('json')) {
                         responseHeaders['Content-Type'] += '; charset=utf-8';
                     }
+                    
+                    // Désactiver le cache du navigateur pour faciliter le développement
+                    responseHeaders['Cache-Control'] = 'no-store, no-cache, must-revalidate, proxy-revalidate';
+                    
                     res.writeHead(200, responseHeaders);
                     res.end(content);
                 }
