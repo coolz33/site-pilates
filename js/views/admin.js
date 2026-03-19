@@ -44,9 +44,9 @@ export const adminView = (app) => {
     const allTitles = [...new Set(st.classes.map(c => c.title))].sort();
 
     return `
-        <div class="min-h-screen bg-stone-50 pt-12 pb-24 animate-fade-in dark:bg-stone-900 max-w-[85%] md:max-w-[80%] mx-auto">
+        <div class="min-h-[70vh] bg-stone-50 pt-6 pb-8 animate-fade-in dark:bg-stone-900 max-w-[85%] md:max-w-[80%] mx-auto">
             <div class="w-full px-4">
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
                     <!-- Menu Latéral -->
                     <aside class="md:col-span-3 bg-white dark:bg-stone-800 p-4 rounded-2xl self-start shadow-sm border border-stone-100 dark:border-stone-700">
                         <h1 class="text-2xl font-light text-stone-800 mb-6 px-2 dark:text-stone-100">Administration</h1>
@@ -351,7 +351,7 @@ export const adminView = (app) => {
                                         <label class="block text-xs font-medium text-stone-500 mb-1 dark:text-stone-400">Prix (€)</label>
                                         <input type="number" name="price" value="${pkg.price}" required min="0" class="w-full p-2 border border-stone-200 rounded-lg text-sm text-center dark:bg-stone-700 dark:border-stone-600">
                                     </div>
-                                    <button type="submit" class="w-full md:w-auto px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm hover:bg-emerald-800 transition dark:bg-emerald-600 dark:hover:bg-emerald-500">Enregistrer</button>
+                                    <button type="submit" class="w-full md:w-auto px-5 py-2.5 bg-stone-800 text-white rounded-xl text-sm font-medium hover:bg-stone-900 transition-all shadow-sm active:scale-[0.98] dark:bg-stone-600 dark:hover:bg-stone-500">Mettre à jour</button>
                                 </form>
                             `).join('')}
                             
@@ -361,7 +361,7 @@ export const adminView = (app) => {
                                     <input type="text" name="name" placeholder="Nom (ex: Pack Découverte)" required class="flex-1 w-full p-2 border border-stone-200 rounded-lg text-sm dark:bg-stone-700 dark:border-stone-600">
                                     <input type="number" name="credits" placeholder="Crédits" required min="1" class="w-full md:w-24 p-2 border border-stone-200 rounded-lg text-sm text-center dark:bg-stone-700 dark:border-stone-600">
                                     <input type="number" name="price" placeholder="Prix €" required min="0" class="w-full md:w-24 p-2 border border-stone-200 rounded-lg text-sm text-center dark:bg-stone-700 dark:border-stone-600">
-                                    <button type="submit" class="w-full md:w-auto px-4 py-2 bg-stone-800 text-white rounded-lg text-sm hover:bg-stone-900 transition">Ajouter</button>
+                                    <button type="submit" class="w-full md:w-auto px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-800 text-white rounded-xl text-sm font-medium hover:shadow-md transition-all active:scale-[0.98] dark:from-emerald-500 dark:to-emerald-700">Ajouter le pack</button>
                                 </form>
                             </div>
                         </div>
@@ -649,7 +649,20 @@ export const adminView = (app) => {
                                     <option value="openai" ${st.aiProvider === 'openai' ? 'selected' : ''}>OpenAI (GPT-4o mini)</option>
                                 </select>
                             </div>
-                            <button type="submit" class="w-full py-3 bg-stone-800 text-white rounded-xl font-medium hover:bg-stone-900 transition">Enregistrer les modifications</button>
+                            <div class="pt-4 border-t border-stone-100 dark:border-stone-700">
+                                <label class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Lien Instagram</label>
+                                <input type="url" id="admin-studio-instagram" class="w-full p-2 mb-3 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600" value="${st.studioInstagram}" placeholder="https://instagram.com/...">
+                                
+                                <label class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Lien Facebook</label>
+                                <input type="url" id="admin-studio-facebook" class="w-full p-2 mb-3 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600" value="${st.studioFacebook}" placeholder="https://facebook.com/...">
+                                
+                                <label class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Lien TikTok</label>
+                                <input type="url" id="admin-studio-tiktok" class="w-full p-2 border border-stone-200 rounded-lg dark:bg-stone-700 dark:border-stone-600" value="${st.studioTiktok}" placeholder="https://tiktok.com/...">
+                            </div>
+                            <button type="submit" class="w-full py-3.5 mt-2 bg-gradient-to-r from-emerald-700 to-emerald-900 text-white rounded-xl font-medium hover:shadow-lg transition-all active:scale-[0.98] dark:from-emerald-600 dark:to-emerald-800 flex justify-center items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                Enregistrer les paramètres
+                            </button>
                         </form>
                     </div>
                 ` : ''}

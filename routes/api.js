@@ -126,6 +126,9 @@ const seedDB = async () => {
         try { await pool.query(`ALTER TABLE settings ADD COLUMN cancellationDelay INT DEFAULT 24`); } catch (e) {}
         try { await pool.query(`ALTER TABLE settings ADD COLUMN aiProvider VARCHAR(50) DEFAULT 'gemini'`); } catch (e) {}
         try { await pool.query(`ALTER TABLE classes ADD COLUMN recurrence_id VARCHAR(50) DEFAULT NULL`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE settings ADD COLUMN facebookUrl VARCHAR(255) DEFAULT NULL`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE settings ADD COLUMN instagramUrl VARCHAR(255) DEFAULT NULL`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE settings ADD COLUMN tiktokUrl VARCHAR(255) DEFAULT NULL`); } catch (e) {}
         // Migration des anciens noms vers les nouveaux si nécessaire
         try { await pool.query(`ALTER TABLE users CHANGE points_balance credits_balance INT DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE classes CHANGE points_price credits_price INT DEFAULT 1`); } catch (e) {}
@@ -956,18 +959,21 @@ const handleRequest = async (req, res) => {
         }
 
         if (method === 'POST' && path === '/settings') {
-            const { studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider } = req.body;
+            const { studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl } = req.body;
             await pool.query(`
-                INSERT INTO settings (id, studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider)
-                VALUES (1, ?, ?, ?, ?, ?)
+                INSERT INTO settings (id, studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl)
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE 
                     studioAddress = COALESCE(?, studioAddress), 
                     studioPhone = COALESCE(?, studioPhone), 
                     studioEmail = COALESCE(?, studioEmail), 
                     cancellationDelay = COALESCE(?, cancellationDelay), 
-                    aiProvider = COALESCE(?, aiProvider)
-            `, [studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider,
-                studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider]);
+                    aiProvider = COALESCE(?, aiProvider),
+                    facebookUrl = COALESCE(?, facebookUrl),
+                    instagramUrl = COALESCE(?, instagramUrl),
+                    tiktokUrl = COALESCE(?, tiktokUrl)
+            `, [studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl,
+                studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl]);
             
             return send(200, { id: 1, ...req.body });
         }

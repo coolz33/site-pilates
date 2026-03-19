@@ -63,6 +63,9 @@ class PilatesApp {
             studioPhone: '',
             studioEmail: '',
             cancellationDelay: 24,
+            studioFacebook: '',
+            studioInstagram: '',
+            studioTiktok: '',
             aiProvider: 'gemini',
             quill: null,
             newsletterContent: '',
@@ -95,6 +98,7 @@ class PilatesApp {
                 maxBooked: '',
                 userName: ''
             },
+            visiblePasswords: [], // IDs of password inputs to show
             selectedAdminClasses: [], // IDs des séances sélectionnées pour action groupée
             userSearchQuery: '', // Requête pour le filtrage dynamique des clients
             cookieNoticeAccepted: localStorage.getItem('pilates_cookie_accepted') === 'true',
@@ -269,6 +273,9 @@ class PilatesApp {
             this.state.studioPhone = results[0].studioPhone || '';
             this.state.studioEmail = results[0].studioEmail || '';
             this.state.cancellationDelay = results[0].cancellationDelay || 24;
+            this.state.studioFacebook = results[0].facebookUrl || '';
+            this.state.studioInstagram = results[0].instagramUrl || '';
+            this.state.studioTiktok = results[0].tiktokUrl || '';
             this.state.classes = results[1] || [];
             this.state.courseTemplates = results[2] || [];
             this.state.creditPackages = results[3] || [];
@@ -389,6 +396,30 @@ class PilatesApp {
     toggleTheme(element) {
         const newTheme = this.state.theme === 'light' ? 'dark' : 'light';
         this.switchTheme(newTheme, element);
+    }
+
+    togglePasswordVisibility(inputId) {
+        const index = this.state.visiblePasswords.indexOf(inputId);
+        const isVisible = index === -1; // S'il n'y était pas, il devient visible
+        
+        if (isVisible) {
+            this.state.visiblePasswords.push(inputId);
+        } else {
+            this.state.visiblePasswords.splice(index, 1);
+        }
+        
+        // Mise à jour directe du DOM au lieu de tout recharger avec this.render()
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.type = isVisible ? 'text' : 'password';
+            const btn = input.nextElementSibling;
+            if (btn) {
+                const eyeIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/><path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>`;
+                const eyeSlashIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="m10.79 12.912-1.614-1.615a3.5 3.5 0 0 1-4.474-4.474l-2.06-2.06C.938 6.278 0 8 0 8s3 5.5 8 5.5a7.029 7.029 0 0 0 2.79-.588zM5.21 3.088A7.028 7.028 0 0 1 8 2.5c5 0 8 5.5 8 5.5s-.939 1.721-2.641 3.238l-2.062-2.062a3.5 3.5 0 0 0-4.474-4.474L5.21 3.089z"/><path d="M5.525 7.646a2.5 2.5 0 0 0 2.829 2.829l-2.83-2.829zm4.95.708-2.829-2.83a2.5 2.5 0 0 1 2.829 2.829zm3.171 6-12-12 .708-.708 12 12-.708.708z"/></svg>`;
+                btn.innerHTML = isVisible ? eyeSlashIcon : eyeIcon;
+            }
+            input.focus(); // Remet le focus dans le champ de texte pour le confort
+        }
     }
 
     confirmDialog(message, options = {}) {

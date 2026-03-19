@@ -64,26 +64,80 @@ export const renderNavbar = (app) => {
 };
 
 export const renderFooter = (app) => {
+    const year = new Date().getFullYear();
     document.getElementById('footer').innerHTML = `
-        <footer class="bg-stone-800 text-stone-400 py-6 md:py-8 dark:bg-stone-900">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div>
-                    <span class="text-xl font-light text-white tracking-wider mb-4 block dark:text-stone-200">ÉQUILIBRE<span class="font-semibold">PILATES</span></span>
-                    <p class="text-sm">Votre studio de bien-être.</p>
+        <footer class="bg-white text-stone-600 pt-8 pb-4 border-t border-stone-200 dark:bg-stone-900 dark:border-stone-800 dark:text-stone-400">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    
+                    <!-- 1. Branding & Réseaux Sociaux -->
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-3 cursor-pointer" onclick="app.navigate('accueil')">
+                            <div class="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22C12 22 20 18 20 12C20 6 12 2 12 2C12 2 4 6 4 12C4 18 12 22 12 22Z"/><path d="M12 22V12"/></svg>
+                            </div>
+                            <span class="text-xl font-light text-emerald-800 tracking-wider dark:text-emerald-400">ÉQUILIBRE<span class="font-semibold">PILATES</span></span>
+                        </div>
+                        <p class="text-sm leading-relaxed text-stone-500 dark:text-stone-400">
+                            Votre espace de bien-être dédié au mouvement en conscience, pour renforcer le corps et apaiser l'esprit.
+                        </p>
+                        <div class="flex gap-2 pt-1">
+                            ${app.state.studioInstagram ? `<a href="${app.state.studioInstagram}" target="_blank" rel="noopener noreferrer" class="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:bg-emerald-600 hover:text-white transition-all shadow-sm dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-emerald-700" title="Instagram"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg></a>` : ''}
+                            ${app.state.studioFacebook ? `<a href="${app.state.studioFacebook}" target="_blank" rel="noopener noreferrer" class="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:bg-emerald-600 hover:text-white transition-all shadow-sm dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-emerald-700" title="Facebook"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>` : ''}
+                            ${app.state.studioTiktok ? `<a href="${app.state.studioTiktok}" target="_blank" rel="noopener noreferrer" class="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:bg-emerald-600 hover:text-white transition-all shadow-sm dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-emerald-700" title="TikTok"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg></a>` : ''}
+                        </div>
+                    </div>
+
+                    <!-- 2. Plan du site -->
+                    <div>
+                        <h4 class="text-stone-800 font-medium mb-3 uppercase tracking-wider text-sm dark:text-stone-200">Plan du site</h4>
+                        <ul class="space-y-2 text-sm">
+                            <li><button onclick="app.navigate('accueil')" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><span class="text-emerald-600 dark:text-emerald-500">→</span> Accueil</button></li>
+                            <li><button onclick="app.navigate('a-propos')" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><span class="text-emerald-600 dark:text-emerald-500">→</span> Le Pilates</button></li>
+                            <li><button onclick="app.navigate('tarifs')" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><span class="text-emerald-600 dark:text-emerald-500">→</span> Tarifs & Packs</button></li>
+                            <li><button onclick="app.navigate('planning')" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><span class="text-emerald-600 dark:text-emerald-500">→</span> Planning & Réservation</button></li>
+                            <li><button onclick="app.navigate('contact')" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><span class="text-emerald-600 dark:text-emerald-500">→</span> Nous contacter</button></li>
+                            ${!app.state.currentUser ? `
+                                <li><button onclick="app.navigate('connexion')" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><span class="text-emerald-600 dark:text-emerald-500">→</span> Espace Client</button></li>
+                            ` : `
+                                <li><button onclick="app.navigate('profil')" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><span class="text-emerald-600 dark:text-emerald-500">→</span> Mon Profil</button></li>
+                            `}
+                        </ul>
+                    </div>
+
+                    <!-- 3. Coordonnées -->
+                    <div>
+                        <h4 class="text-stone-800 font-medium mb-3 uppercase tracking-wider text-sm dark:text-stone-200">Nous trouver</h4>
+                        <ul class="space-y-2 text-sm">
+                            <li class="flex items-start gap-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600 dark:text-emerald-500 mt-0.5 flex-shrink-0"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                <span class="leading-relaxed">${app.state.studioAddress}</span>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600 dark:text-emerald-500 flex-shrink-0"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                <a href="tel:${app.state.studioPhone.replace(/\s/g, '')}" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">${app.state.studioPhone}</a>
+                            </li>
+                            <li class="flex items-center gap-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600 dark:text-emerald-500 flex-shrink-0"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                                <a href="mailto:${app.state.studioEmail}" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors underline-offset-4 decoration-stone-300 dark:decoration-stone-600 underline">${app.state.studioEmail}</a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- 4. Légal -->
+                    <div>
+                        <h4 class="text-stone-800 font-medium mb-3 uppercase tracking-wider text-sm dark:text-stone-200">Informations Légales</h4>
+                        <ul class="space-y-2 text-sm">
+                            <li><button onclick="app.navigate('mentions-legales')" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><span class="text-stone-400 dark:text-stone-500">→</span> Mentions Légales</button></li>
+                            <li><button onclick="app.navigate('politique-confidentialite')" class="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"><span class="text-stone-400 dark:text-stone-500">→</span> Politique de Confidentialité</button></li>
+                        </ul>
+                    </div>
                 </div>
-                <div>
-                    <h4 class="text-white font-medium mb-4 dark:text-stone-200">Contact</h4>
-                    <ul class="space-y-2 text-sm">
-                        <li>${app.state.studioAddress}</li>
-                        <li>${app.state.studioEmail}</li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="text-white font-medium mb-4 dark:text-stone-200">Légal</h4>
-                    <ul class="space-y-2 text-sm">
-                        <li><button onclick="app.navigate('mentions-legales')" class="hover:text-white transition-colors">Mentions Légales</button></li>
-                        <li><button onclick="app.navigate('politique-confidentialite')" class="hover:text-white transition-colors">Confidentialité</button></li>
-                    </ul>
+                
+                <!-- Copyright Footer Bottom -->
+                <div class="pt-4 border-t border-stone-100 dark:border-stone-800 flex flex-col md:flex-row justify-between items-center gap-2 text-[10px] sm:text-xs text-stone-400 dark:text-stone-500">
+                    <p>© ${year} Studio Équilibre Pilates. Tous droits réservés.</p>
+                    <p class="flex items-center gap-1">Fait avec <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="text-emerald-500"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> pour la vitalité</p>
                 </div>
             </div>
         </footer>`;

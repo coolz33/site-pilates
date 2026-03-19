@@ -101,6 +101,9 @@ export const userService = {
             studioPhone: document.getElementById('admin-studio-phone').value,
             studioEmail: document.getElementById('admin-studio-email').value,
             aiProvider: document.getElementById('admin-ai-provider').value,
+            instagramUrl: document.getElementById('admin-studio-instagram').value,
+            facebookUrl: document.getElementById('admin-studio-facebook').value,
+            tiktokUrl: document.getElementById('admin-studio-tiktok').value,
             cancellationDelay: app.state.cancellationDelay
         };
         await fetch(`${API_URL}/settings`, {

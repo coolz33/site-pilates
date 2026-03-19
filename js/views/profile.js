@@ -1,6 +1,9 @@
 import { getNotificationHtml } from './components.js';
 
 export const profileView = (app) => {
+    const eyeIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/><path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>`;
+    const eyeSlashIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="m10.79 12.912-1.614-1.615a3.5 3.5 0 0 1-4.474-4.474l-2.06-2.06C.938 6.278 0 8 0 8s3 5.5 8 5.5a7.029 7.029 0 0 0 2.79-.588zM5.21 3.088A7.028 7.028 0 0 1 8 2.5c5 0 8 5.5 8 5.5s-.939 1.721-2.641 3.238l-2.062-2.062a3.5 3.5 0 0 0-4.474-4.474L5.21 3.089z"/><path d="M5.525 7.646a2.5 2.5 0 0 0 2.829 2.829l-2.83-2.829zm4.95.708-2.829-2.83a2.5 2.5 0 0 1 2.829 2.829zm3.171 6-12-12 .708-.708 12 12-.708.708z"/></svg>`;
+
     const u = app.state.currentUser;
     if (!u) return '';
 
@@ -62,11 +65,21 @@ export const profileView = (app) => {
                         </div>
                         <div>
                             <label for="prof-password" class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Nouveau mot de passe</label>
-                            <input type="password" id="prof-password" class="w-full p-3 border rounded-xl dark:bg-stone-700 dark:border-stone-600" placeholder="Laisser vide pour ne pas changer">
+                            <div class="relative">
+                                <input type="${app.state.visiblePasswords.includes('prof-password') ? 'text' : 'password'}" id="prof-password" class="w-full p-3 pr-10 border rounded-xl dark:bg-stone-700 dark:border-stone-600" placeholder="Laisser vide pour ne pas changer">
+                                <button type="button" onclick="app.togglePasswordVisibility('prof-password')" class="absolute inset-y-0 right-0 flex items-center px-3 text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200">
+                                    ${app.state.visiblePasswords.includes('prof-password') ? eyeSlashIcon : eyeIcon}
+                                </button>
+                            </div>
                         </div>
                         <div>
                             <label for="prof-confirm-password" class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Confirmer</label>
-                            <input type="password" id="prof-confirm-password" class="w-full p-3 border rounded-xl dark:bg-stone-700 dark:border-stone-600">
+                            <div class="relative">
+                                <input type="${app.state.visiblePasswords.includes('prof-confirm-password') ? 'text' : 'password'}" id="prof-confirm-password" class="w-full p-3 pr-10 border rounded-xl dark:bg-stone-700 dark:border-stone-600">
+                                <button type="button" onclick="app.togglePasswordVisibility('prof-confirm-password')" class="absolute inset-y-0 right-0 flex items-center px-3 text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200">
+                                    ${app.state.visiblePasswords.includes('prof-confirm-password') ? eyeSlashIcon : eyeIcon}
+                                </button>
+                            </div>
                         </div>
                         <div>
                             <label for="prof-phone" class="block text-sm font-medium text-stone-700 mb-1 dark:text-stone-200">Téléphone</label>
@@ -205,9 +218,9 @@ export const profileView = (app) => {
     }
 
     return `
-        <div class="pt-24 pb-24 bg-stone-50 min-h-screen animate-fade-in dark:bg-stone-900 max-w-screen-xl mx-auto">
+        <div class="pt-8 pb-8 bg-stone-50 min-h-[70vh] animate-fade-in dark:bg-stone-900 max-w-screen-xl mx-auto">
             <div class="max-w-6xl mx-auto px-4">
-                <div class="mb-8">
+                <div class="mb-6">
                     <h1 class="text-4xl font-light text-stone-800 dark:text-stone-100">Mon Profil</h1>
                 </div>
 

@@ -78,10 +78,10 @@ export const scheduleView = (app) => {
     }).join('');
 
     return `
-        <div class="min-h-[70vh] bg-stone-50 pt-8 pb-12 animate-fade-in dark:bg-stone-900 max-w-screen-2xl mx-auto">
+        <div class="min-h-[70vh] bg-stone-50 pt-6 pb-8 animate-fade-in dark:bg-stone-900 max-w-screen-2xl mx-auto">
             <div class="max-w-7xl mx-auto px-4">
                 <!-- Section Assistant IA -->
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 mb-10 dark:bg-stone-800 dark:border-stone-700">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 mb-6 dark:bg-stone-800 dark:border-stone-700">
                     <h2 class="text-xl font-medium text-stone-800 mb-4 flex items-center gap-2 dark:text-stone-100">
                         <span class="text-emerald-700 dark:text-emerald-400">${icons.sparkles}</span> Quel cours est fait pour vous ?
                     </h2>
@@ -94,7 +94,7 @@ export const scheduleView = (app) => {
                     ${st.aiResponse ? `<div class="mt-4 p-4 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-100 animate-fade-in dark:bg-emerald-900/50 dark:text-emerald-300 dark:border-emerald-800">${st.aiResponse}</div>` : ''}
                 </div>
 
-                <div class="flex justify-between items-center mb-10">
+                <div class="flex justify-between items-center mb-6">
                     <h1 class="text-3xl font-light capitalize dark:text-stone-100">Planning - ${monthName}</h1>
                     <div class="flex gap-2">
                         <button onclick="app.changeWeek(-1)" class="p-2 border rounded-full dark:border-stone-600 dark:hover:bg-stone-700">←</button>

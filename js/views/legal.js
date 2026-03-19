@@ -17,14 +17,14 @@ export const legalView = (app, mode) => {
             <h2 class="text-xl font-medium text-emerald-800 mb-4 dark:text-emerald-400">Éditeur du site</h2>
             <p class="mb-4">Studio Équilibre Pilates<br>${app.state.studioAddress}<br>Email : ${app.state.studioEmail}</p>
             <h2 class="text-xl font-medium text-emerald-800 mb-4 dark:text-emerald-400">Hébergement</h2>
-            <p class="mb-4">Le site est hébergé sur un serveur privé sécurisé (NAS).</p>
+            <p class="mb-4">Le site est hébergé sur un serveur chez IONOS.</p>
             <h2 class="text-xl font-medium text-emerald-800 mb-4 dark:text-emerald-400">Propriété intellectuelle</h2>
             <p class="mb-4">L'ensemble des contenus (textes, images) est la propriété exclusive du Studio Équilibre Pilates.</p>
         `
     };
 
     return `
-        <div class="pt-20 pb-24 bg-stone-50 min-h-screen animate-fade-in dark:bg-stone-900">
+        <div class="pt-8 pb-8 bg-stone-50 min-h-[70vh] animate-fade-in dark:bg-stone-900">
             <div class="max-w-3xl mx-auto px-4">
                 <h1 class="text-4xl font-light text-stone-800 mb-8 dark:text-stone-100">${content.title}</h1>
                 <div class="bg-white p-8 md:p-12 rounded-3xl shadow-sm border border-stone-100 dark:bg-stone-800 dark:border-stone-700 text-stone-600 dark:text-stone-300 leading-relaxed">
