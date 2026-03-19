@@ -60,11 +60,11 @@ export const scheduleView = (app) => {
                 }
 
                 return `
-                    <div class="schedule-card ${cardStateClass} mb-3 shadow-sm">
-                        <div class="fw-medium ${isPast && !isBooked ? 'text-muted' : ''}">${c.time} - ${c.title}</div>
-                        <div class="small opacity-75 mb-2 ${isPast && !isBooked ? 'text-muted' : ''}">${c.duration} min | ${c.bookedUsers.length}/${c.capacity} pers.</div>
-                        <div class="small fw-semibold mb-3 ${isBooked ? 'text-emerald-light' : (isPast ? 'text-muted' : 'text-emerald')}">${c.credits_price || 1} crédits</div>
-                        <button onclick="app.initiateBooking(${c.id})" ${buttonDisabled} class="btn btn-sm w-100 fw-medium rounded-pill mt-1 ${buttonClasses}">
+                    <div class="schedule-card ${cardStateClass} mb-2 shadow-sm">
+                        <div class="fw-semibold mb-1 lh-sm ${isPast && !isBooked ? 'text-muted' : ''}" style="font-size: 0.85rem;">${c.time} - ${c.title}</div>
+                        <div class="opacity-75 mb-1 ${isPast && !isBooked ? 'text-muted' : ''}" style="font-size: 0.75rem;">${c.duration} min | ${c.bookedUsers.length}/${c.capacity} pers.</div>
+                        <div class="fw-semibold mb-2 ${isBooked ? 'text-emerald-light' : (isPast ? 'text-muted' : 'text-emerald')}" style="font-size: 0.75rem;">${c.credits_price || 1} crédits</div>
+                        <button onclick="app.initiateBooking(${c.id})" ${buttonDisabled} class="btn btn-sm w-100 fw-medium rounded-pill py-1 ${buttonClasses}" style="font-size: 0.75rem;">
                             ${buttonText}
                         </button>
                         
@@ -105,11 +105,11 @@ export const scheduleView = (app) => {
                 </div>
 
                 <!-- En-tête Navigation Planning -->
-                <div class="d-flex justify-content-between align-items-center mb-4 mx-auto" style="max-width: 1400px;">
-                    <h1 class="fs-3 fw-light text-capitalize mb-0">Planning - ${monthName}</h1>
+                <div class="d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-start mb-4 mx-auto gap-3" style="max-width: 1400px;">
+                    <h1 class="fs-2 fw-medium text-capitalize mb-0 text-emerald">Planning - ${monthName}</h1>
                     <div class="d-flex gap-2">
-                        <button onclick="app.changeWeek(-1)" class="nav-round-btn">←</button>
-                        <button onclick="app.changeWeek(1)" class="nav-round-btn">→</button>
+                        <button onclick="app.changeWeek(-1)" class="nav-round-btn" style="width: 2rem; height: 2rem; font-size: 0.875rem;">←</button>
+                        <button onclick="app.changeWeek(1)" class="nav-round-btn" style="width: 2rem; height: 2rem; font-size: 0.875rem;">→</button>
                     </div>
                 </div>
 
