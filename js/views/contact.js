@@ -1,60 +1,78 @@
 import { icons } from '../icons.js';
-import { getNotificationHtml } from './components.js';
 
+/**
+ * @file contact.js
+ * @description Vue de la page de contact (informations, carte, formulaire).
+ */
+
+/**
+ * Génère la page Contact.
+ * @param {PilatesApp} app - L'instance principale de l'application.
+ * @returns {string} Le code HTML structuré avec Bootstrap 5.
+ */
 export const contactView = (app) => `
-    <div class="pt-6 pb-6 bg-white min-h-[60vh] animate-fade-in dark:bg-stone-900">
-        <div class="max-w-5xl mx-auto px-4 sm:px-6">
-            <div class="grid md:grid-cols-2 gap-6">
-                <div>
-                    <h1 class="text-3xl md:text-4xl font-light text-stone-800 mb-4 dark:text-stone-100">Contactez-nous</h1>
-                    <p class="text-stone-600 mb-4 text-base font-light dark:text-stone-300">Une question ? N'hésitez pas à nous écrire.</p>
-                    <div class="space-y-4">
-                        <div class="flex items-start gap-3 text-sm text-stone-600 dark:text-stone-300">
-                            <div class="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-emerald-700 flex-shrink-0 dark:bg-stone-800 dark:text-emerald-400">${icons.mapPin}</div>
+    <div class="pt-4 pb-5 animate-fade-in flex-grow-1">
+        <div class="container" style="max-width: 1000px;">
+            <div class="row g-5 mt-2">
+                <!-- Informations de contact et Carte -->
+                <div class="col-md-6 d-flex flex-column gap-4">
                             <div>
-                                <div class="font-medium text-stone-800 mb-1 dark:text-stone-100">Notre Studio</div>
-                                <div class="leading-relaxed">${app.state.studioAddress}</div>
+                        <h1 class="fs-2 fw-light mb-2">Contactez-nous</h1>
+                        <p class="text-muted fw-light">Une question ? N'hésitez pas à nous écrire.</p>
+                        </div>
+                    
+                    <div class="d-flex flex-column gap-3">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="icon-circle bg-emerald-light text-emerald flex-shrink-0" style="width: 2.5rem; height: 2.5rem;">${icons.mapPin}</div>
+                            <div>
+                                <div class="fw-medium mb-1">Notre Studio</div>
+                                <div class="text-muted small">${app.state.studioAddress}</div>
                             </div>
                         </div>
-                        <div class="flex items-center gap-3 text-sm text-stone-600 dark:text-stone-300">
-                            <div class="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-emerald-700 flex-shrink-0 dark:bg-stone-800 dark:text-emerald-400">${icons.phone}</div>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="icon-circle bg-emerald-light text-emerald flex-shrink-0" style="width: 2.5rem; height: 2.5rem;">${icons.phone}</div>
                             <div>
-                                <div class="font-medium text-stone-800 dark:text-stone-100">Téléphone</div>
-                                <a href="tel:${app.state.studioPhone.replace(/\s/g, '')}" class="hover:text-emerald-700 transition-colors">
+                                <div class="fw-medium">Téléphone</div>
+                                <a href="tel:${app.state.studioPhone.replace(/\s/g, '')}" class="text-muted small text-decoration-none hover-emerald transition-colors">
                                     ${app.state.studioPhone}
                                 </a>
                             </div>
                         </div>
-                        <div class="flex items-center gap-3 text-sm text-stone-600 dark:text-stone-300">
-                            <div class="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-emerald-700 flex-shrink-0 dark:bg-stone-800 dark:text-emerald-400">${icons.mail}</div>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="icon-circle bg-emerald-light text-emerald flex-shrink-0" style="width: 2.5rem; height: 2.5rem;">${icons.mail}</div>
                             <div>
-                                <div class="font-medium text-stone-800 dark:text-stone-100">Email</div>
-                                <a href="mailto:${app.state.studioEmail}" class="hover:text-emerald-700 transition-colors underline decoration-stone-200 underline-offset-4 dark:decoration-stone-700">
+                                <div class="fw-medium">Email</div>
+                                <a href="mailto:${app.state.studioEmail}" class="text-muted small text-decoration-underline hover-emerald transition-colors">
                                     ${app.state.studioEmail}
                                 </a>
                             </div>
                         </div>
                     </div>
-                    <div class="mt-4 rounded-2xl overflow-hidden border border-stone-200 shadow-sm h-48 dark:border-stone-700">
+                    
+                    <div class="rounded-3 overflow-hidden border shadow-sm mt-2" style="height: 200px;">
                         <iframe width="100%" height="100%" frameborder="0" src="https://maps.google.com/maps?q=${encodeURIComponent(app.state.studioAddress)}&t=&z=15&ie=UTF8&iwloc=&output=embed"></iframe>
                     </div>
                 </div>
-                <div class="bg-stone-50 p-6 rounded-3xl border border-stone-100 dark:bg-stone-800 dark:border-stone-700">
-                    <form class="space-y-4" onsubmit="event.preventDefault(); app.showNotification('Message envoyé ! (Simulation)');">
-                        <div>
-                            <label for="contact-name" class="block text-xs font-medium text-stone-700 mb-1 dark:text-stone-200">Nom complet</label>
-                            <input type="text" id="contact-name" required class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 bg-white dark:bg-stone-700 dark:border-stone-600" placeholder="Votre nom" />
-                        </div>
-                        <div>
-                            <label for="contact-email" class="block text-xs font-medium text-stone-700 mb-1 dark:text-stone-200">Email</label>
-                            <input type="email" id="contact-email" required class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 bg-white dark:bg-stone-700 dark:border-stone-600" placeholder="vous@email.com" />
-                        </div>
-                        <div>
-                            <label for="contact-message" class="block text-xs font-medium text-stone-700 mb-1 dark:text-stone-200">Message</label>
-                            <textarea id="contact-message" required rows="3" class="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 bg-white dark:bg-stone-700 dark:border-stone-600" placeholder="Comment pouvons-nous vous aider ?"></textarea>
-                        </div>
-                        <button type="submit" class="w-full py-2.5 text-sm bg-emerald-800 text-white rounded-xl hover:bg-emerald-900 transition font-medium dark:bg-emerald-700 dark:hover:bg-emerald-600">Envoyer le message</button>
-                    </form>
+                
+                <!-- Formulaire de contact -->
+                <div class="col-md-6">
+                    <div class="custom-card p-4 p-md-5 h-100">
+                        <form class="d-flex flex-column gap-3" onsubmit="event.preventDefault(); app.showNotification('Message envoyé ! (Simulation)');">
+                            <div>
+                                <label for="contact-name" class="form-label small fw-medium mb-1">Nom complet</label>
+                                <input type="text" id="contact-name" required class="form-control" placeholder="Votre nom" />
+                            </div>
+                            <div>
+                                <label for="contact-email" class="form-label small fw-medium mb-1">Email</label>
+                                <input type="email" id="contact-email" required class="form-control" placeholder="vous@email.com" />
+                            </div>
+                            <div>
+                                <label for="contact-message" class="form-label small fw-medium mb-1">Message</label>
+                                <textarea id="contact-message" required rows="4" class="form-control" placeholder="Comment pouvons-nous vous aider ?"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-emerald w-100 py-2 mt-2 fw-medium">Envoyer le message</button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

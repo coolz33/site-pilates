@@ -1,6 +1,16 @@
 import { icons } from '../icons.js';
-import { getNotificationHtml } from './components.js';
 
+/**
+ * @file schedule.js
+ * @description Vue du planning et de la réservation.
+ */
+
+/**
+ * Génère la vue du calendrier hebdomadaire.
+ * Affiche l'assistant IA et le calendrier des 7 jours à venir avec les statuts des cours.
+ * @param {PilatesApp} app - L'instance principale de l'application.
+ * @returns {string} Code HTML structuré avec Bootstrap 5.
+ */
 export const scheduleView = (app) => {
     const st = app.state;
     const date = new Date(st.currentDate);
@@ -23,86 +33,91 @@ export const scheduleView = (app) => {
         const dayClasses = st.classes.filter(c => c.date === dayString).sort((a, b) => a.time.localeCompare(b.time));
         
         let classesHtml = dayClasses.length === 0 
-            ? `<div class="text-center text-stone-400 text-sm py-4">Aucun cours</div>`
+            ? `<div class="text-center text-muted small py-4">Aucun cours</div>`
             : dayClasses.map(c => {
                 const isBooked = st.currentUser && c.bookedUsers.includes(st.currentUser.id);
                 const isPast = new Date(`${c.date}T${c.time}`) < new Date();
                 const isFull = c.bookedUsers.length >= c.capacity;
 
-                let buttonText;
-                let buttonClasses;
-                let buttonDisabled = '';
+                let buttonText, buttonClasses, buttonDisabled = '';
+                let cardStateClass = isBooked ? 'card-booked' : (isPast ? 'card-past' : 'card-available');
 
                 if (isBooked) {
                     buttonText = 'Inscrit';
-                    buttonClasses = 'bg-emerald-900 text-emerald-200 cursor-default';
+                    buttonClasses = 'btn-booked';
                     buttonDisabled = 'disabled';
                 } else if (isPast) {
                     buttonText = 'Terminé';
-                    buttonClasses = 'bg-stone-200 text-stone-400 cursor-not-allowed dark:bg-stone-700 dark:text-stone-500';
+                    buttonClasses = 'btn-past';
                     buttonDisabled = 'disabled';
                 } else if (isFull) {
                     buttonText = 'Complet';
-                    buttonClasses = 'bg-red-100 text-red-800 cursor-not-allowed opacity-75 dark:bg-red-900/50 dark:text-red-300';
+                    buttonClasses = 'btn-full';
                     buttonDisabled = 'disabled';
                 } else {
                     buttonText = 'Réserver';
-                    buttonClasses = 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-900';
+                    buttonClasses = 'btn-available';
                 }
 
                 return `
-                    <div class="group relative p-4 rounded-xl border ${isBooked ? 'bg-emerald-700 text-white' : (isPast ? 'bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700' : 'bg-white dark:bg-stone-800 dark:border-stone-700')} mb-3 shadow-sm transition-all hover:shadow-md">
-                        <div class="font-medium ${isPast && !isBooked ? 'text-stone-400 dark:text-stone-500' : ''}">${c.time} - ${c.title}</div>
-                        <div class="text-xs opacity-80 mb-2 ${isPast && !isBooked ? 'text-stone-400 dark:text-stone-500' : ''}">${c.duration} min | ${c.bookedUsers.length}/${c.capacity} pers.</div>
-                        <div class="text-xs font-semibold mb-3 ${isBooked ? 'text-emerald-200' : (isPast ? 'text-stone-400' : 'text-emerald-700 dark:text-emerald-400')}">${c.credits_price || 1} crédits</div>
-                        <button onclick="app.initiateBooking(${c.id})" ${buttonDisabled} class="w-full py-2 rounded-lg text-sm ${buttonClasses}">
+                    <div class="schedule-card ${cardStateClass} mb-3 shadow-sm">
+                        <div class="fw-medium ${isPast && !isBooked ? 'text-muted' : ''}">${c.time} - ${c.title}</div>
+                        <div class="small opacity-75 mb-2 ${isPast && !isBooked ? 'text-muted' : ''}">${c.duration} min | ${c.bookedUsers.length}/${c.capacity} pers.</div>
+                        <div class="small fw-semibold mb-3 ${isBooked ? 'text-emerald-light' : (isPast ? 'text-muted' : 'text-emerald')}">${c.credits_price || 1} crédits</div>
+                        <button onclick="app.initiateBooking(${c.id})" ${buttonDisabled} class="btn btn-sm w-100 fw-medium rounded-pill mt-1 ${buttonClasses}">
                             ${buttonText}
                         </button>
                         
                         <!-- Info-bulle (Tooltip) -->
-                        <div class="planning-tooltip absolute invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-300 -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-[60] shadow-2xl pointer-events-none">
+                        <div class="planning-tooltip schedule-tooltip shadow-lg">
                             ${c.description || 'Séance de Pilates'}
-                            <div class="absolute border-8 border-transparent border-t-[rgba(240,253,244,0.92)] dark:border-t-[rgba(6,78,59,0.9)] -bottom-4 left-1/2 -translate-x-1/2"></div>
+                            <div class="tooltip-arrow"></div>
                         </div>
                     </div>`;
             }).join('');
 
         return `
-            <div class="flex flex-col">
-                <div class="text-center mb-4">
-                    <div class="text-sm text-stone-500 uppercase dark:text-stone-400">${d.toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
-                    <div class="text-2xl font-light dark:text-stone-300">${d.getDate()}</div>
+            <div class="col-12 col-md">
+                <div class="text-center mb-3">
+                    <div class="small text-muted text-uppercase tracking-wider fw-medium mb-1">${d.toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
+                    <div class="fs-3 fw-normal text-stone-800">${d.getDate()}</div>
                 </div>
                 ${classesHtml}
             </div>`;
     }).join('');
 
     return `
-        <div class="min-h-[70vh] bg-stone-50 pt-6 pb-8 animate-fade-in dark:bg-stone-900 max-w-screen-2xl mx-auto">
-            <div class="max-w-7xl mx-auto px-4">
+        <div class="pt-4 pb-5 animate-fade-in flex-grow-1 w-100 mx-auto" style="max-width: 1536px;">
+            <div class="container-fluid px-3 px-md-4">
+                
                 <!-- Section Assistant IA -->
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 mb-6 dark:bg-stone-800 dark:border-stone-700">
-                    <h2 class="text-xl font-medium text-stone-800 mb-4 flex items-center gap-2 dark:text-stone-100">
-                        <span class="text-emerald-700 dark:text-emerald-400">${icons.sparkles}</span> Quel cours est fait pour vous ?
-                    </h2>
-                    <div class="flex flex-col md:flex-row gap-4">
-                        <input type="text" id="ai-prompt" placeholder="Ex: Je cherche un cours dynamique pour renforcer mon dos..." class="flex-1 p-3 border border-stone-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-stone-700 dark:border-stone-600">
-                        <button onclick="app.askAi()" class="px-6 py-3 bg-gradient-to-r from-emerald-700 to-emerald-900 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 min-w-[160px] active:scale-[0.98] dark:from-emerald-600 dark:to-emerald-800">
-                            ${st.isAiLoading ? '<span class="animate-spin">⏳</span> Recherche...' : 'Demander à l\'IA'}
+                <div class="custom-card p-3 p-md-4 mb-5 mx-auto" style="max-width: 1000px;">
+                    <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+                        <h2 class="fs-6 fw-medium mb-0 d-flex align-items-center gap-2 text-nowrap">
+                            <span class="text-emerald">${icons.sparkles}</span> Quel cours pour moi ?
+                        </h2>
+                        <input type="text" id="ai-prompt" placeholder="Ex: Je cherche un cours dynamique pour le dos..." class="form-control form-control-sm rounded-pill px-3 py-2">
+                        <button onclick="app.askAi()" class="btn btn-emerald rounded-pill px-4 py-2 d-flex align-items-center justify-content-center gap-2 btn-sm" style="min-width: 130px;">
+                            ${st.isAiLoading ? '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ...' : 'Demander'}
                         </button>
                     </div>
-                    ${st.aiResponse ? `<div class="mt-4 p-4 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-100 animate-fade-in dark:bg-emerald-900/50 dark:text-emerald-300 dark:border-emerald-800">${st.aiResponse}</div>` : ''}
+                    ${st.aiResponse ? `<div class="mt-4 p-3 rounded-3 bg-emerald-light text-emerald-dark border border-success border-opacity-25 animate-fade-in">${st.aiResponse}</div>` : ''}
                 </div>
 
-                <div class="flex justify-between items-center mb-6">
-                    <h1 class="text-3xl font-light capitalize dark:text-stone-100">Planning - ${monthName}</h1>
-                    <div class="flex gap-2">
-                        <button onclick="app.changeWeek(-1)" class="p-2 border rounded-full dark:border-stone-600 dark:hover:bg-stone-700">←</button>
-                        <button onclick="app.changeWeek(1)" class="p-2 border rounded-full dark:border-stone-600 dark:hover:bg-stone-700">→</button>
+                <!-- En-tête Navigation Planning -->
+                <div class="d-flex justify-content-between align-items-center mb-4 mx-auto" style="max-width: 1400px;">
+                    <h1 class="fs-3 fw-light text-capitalize mb-0">Planning - ${monthName}</h1>
+                    <div class="d-flex gap-2">
+                        <button onclick="app.changeWeek(-1)" class="nav-round-btn">←</button>
+                        <button onclick="app.changeWeek(1)" class="nav-round-btn">→</button>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-7 gap-4">${daysHtml}</div>
+                <!-- Grille du calendrier (7 colonnes via CSS) -->
+                <div class="row g-2 g-md-3 mx-auto" style="max-width: 1400px;">
+                    ${daysHtml}
+                </div>
+                
             </div>
         </div>`;
 };

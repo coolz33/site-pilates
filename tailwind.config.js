@@ -1,13 +1,1 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    "./index.html",
-    "./app.js",
-    "./js/**/*.js"
-  ],
-  darkMode: 'class',
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-}
+// Fichier à supprimer : Tailwind n'est plus du tout utilisé dans ce projet.

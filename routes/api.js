@@ -362,7 +362,7 @@ const handleRequest = async (req, res) => {
                 await transporter.sendMail({
                     from: process.env.SMTP_FROM || process.env.SMTP_USER,
                     to: email,
-                    subject: 'Réinitialisation de votre mot de passe - Pilates',
+                    subject: 'Réinitialisation de votre mot de passe - L\'espace doré',
                     html: `
                         <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px;">
                             <h2 style="color: #065f46;">Réinitialisation de votre mot de passe</h2>
@@ -429,7 +429,7 @@ const handleRequest = async (req, res) => {
                 await transporter.sendMail({
                     from: process.env.SMTP_FROM || process.env.SMTP_USER,
                     to: email,
-                    subject: 'Votre code de vérification - Pilates',
+                    subject: 'Votre code de vérification - L\'espace doré',
                     html: `
                         <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px;">
                             <h2 style="color: #065f46;">Vérification de votre compte</h2>
@@ -805,7 +805,7 @@ const handleRequest = async (req, res) => {
                     const unsubscribeLink = `http://${req.headers.host}/api/newsletter/unsubscribe?email=${encodeURIComponent(u.email)}`;
                     const personalFooter = `
                         <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e7e5e4; font-family: sans-serif; color: #78716c; font-size: 12px; text-align: center;">
-                            <p>Bonjour ${u.firstName}, vous recevez cet email car vous êtes membre du Studio Équilibre Pilates.</p>
+                            <p>Bonjour ${u.firstName}, vous recevez cet email car vous êtes membre de L'espace doré.</p>
                             <p>Pour ne plus recevoir de communications, vous pouvez vous <a href="${unsubscribeLink}" style="color: #10b981; text-decoration: underline;">désabonner en un clic</a>.</p>
                         </div>
                     `;
@@ -818,7 +818,7 @@ const handleRequest = async (req, res) => {
                         headers: {
                             'Precedence': 'bulk',
                             'List-Unsubscribe': `<${unsubscribeLink}>, <mailto:${process.env.SMTP_USER}?subject=unsubscribe>`,
-                            'X-Mailer': 'EquilibrePilates-Mailer'
+                            'X-Mailer': 'EspaceDore-Mailer'
                         }
                     });
                 }
@@ -924,14 +924,14 @@ const handleRequest = async (req, res) => {
 
                     try {
                         const info = await transporter.sendMail({
-                            from: `"Équilibre Pilates" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+                            from: `"L'espace doré" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
                             to: targetEmail,
-                            subject: 'Confirmation de votre achat - Équilibre Pilates',
+                            subject: "Confirmation de votre achat - L'espace doré",
                             html: `
                                 <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px; max-width: 600px; margin: auto;">
                                     <h2 style="color: #065f46;">Merci pour votre achat !</h2>
                                     <p>Votre paiement a été validé avec succès. Voici le récapitulatif de votre commande :</p>
-                                    <div style="background: #f9f8f7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                    <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0;">
                                         <p style="margin: 5px 0;"><strong>Produit :</strong> ${packageName || 'Pack de crédits'}</p>
                                         <p style="margin: 5px 0;"><strong>Montant :</strong> ${price}€</p>
                                         <p style="margin: 5px 0;"><strong>Crédits ajoutés :</strong> +${credits}</p>

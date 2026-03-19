@@ -23,13 +23,19 @@ import { adminView } from './js/views/admin.js';
 import { renderNavbar, renderFooter, renderPaymentModal, renderCalendarModal, renderConfirmModal } from './js/views/components.js';
 
 /**
- * Classe PilatesApp
- * Architecture de type "Single Page Application" (SPA) en Vanilla JS.
+ * @class PilatesApp
+ * @description Architecture de type "Single Page Application" (SPA) en Vanilla JS.
+ * Gère l'état global, la navigation, le rendu du DOM et l'interface utilisateur.
  */
 class PilatesApp {
+    /**
+     * Initialise l'état global de l'application et lie le contexte (bind) des méthodes.
+     * @constructor
+     */
     constructor() {
         /** 
-         * @type {Object} État global de l'application.
+         * État global de l'application centralisant toutes les données réactives.
+         * @type {Object}
          */
         this.state = {
             theme: 'light',
@@ -49,14 +55,14 @@ class PilatesApp {
             selectedClassForPayment: null,
             modalMessage: null,
             editingTemplateId: null,
-            showCalendarModal: false, // Nouvelle propriété pour contrôler l'affichage du modal calendrier
-            classForCalendar: null,   // Nouvelle propriété pour stocker les détails du cours à ajouter au calendrier
+            showCalendarModal: false,
+            classForCalendar: null,
             notification: { message: '', type: 'success', visible: false },
-            isVerifyingEmail: false, // True when waiting for email code
-            resendCodeTimer: 0,      // Countdown for resend button
-            resendCodeInterval: null, // Interval ID for timer
+            isVerifyingEmail: false,
+            resendCodeTimer: 0,
+            resendCodeInterval: null,
             registrationData: null,
-            resetPasswordToken: null, // Token for password reset flow
+            resetPasswordToken: null,
             courseTemplates: [],
             creditPackages: [],
             studioAddress: '',
@@ -74,8 +80,8 @@ class PilatesApp {
             selectedUserDetails: null,
             adminUserQuill: null,
             adminUserMessageContent: '',
-            isSendingAdminMessage: false, // Nouvelle propriété pour gérer l'état d'envoi du message admin
-            adminAddClassForm: { // État pour le formulaire d'ajout de cours
+            isSendingAdminMessage: false,
+            adminAddClassForm: {
                 templateId: '',
                 title: '',
                 description: '',
@@ -87,7 +93,7 @@ class PilatesApp {
                 recurrenceType: 'weekly',
                 recurrenceEnd: ''
             },
-            isAdminRecurring: false, // État persistant pour l'affichage de la récurrence
+            isAdminRecurring: false,
             adminClassFilters: {
                 startDate: '',
                 endDate: '',
@@ -98,9 +104,9 @@ class PilatesApp {
                 maxBooked: '',
                 userName: ''
             },
-            visiblePasswords: [], // IDs of password inputs to show
-            selectedAdminClasses: [], // IDs des séances sélectionnées pour action groupée
-            userSearchQuery: '', // Requête pour le filtrage dynamique des clients
+            visiblePasswords: [],
+            selectedAdminClasses: [],
+            userSearchQuery: '',
             cookieNoticeAccepted: localStorage.getItem('pilates_cookie_accepted') === 'true',
             confirmModal: {
                 isOpen: false,
@@ -113,31 +119,31 @@ class PilatesApp {
             }
         };
         this.lastView = null;
-        // Bind 'this' to methods that are used as event handlers
+
         this.handleRouteChange = this.handleRouteChange.bind(this);
         this.openCalendarModal = this.openCalendarModal.bind(this);
         this.closeCalendarModal = this.closeCalendarModal.bind(this);
     }
 
     /**
-     * Initialise l'application au chargement de la page.
-     * Récupère la session utilisateur et les données depuis l'API.
+     * Méthode d'initialisation appelée au chargement du DOM.
+     * Restaure le thème, charge l'utilisateur en cache, rafraîchit les données via l'API,
+     * et gère les événements de l'historique du navigateur.
+     * @async
+     * @returns {Promise<void>}
      */
     async init() {
         try {
-            // Gestion du thème
             const savedTheme = localStorage.getItem('pilates_theme');
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             const theme = savedTheme || (prefersDark ? 'dark' : 'light');
             this.applyTheme(theme);
 
-            // 1. Charger l'utilisateur AVANT toute chose
             const savedUser = localStorage.getItem('pilates_user');
             if (savedUser) {
                 this.state.currentUser = JSON.parse(savedUser);
                 console.log("[INIT] Utilisateur restauré :", this.state.currentUser.email);
                 
-                // Rafraîchir les données en arrière-plan
                 try {
                     const resUser = await fetch(`${API_URL}/users/${this.state.currentUser.id}`);
                     if (resUser.ok) {
@@ -151,7 +157,6 @@ class PilatesApp {
                 }
             }
 
-            // Gestion de la fermeture du popup de paiement Stripe
             if (window.opener && (window.location.pathname.endsWith('/paiement-succes') || window.location.hash.includes('payment='))) {
                 try {
                     if (window.opener.app) {
@@ -161,16 +166,15 @@ class PilatesApp {
                             window.opener.app.navigate('paiement-succes');
                         }
                     }
-                    window.close(); // On ferme le popup
+                    window.close();
                     return;
                 } catch (e) {
                     console.warn("Impossible de rafraîchir la fenêtre parente", e);
                 }
             }
 
-            // Utilisation de l'History API pour un routage propre (sans #)
-            window.addEventListener('popstate', this.handleRouteChange); // Gère les boutons précédent/suivant du navigateur
-            await this.handleRouteChange(); // Gère la route initiale au chargement de la page
+            window.addEventListener('popstate', this.handleRouteChange);
+            await this.handleRouteChange();
             
         } catch (err) {
             console.error("Erreur d'initialisation:", err);
@@ -178,13 +182,15 @@ class PilatesApp {
     }
 
     /**
-     * Gère les changements de route (initialisation et popstate).
+     * Analyse l'URL courante, gère les paramètres spécifiques (paiement, désabonnement),
+     * détermine la vue à afficher et charge les données nécessaires depuis l'API.
+     * @async
+     * @returns {Promise<void>}
      */
     async handleRouteChange() {
         const path = window.location.pathname;
         const queryParams = new URLSearchParams(window.location.search);
 
-        // Reset specific states on route change
         this.state.isVerifyingEmail = false;
         this.state.registrationData = null;
         clearInterval(this.state.resendCodeInterval);
@@ -194,7 +200,6 @@ class PilatesApp {
         this.state.userSearchQuery = '';
         this.state.showCalendarModal = false;
         this.state.selectedAdminClasses = [];
-        // Reset admin add class form on init
         this.state.adminAddClassForm = {
             templateId: '',
             title: '',
@@ -209,31 +214,27 @@ class PilatesApp {
         };
         this.state.classForCalendar = null;
         
-        // Sécurité : scroller en haut seulement si on n'est pas dans un popup
         if (!window.opener) {
             window.scrollTo(0, 0);
         }
 
-        // Handle special query parameters (payment, unsubscribe)
         if (queryParams.get('desabonne') === 'success') {
             this.showNotification("Vous avez été désabonné de la newsletter avec succès.");
-            history.replaceState(null, '', window.location.pathname); // Clean URL
+            history.replaceState(null, '', window.location.pathname);
         }
         if (queryParams.get('payment') === 'success') {
             const msg = queryParams.get('type') === 'booking' ? "Paiement réussi ! Votre réservation est confirmée." : "Paiement réussi ! Vos crédits ont été ajoutés.";
             this.showNotification(msg);
-            history.replaceState(null, '', window.location.pathname); // Clean URL
+            history.replaceState(null, '', window.location.pathname);
         }
         if (queryParams.get('payment') === 'cancel') {
             this.showNotification("Paiement annulé.", "error");
-            history.replaceState(null, '', window.location.pathname); // Clean URL
+            history.replaceState(null, '', window.location.pathname);
         }
 
-        // Determine the view based on pathname
         const segments = path.split('/').filter(Boolean);
         let view = segments.length > 0 ? segments[segments.length - 1] : 'accueil';
 
-        // Handle reset-password token
         if (view === 'reset-password' && queryParams.has('token')) {
             this.state.resetPasswordToken = queryParams.get('token');
             history.replaceState(null, '', window.location.pathname);
@@ -299,6 +300,10 @@ class PilatesApp {
         this.render();
     }
 
+    /**
+     * Gère la navigation entre les vues de l'application.
+     * @param {string} view - Le nom de la vue cible.
+     */
     navigate(view) {
         const currentPath = window.location.pathname.replace(/^\/+|\/+$/g, '') || 'accueil';
         if (currentPath === view) {
@@ -311,28 +316,45 @@ class PilatesApp {
         }
     }
 
+    /**
+     * Définit l'onglet actif du profil.
+     * @param {string} tab - Nom de l'onglet.
+     */
     setProfileTab(tab) {
         this.state.profileTab = tab;
         this.render();
     }
 
+    /**
+     * Met à jour le formulaire d'ajout de cours côté admin.
+     * @param {string} key - Le champ à modifier.
+     * @param {any} value - La nouvelle valeur.
+     */
     handleAdminAddClassFormChange(key, value) {
         this.state.adminAddClassForm[key] = value;
         this.render();
     }
 
+    /**
+     * Bascule l'état de récurrence pour l'ajout d'un cours.
+     */
     toggleAdminRecurring() {
         this.state.isAdminRecurring = !this.state.isAdminRecurring;
-        if (!this.state.isAdminRecurring) { // Si la récurrence est désactivée, on nettoie les champs associés
+        if (!this.state.isAdminRecurring) {
             this.state.adminAddClassForm.recurrenceType = 'weekly';
             this.state.adminAddClassForm.recurrenceEnd = '';
         }
         this.render();
     }
 
+    /**
+     * Définit l'onglet actif de la section d'administration.
+     * Gère également l'auto-sélection des abonnés pour la newsletter.
+     * @param {string} tab - Nom de l'onglet admin.
+     */
     setAdminTab(tab) {
         this.state.adminTab = tab;
-        this.state.selectedAdminClasses = []; // Reset selection on tab change
+        this.state.selectedAdminClasses = [];
         if (tab === 'newsletter') {
             this.state.selectedNewsletterRecipients = this.state.users
                 .filter(u => Number(u.newsletter_subscribed) === 1 && u.role !== 'admin')
@@ -341,11 +363,19 @@ class PilatesApp {
         this.render();
     }
 
+    /**
+     * Ouvre ou ferme le menu mobile.
+     */
     toggleMenu() {
         this.state.isMenuOpen = !this.state.isMenuOpen;
         this.render();
     }
 
+    /**
+     * Affiche une notification en superposition (toast).
+     * @param {string} message - Le message à afficher.
+     * @param {string} [type='success'] - 'success', 'error', 'info', 'warning'.
+     */
     showNotification(message, type = 'success') {
         this.state.notification = { message, type, visible: true };
         this.render();
@@ -360,6 +390,10 @@ class PilatesApp {
     validatePhone(phone) { return /^(\+33|0)[1-9][0-9]{8}$/.test(phone.replace(/\s/g, '')); }
     validatePassword(pwd) { return pwd.length >= 5; }
 
+    /**
+     * Applique un thème au document et le sauvegarde.
+     * @param {string} theme - 'light' ou 'dark'.
+     */
     applyTheme(theme) {
         this.state.theme = theme;
         if (theme === 'dark') {
@@ -593,8 +627,12 @@ class PilatesApp {
     cancelEditTemplate() { classService.cancelEditTemplate(this); }
     async saveAsTemplate() { await classService.saveAsTemplate(this); }
 
+    /**
+     * Méthode de rendu principal.
+     * Reconstruit dynamiquement le DOM en fonction de l'état (this.state).
+     * Gère la restauration du focus des éléments pour l'accessibilité.
+     */
     render() {
-        // Sauvegarde de l'élément ayant le focus et de la position du curseur AVANT toute modification du DOM
         const activeElementId = document.activeElement?.id;
         let selectionStart = null;
         let selectionEnd = null;
@@ -626,8 +664,6 @@ class PilatesApp {
             };
             let html = viewMap[v] ? viewMap[v](this) : '';
             
-            // Si on est déjà sur la même vue (changement d'onglet ou fermeture modal),
-            // on neutralise les animations pour éviter de rejouer les effets d'apparition.
             if (v === this.lastView) {
                 html = html.replace(/animate-(fade-in|slide-up|bounce|pulse)/g, ' ');
             }
@@ -639,7 +675,6 @@ class PilatesApp {
         renderConfirmModal(this);
         this.renderCookieBanner();
 
-        // Restauration du focus et du curseur après le rendu
         if (activeElementId) {
             const elementToFocus = document.getElementById(activeElementId);
             if (elementToFocus && (elementToFocus instanceof HTMLInputElement || elementToFocus instanceof HTMLTextAreaElement)) {
@@ -655,7 +690,6 @@ class PilatesApp {
 
         this.lastView = v;
 
-        // Initialisation de Quill (Administration)
         if (v === 'administration' && typeof Quill !== 'undefined') {
             if (this.state.adminTab === 'newsletter' && !this.state.isHtmlView) {
                 const editorContainer = document.getElementById('nl-editor');
@@ -675,6 +709,9 @@ class PilatesApp {
         }
     }
 
+    /**
+     * Gère l'affichage de la bannière d'information des cookies.
+     */
     renderCookieBanner() {
         if (this.state.cookieNoticeAccepted) {
             const existing = document.getElementById('cookie-banner');
@@ -689,16 +726,20 @@ class PilatesApp {
             document.body.appendChild(banner);
         }
 
-        banner.className = "fixed bottom-6 left-6 right-6 md:left-auto md:right-8 md:max-w-sm bg-white dark:bg-stone-800 p-6 rounded-2xl shadow-2xl border border-stone-100 dark:border-stone-700 z-[100] animate-fade-in";
+        banner.className = "position-fixed bottom-0 end-0 p-3 p-md-4 animate-fade-in";
+        banner.style.zIndex = "1050";
+        banner.style.maxWidth = "400px";
         banner.innerHTML = `
-            <div class="flex flex-col gap-4">
-                <p class="text-sm text-stone-600 dark:text-stone-300">
-                    <span class="font-semibold text-stone-800 dark:text-white block mb-1">Respect de votre vie privée</span>
-                    Nous utilisons uniquement des données strictement nécessaires à votre navigation.
-                </p>
-                <button onclick="app.acceptCookies()" class="w-full bg-emerald-800 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
-                    J'ai compris
-                </button>
+            <div class="custom-card p-4 shadow-lg">
+                <div class="d-flex flex-column gap-3">
+                    <p class="small text-muted mb-0">
+                        <span class="fw-bold text-stone-800 d-block mb-1">Respect de votre vie privée</span>
+                        Nous utilisons uniquement des données strictement nécessaires à votre navigation (session, thème). Aucun traceur publicitaire n'est utilisé.
+                    </p>
+                    <button onclick="app.acceptCookies()" class="btn btn-emerald w-100 py-2 fw-medium">
+                        J'ai compris
+                    </button>
+                </div>
             </div>
         `;
     }

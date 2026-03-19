@@ -1,37 +1,48 @@
 import { icons } from '../icons.js';
 
+/**
+ * @file paymentSuccess.js
+ * @description Vue affichée après un paiement (achat de crédits ou réservation) réussi.
+ */
+
+/**
+ * Génère la vue de succès de paiement.
+ * Si la vue est chargée dans un popup (ex: Stripe Checkout), propose un bouton pour fermer la fenêtre parente.
+ * @param {PilatesApp} app - L'instance principale de l'application.
+ * @returns {string} Code HTML structuré avec Bootstrap 5.
+ */
 export const paymentSuccessView = (app) => {
     const u = app.state.currentUser;
     return `
-        <div class="min-h-[70vh] flex items-center justify-center bg-stone-50 py-12 px-4 dark:bg-stone-900">
-            <div class="max-w-md w-full bg-white p-10 rounded-3xl shadow-xl border border-stone-100 text-center dark:bg-stone-800 dark:border-stone-700 animate-fade-in">
-                <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 mx-auto mb-6 dark:bg-emerald-900/30 dark:text-emerald-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="d-flex flex-grow-1 align-items-center justify-content-center py-5 px-3">
+            <div class="custom-card p-4 p-md-5 w-100 text-center shadow animate-fade-in" style="max-width: 500px;">
+                <div class="icon-circle-xl bg-emerald-light text-emerald mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" style="width: 2.5rem; height: 2.5rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <h1 class="text-3xl font-light text-stone-800 mb-4 dark:text-stone-100">Paiement effectué avec succès</h1>
-                <p class="text-stone-600 mb-8 dark:text-stone-300">
+                <h1 class="fs-3 fw-light mb-3">Paiement effectué avec succès</h1>
+                <p class="text-muted mb-4">
                     Merci pour votre achat ! Votre solde est désormais de :
-                    <span class="block text-4xl font-bold text-emerald-700 mt-2 dark:text-emerald-400">
+                    <span class="d-block display-5 fw-bold text-emerald mt-2">
                         ${u ? u.credits_balance : '...'} crédits
                     </span>
                 </p>
-                <div class="space-y-4">
-                    <button onclick="app.navigate('profil')" class="w-full py-4 bg-emerald-800 text-white rounded-xl font-medium hover:bg-emerald-900 transition-all shadow-md dark:bg-emerald-700 dark:hover:bg-emerald-600">
+                <div class="d-flex flex-column gap-3">
+                    <button onclick="app.navigate('profil')" class="btn btn-emerald w-100 py-3 fw-medium shadow-sm">
                         Voir mon profil
                     </button>
                     ${window.opener ? `
-                        <button onclick="window.close()" class="w-full py-2 text-stone-500 text-sm hover:underline dark:text-stone-400">
+                        <button onclick="window.close()" class="btn btn-link text-muted small text-decoration-none w-100">
                             Fermer cette fenêtre
                         </button>
                     ` : `
-                        <button onclick="app.navigate('planning')" class="w-full py-2 text-stone-600 font-medium hover:underline dark:text-stone-300">
+                        <button onclick="app.navigate('planning')" class="btn btn-link text-muted fw-medium text-decoration-none w-100">
                             Retour au planning
                         </button>
                     `}
                 </div>
-                <p class="mt-8 text-xs text-stone-400 dark:text-stone-500 italic">
+                <p class="mt-4 pt-3 border-top text-muted small fst-italic mb-0" style="font-size: 0.75rem;">
                     Un email de confirmation vous a été envoyé.
                 </p>
             </div>
