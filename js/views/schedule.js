@@ -63,7 +63,6 @@ export const scheduleView = (app) => {
                     <div class="schedule-card ${cardStateClass} mb-2 shadow-sm">
                         <div class="fw-semibold mb-1 lh-sm ${isPast && !isBooked ? 'text-muted' : ''}" style="font-size: 0.85rem;">${c.time} - ${c.title}</div>
                         <div class="opacity-75 mb-1 ${isPast && !isBooked ? 'text-muted' : ''}" style="font-size: 0.75rem;">${c.duration} min | ${c.bookedUsers.length}/${c.capacity} pers.</div>
-                        <div class="fw-semibold mb-2 ${isBooked ? 'text-emerald-light' : (isPast ? 'text-muted' : 'text-emerald')}" style="font-size: 0.75rem;">${c.credits_price || 1} crédits</div>
                         <button onclick="app.initiateBooking(${c.id})" ${buttonDisabled} class="btn btn-sm w-100 fw-medium rounded-pill py-1 ${buttonClasses}" style="font-size: 0.75rem;">
                             ${buttonText}
                         </button>

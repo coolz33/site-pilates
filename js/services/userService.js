@@ -132,20 +132,36 @@ export const userService = {
         app.init();
     },
 
-    async updatePackage(app, e, id) {
+    async updateAllPackages(app, e) {
         e.preventDefault();
         const formData = new FormData(e.target);
-        const pkg = {
-            name: formData.get('name'),
-            credits: parseInt(formData.get('credits')),
-            price: parseInt(formData.get('price'))
-        };
-        await fetch(`${API_URL}/credit-packages/${id}`, {
+        const packages = [];
+        const ids = formData.getAll('id');
+        const names = formData.getAll('name');
+        const subtitles = formData.getAll('subtitle');
+        const descriptions = formData.getAll('description');
+        const credits = formData.getAll('credits');
+        const prices = formData.getAll('price');
+        const expiresIns = formData.getAll('expires_in_days');
+
+        for (let i = 0; i < ids.length; i++) {
+            packages.push({
+                id: parseInt(ids[i]),
+                name: names[i],
+                subtitle: subtitles[i] || '',
+                description: descriptions[i] || '',
+                credits: parseInt(credits[i]),
+                price: parseInt(prices[i]),
+                expires_in_days: parseInt(expiresIns[i]) || 0
+            });
+        }
+        
+        await fetch(`${API_URL}/credit-packages/bulk`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(pkg)
+            body: JSON.stringify({ packages })
         });
-        app.showNotification('Pack mis à jour.');
+        app.showNotification('Tous les tarifs ont été mis à jour.');
         app.init();
     },
 
@@ -154,8 +170,11 @@ export const userService = {
         const formData = new FormData(e.target);
         const pkg = {
             name: formData.get('name'),
+            subtitle: formData.get('subtitle') || '',
+            description: formData.get('description') || '',
             credits: parseInt(formData.get('credits')),
-            price: parseInt(formData.get('price'))
+            price: parseInt(formData.get('price')),
+            expires_in_days: parseInt(formData.get('expires_in_days') || 0)
         };
         await fetch(`${API_URL}/credit-packages`, {
             method: 'POST',

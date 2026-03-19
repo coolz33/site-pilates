@@ -38,8 +38,8 @@ export const classService = {
             app.state.showPaymentModal = true;
 
             // Vérifier le solde de crédits immédiatement
-            if (app.state.currentUser.credits_balance < (cls.credits_price || 1)) {
-                app.state.modalMessage = { type: 'error', text: 'Solde de crédits insuffisant', isInsufficientCredits: true };
+            if (app.state.currentUser.credits_balance < 1) {
+                app.state.modalMessage = { type: 'error', text: 'Solde de cours insuffisant', isInsufficientCredits: true };
             } else {
                 app.state.modalMessage = null;
             }
@@ -59,7 +59,7 @@ export const classService = {
         // Vérification de la case à cocher
         const confirmCheck = document.getElementById('confirm-credits');
         if (!confirmCheck || !confirmCheck.checked) {
-            app.state.modalMessage = { type: 'error', text: "Veuillez cocher la case pour confirmer l'utilisation de vos crédits." };
+            app.state.modalMessage = { type: 'error', text: "Veuillez cocher la case pour confirmer l'utilisation d'un cours." };
             return app.render();
         }
 
@@ -101,7 +101,7 @@ export const classService = {
             } else {
                 console.error("[classService] Le backend a signalé un échec (data.success est false):", data.message);
                 app.state.modalMessage = { type: 'error', text: data.message };
-                if (data.message === 'Solde de crédits insuffisant') {
+                if (data.message === 'Solde de cours insuffisant' || data.message === 'Solde de crédits insuffisant') {
                     app.state.modalMessage.isInsufficientCredits = true;
                 }
                 app.render();
@@ -218,7 +218,7 @@ export const classService = {
             time: time,
             duration: parseInt(form.duration) || 0,
             capacity: parseInt(form.capacity) || 10,
-            credits_price: parseInt(form.creditsPrice) || 1,
+            credits_price: 1, // Fixé à 1 pour la base de données
             bookedUsers: []
         };
 
@@ -276,7 +276,6 @@ export const classService = {
         app.state.adminAddClassForm.title = t.title;
         app.state.adminAddClassForm.description = t.description;
         app.state.adminAddClassForm.duration = t.duration;
-        app.state.adminAddClassForm.creditsPrice = t.default_credits_price || 1;
         app.render(); // Re-render pour mettre à jour les champs du formulaire
     },
 
@@ -304,7 +303,7 @@ export const classService = {
             title: document.getElementById('template-title').value,
             description: document.getElementById('template-desc').value,
             duration: parseInt(document.getElementById('template-duration').value) || 0,
-            default_credits_price: parseInt(document.getElementById('template-credits-price').value) || 1
+            default_credits_price: 1
         };
 
         const id = app.state.editingTemplateId;
@@ -324,7 +323,7 @@ export const classService = {
 
     // Annulation par l'administrateur (depuis le détail client)
     async adminCancelBookingForUser(app, classId, targetUserId) {
-        const confirmed = await app.confirmDialog("Voulez-vous vraiment annuler cette réservation pour ce client ?\n\nLe client sera remboursé de ses crédits.", { type: 'danger' });
+        const confirmed = await app.confirmDialog("Voulez-vous vraiment annuler cette réservation pour ce client ?\n\nLe client sera remboursé de son cours.", { type: 'danger' });
         if (!confirmed) return;
         try {
             const res = await fetch(`${API_URL}/classes/cancel/${classId}`, {
@@ -334,7 +333,7 @@ export const classService = {
             });
             const data = await res.json();
             if (data.success) {
-                app.showNotification("Réservation annulée et crédits remboursés au client.");
+                app.showNotification("Réservation annulée et cours recrédité au client.");
                 // Re-charger les détails du client pour mettre à jour la liste des réservations et le solde de crédits
                 await app.viewUser(targetUserId); 
             } else {

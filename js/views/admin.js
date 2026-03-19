@@ -117,7 +117,6 @@ export const adminView = (app) => {
                                                             </td>
                                                             <td class="p-3">
                                                                 <div class="fw-medium text-emerald">${c.title}</div>
-                                                                <div class="small text-muted">${c.credits_price || 1} crédits</div>
                                                             </td>
                                                             <td class="p-3 text-center text-nowrap position-relative has-tooltip">
                                                                 <span class="badge rounded-pill ${c.bookedUsers.length >= c.capacity ? 'bg-danger' : 'bg-success'}">
@@ -252,7 +251,6 @@ export const adminView = (app) => {
                                             <input type="hidden" id="planning-title" value="${st.adminAddClassForm.title}">
                                             <textarea id="planning-desc" class="d-none">${st.adminAddClassForm.description}</textarea>
                                             <input type="hidden" id="planning-duration" value="${st.adminAddClassForm.duration}">
-                                            <input type="hidden" id="planning-credits-price" value="${st.adminAddClassForm.creditsPrice}">
                                         </form>
                                     </div>
 
@@ -282,7 +280,7 @@ export const adminView = (app) => {
                                                     <div class="position-relative p-3 border rounded-3 bg-light hover-bg-light transition-colors">
                                                         <div onclick="app.editTemplate(${t.id})" class="cursor-pointer pe-4">
                                                             <div class="fw-medium text-emerald text-truncate">${t.title}</div>
-                                                            <div class="small text-muted">${t.duration} min • ${t.default_credits_price || 1} crédits</div>
+                                                            <div class="small text-muted">${t.duration} min</div>
                                                         </div>
                                                         <button onclick="app.deleteTemplate(${t.id})" class="btn btn-link text-danger position-absolute top-0 end-0 p-2">
                                                             ${icons.trash}
@@ -316,10 +314,6 @@ export const adminView = (app) => {
                                                         <label class="form-label small fw-medium mb-1">Durée (min)</label>
                                                         <input type="number" id="template-duration" required class="form-control form-control-sm" value="${t?.duration || ''}">
                                                     </div>
-                                                    <div>
-                                                        <label class="form-label small fw-medium mb-1">Prix (Crédits)</label>
-                                                        <input type="number" id="template-credits-price" required class="form-control form-control-sm" value="${t?.default_credits_price ?? ''}">
-                                                    </div>
                                                 `;
                                             })()}
                                             <button type="submit" class="btn btn-dark py-2 mt-2 fw-medium">
@@ -334,36 +328,78 @@ export const adminView = (app) => {
 
                         ${!st.isAdminAiLoading && st.adminTab === 'packages' ? `
                             <div class="custom-card p-4 p-md-5 animate-fade-in">
-                                <h2 class="fs-5 fw-medium mb-4">Gestion des Tarifs (Packs de crédits)</h2>
-                                <div class="d-flex flex-column gap-4">
+                                <h2 class="fs-5 fw-medium mb-4">Gestion des Tarifs (Packs de cours)</h2>
+                                <form onsubmit="app.updateAllPackages(event)">
+                                    <div class="d-flex flex-column gap-4 mb-4">
                                     ${st.creditPackages.map(pkg => `
-                                        <form onsubmit="app.updatePackage(event, ${pkg.id})" class="d-flex flex-column flex-md-row align-items-md-end gap-3 p-3 border rounded-3 bg-light">
-                                            <div class="flex-grow-1">
-                                                <label class="form-label small text-muted mb-1">Nom du pack</label>
-                                                <input type="text" name="name" value="${pkg.name}" required class="form-control form-control-sm">
+                                        <div class="d-flex flex-column gap-2 p-3 border rounded-3 bg-light">
+                                            <input type="hidden" name="id" value="${pkg.id}">
+                                            <div class="row g-2">
+                                                <div class="col-md-4">
+                                                    <label class="form-label small text-muted mb-1">Titre (En-tête)</label>
+                                                    <input type="text" name="name" value="${pkg.name}" required class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small text-muted mb-1">Sous-titre</label>
+                                                    <input type="text" name="subtitle" value="${pkg.subtitle || ''}" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label small text-muted mb-1">Nb. cours</label>
+                                                    <input type="number" name="credits" value="${pkg.credits}" required min="1" class="form-control form-control-sm text-center">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label small text-muted mb-1">Prix (€)</label>
+                                                    <input type="number" name="price" value="${pkg.price}" required min="0" class="form-control form-control-sm text-center">
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <div class="form-check mt-1">
+                                                        <input type="checkbox" id="exp-cb-${pkg.id}" class="form-check-input cursor-pointer" onchange="document.getElementById('exp-div-${pkg.id}').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('exp-input-${pkg.id}').value = '0';" ${pkg.expires_in_days > 0 ? 'checked' : ''}>
+                                                        <label class="form-check-label small text-muted cursor-pointer" for="exp-cb-${pkg.id}">A une date d'expiration ?</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-7 ${pkg.expires_in_days > 0 ? '' : 'd-none'}" id="exp-div-${pkg.id}">
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" id="exp-input-${pkg.id}" name="expires_in_days" value="${pkg.expires_in_days || 0}" min="0" class="form-control text-center">
+                                                        <span class="input-group-text">jours de validité</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label small text-muted mb-1">Description (Sauts de ligne autorisés)</label>
+                                                    <textarea name="description" class="form-control form-control-sm" rows="3">${pkg.description || ''}</textarea>
+                                                </div>
                                             </div>
-                                            <div style="width: 100px;">
-                                                <label class="form-label small text-muted mb-1">Crédits</label>
-                                                <input type="number" name="credits" value="${pkg.credits}" required min="1" class="form-control form-control-sm text-center">
-                                            </div>
-                                            <div style="width: 100px;">
-                                                <label class="form-label small text-muted mb-1">Prix (€)</label>
-                                                <input type="number" name="price" value="${pkg.price}" required min="0" class="form-control form-control-sm text-center">
-                                            </div>
-                                        <button type="submit" class="btn btn-outline-secondary btn-sm px-3 fw-medium">Mettre à jour</button>
-                                        </form>
+                                        </div>
                                     `).join('')}
+                                    </div>
+                                    <button type="submit" class="btn btn-dark px-4 py-2 fw-medium">Enregistrer toutes les modifications</button>
+                                </form>
                                     
-                                    <div class="pt-4 border-top">
+                                <div class="pt-4 border-top mt-5">
                                         <h3 class="fs-6 fw-medium mb-3">Ajouter un nouveau pack</h3>
-                                        <form onsubmit="app.createPackage(event)" class="d-flex flex-column flex-md-row align-items-md-center gap-3">
-                                            <input type="text" name="name" placeholder="Nom (ex: Pack Découverte)" required class="form-control form-control-sm flex-grow-1">
-                                            <input type="number" name="credits" placeholder="Crédits" required min="1" class="form-control form-control-sm text-center" style="width: 100px;">
-                                            <input type="number" name="price" placeholder="Prix €" required min="0" class="form-control form-control-sm text-center" style="width: 100px;">
-                                        <button type="submit" class="btn btn-emerald btn-sm px-4 fw-medium">Ajouter</button>
+                                    <form onsubmit="app.createPackage(event)" class="d-flex flex-column gap-2 p-3 border rounded-3 bg-light">
+                                        <div class="row g-2">
+                                            <div class="col-md-4"><input type="text" name="name" placeholder="En-tête" required class="form-control form-control-sm"></div>
+                                            <div class="col-md-4"><input type="text" name="subtitle" placeholder="Sous-titre" class="form-control form-control-sm"></div>
+                                            <div class="col-md-2"><input type="number" name="credits" placeholder="Nb. cours" required min="1" class="form-control form-control-sm text-center"></div>
+                                            <div class="col-md-2"><input type="number" name="price" placeholder="Prix €" required min="0" class="form-control form-control-sm text-center"></div>
+                                            
+                                            <div class="col-md-5">
+                                                <div class="form-check mt-1">
+                                                    <input type="checkbox" id="exp-cb-new" class="form-check-input cursor-pointer" onchange="document.getElementById('exp-div-new').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('exp-input-new').value = '0';">
+                                                    <label class="form-check-label small text-muted cursor-pointer" for="exp-cb-new">A une date d'expiration ?</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-7 d-none" id="exp-div-new">
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" id="exp-input-new" name="expires_in_days" value="0" min="0" class="form-control text-center">
+                                                    <span class="input-group-text">jours de validité</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-12"><textarea name="description" placeholder="Description..." class="form-control form-control-sm" rows="2"></textarea></div>
+                                        </div>
+                                        <div class="text-end mt-2"><button type="submit" class="btn btn-emerald btn-sm px-4 fw-medium">Ajouter le pack</button></div>
                                         </form>
                                     </div>
-                                </div>
                             </div>
                         ` : ''}
 
@@ -395,7 +431,7 @@ export const adminView = (app) => {
                                                     <td class="p-3 fw-medium">${u.firstName} ${u.lastName}</td>
                                                     <td class="p-3 small text-muted">${u.email}</td>
                                                     <td class="p-3 small text-muted">${u.phone || '-'}</td>
-                                                    <td class="p-3"><span class="badge badge-emerald">${u.credits_balance || 0} crédits</span></td>
+                                                    <td class="p-3"><span class="badge badge-emerald">${u.credits_balance || 0} cours</span></td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
@@ -427,11 +463,11 @@ export const adminView = (app) => {
                                             <p class="small text-muted mb-0">${user.address || ''} ${user.zipCode || ''} ${user.city || ''}</p>
                                         </div>
                                         <div class="text-end">
-                                            <div class="display-6 fw-light text-emerald">${user.credits_balance} <span class="fs-6">crédits</span></div>
+                                            <div class="display-6 fw-light text-emerald">${user.credits_balance} <span class="fs-6">cours</span></div>
                                         </div>
                                     </div>
                                     <div class="pt-4 border-top">
-                                        <h3 class="fs-6 fw-medium mb-3">Ajuster les crédits</h3>
+                                        <h3 class="fs-6 fw-medium mb-3">Ajuster les cours</h3>
                                         <form onsubmit="app.adjustCredits(event, ${user.id})" class="d-flex flex-column gap-2" style="max-width: 250px;">
                                             <input type="number" name="amount" placeholder="Quantité" required class="form-control form-control-sm">
                                             <div class="d-flex gap-2">
@@ -490,7 +526,7 @@ export const adminView = (app) => {
                                                     </div>
                                                 </div>
                                                 <div class="pt-3 border-top">
-                                                    <h4 class="small fw-semibold text-muted mb-2">Mouvements de crédits</h4>
+                                                    <h4 class="small fw-semibold text-muted mb-2">Mouvements de cours</h4>
                                                     <div class="d-flex flex-column gap-1 overflow-auto pr-2" style="max-height: 120px;">
                                                         ${creditHistory.map(t => {
                                                             let desc = t.description;

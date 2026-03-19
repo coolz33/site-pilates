@@ -121,7 +121,7 @@ export const profileView = (app) => {
                                 <span>⚠️</span>
                                 <h3 class="small fw-bold text-uppercase tracking-wider mb-0">Action irréversible</h3>
                             </div>
-                            <p class="small text-muted mb-3">La suppression de votre compte est définitive. Vous perdrez tous vos crédits restants.</p>
+                            <p class="small text-muted mb-3">La suppression de votre compte est définitive. Vous perdrez tous vos cours restants.</p>
                             <button type="button" onclick="app.deleteAccount(${u.id})" class="btn btn-link text-danger p-0 small fw-bold text-decoration-none">Supprimer mon compte définitivement</button>
                         </div>
                         <button type="submit" class="btn w-100 btn-emerald py-2 mt-4 fw-medium">Enregistrer les modifications</button>
@@ -131,7 +131,26 @@ export const profileView = (app) => {
                 <div class="col-12 col-lg-4 d-flex flex-column gap-4">
                     <div class="bg-emerald-strong p-4 shadow-sm" style="border-radius: 1.5rem;">
                         <div class="small opacity-75 mb-1">Mon solde actuel</div>
-                        <div class="display-5 fw-light mb-0">${u.credits_balance || 0} <span class="fs-5">crédits</span></div>
+                        <div class="display-5 fw-light mb-0">${u.credits_balance || 0} <span class="fs-5">cours</span></div>
+                        ${u.activeBatches && u.activeBatches.length > 0 ? `
+                            <div class="mt-4 pt-3 border-top border-light border-opacity-25 d-flex flex-column gap-2">
+                                <div class="small fw-medium mb-1">Détail des expirations :</div>
+                                ${u.activeBatches.map(b => {
+                                    let expText = "Pas d'expiration";
+                                    if (b.expires_at) {
+                                        const expDate = new Date(b.expires_at);
+                                        const daysLeft = Math.ceil((expDate - new Date()) / (1000 * 60 * 60 * 24));
+                                        if (daysLeft <= 7) expText = `<span class="text-warning fw-bold">Expire dans ${daysLeft} jour(s) !</span>`;
+                                        else expText = `Expire le ${expDate.toLocaleDateString('fr-FR')}`;
+                                    }
+                                    return `
+                                    <div class="d-flex justify-content-between align-items-center small text-white-50">
+                                        <span><span class="fw-bold text-white">${b.credits}</span> cours</span>
+                                        <span>${expText}</span>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        ` : ''}
                     </div>
                     <div class="custom-card p-4 text-center">
                         <p class="text-muted small mb-3">Besoin de recharger ?</p>
@@ -209,7 +228,7 @@ export const profileView = (app) => {
                 </div>
                 <div class="col-md-6">
                   <div class="custom-card p-4">
-                    <h3 class="fs-5 fw-medium mb-4">Utilisation des crédits</h3>
+                    <h3 class="fs-5 fw-medium mb-4">Utilisation des cours</h3>
                     ${creditHistory.length === 0 ? '<p class="text-muted small">Aucun mouvement.</p>' : 
                     `<div class="d-flex flex-column gap-1 overflow-auto scrollbar-hide pr-2" style="max-height: 500px;">
                         ${creditHistory.map(t => {

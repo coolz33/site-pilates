@@ -220,19 +220,19 @@ export const renderPaymentModal = (app, container) => {
                                 </p>
                                 ${app.state.modalMessage.isInsufficientCredits ? `
                                     <button type="button" onclick="app.navigate('tarifs'); app.state.showPaymentModal=false; app.render()" class="btn btn-link text-danger p-0 mt-2 w-100 text-end small fw-bold text-uppercase text-decoration-none">
-                                        Acheter des crédits →
+                                        Acheter des cours →
                                     </button>
                                 ` : ''}
                             </div>
                         ` : ''}
 
                         <div class="p-4 rounded-3 text-center d-flex flex-column gap-1 border ${isInsufficient ? 'bg-danger bg-opacity-10 text-danger border-danger border-opacity-25' : 'bg-success bg-opacity-10 text-success border-success border-opacity-25'}">
-                            <span class="fw-bold">Coût de la séance : ${classCost} crédits</span>
-                            <span class="small opacity-75">Votre solde : ${userBalance} crédits</span>
+                            <span class="fw-bold">Coût de la séance : ${classCost} cours</span>
+                            <span class="small opacity-75">Votre solde : ${userBalance} cours</span>
                             <div class="mt-3 pt-3 border-top ${isInsufficient ? 'border-danger border-opacity-25' : 'border-success border-opacity-25'} d-flex align-items-center justify-content-center gap-2">
                                 <input type="checkbox" id="confirm-credits" ${isInsufficient ? 'disabled' : 'required'} class="form-check-input mt-0">
                                 <label for="confirm-credits" class="small fw-medium ${isInsufficient ? 'text-danger' : 'text-success'}">
-                                    ${isInsufficient ? 'Solde insuffisant pour réserver' : 'Je confirme l\'utilisation de mes crédits'}
+                                    ${isInsufficient ? 'Solde insuffisant pour réserver' : 'Je confirme l\'utilisation d\'un cours'}
                                 </label>
                             </div>
                         </div>

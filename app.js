@@ -163,7 +163,8 @@ class PilatesApp {
                         console.log("[POPUP] Signal de succès envoyé à la fenêtre parente");
                         await window.opener.app.init();
                         if (window.location.pathname.endsWith('/paiement-succes')) {
-                            window.opener.app.navigate('paiement-succes');
+                            window.opener.history.pushState(null, '', window.location.pathname + window.location.search);
+                            window.opener.app.handleRouteChange();
                         }
                     }
                     window.close();
@@ -535,7 +536,7 @@ class PilatesApp {
     async buyCredits(pkg) { await userService.buyCredits(this, pkg); }
     async updateStudioSettings(e) { await userService.updateStudioSettings(this, e); }
     async updateCancellationDelay(e) { await userService.updateCancellationDelay(this, e); }
-    async updatePackage(e, id) { await userService.updatePackage(this, e, id); }
+    async updateAllPackages(e) { await userService.updateAllPackages(this, e); }
     async createPackage(e) { await userService.createPackage(this, e); }
 
     async deleteAccount(userId, isAdmin = false) {
@@ -543,7 +544,7 @@ class PilatesApp {
         const confirmed1 = await this.confirmDialog(msg1 + "\n\nCette action est irréversible.", { type: 'danger', confirmText: 'Supprimer' });
         if (!confirmed1) return;
         
-        const confirmed2 = await this.confirmDialog("DERNIER AVERTISSEMENT : Toutes les données (crédits, réservations, historique) seront définitivement effacées du serveur.\n\nConfirmer la suppression ?", { type: 'danger', confirmText: 'Supprimer définitivement' });
+        const confirmed2 = await this.confirmDialog("DERNIER AVERTISSEMENT : Toutes les données (cours, réservations, historique) seront définitivement effacées du serveur.\n\nConfirmer la suppression ?", { type: 'danger', confirmText: 'Supprimer définitivement' });
         if (!confirmed2) return;
 
         try {

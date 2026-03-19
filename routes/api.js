@@ -10,6 +10,27 @@ const nodemailer = require('nodemailer');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 /**
+ * Fonction de nettoyage : Vérifie si l'utilisateur possède des cours ayant dépassé leur date d'expiration.
+ * Si oui, ils sont supprimés et une transaction est ajoutée à l'historique.
+ */
+const cleanupExpiredBatches = async (userId) => {
+    try {
+        const [expired] = await pool.query('SELECT id, credits FROM user_batches WHERE user_id = ? AND credits > 0 AND expires_at < NOW()', [userId]);
+        if (expired.length > 0) {
+            let totalExpired = 0;
+            for (const batch of expired) {
+                totalExpired += batch.credits;
+                await pool.query('UPDATE user_batches SET credits = 0 WHERE id = ?', [batch.id]);
+            }
+            if (totalExpired > 0) {
+                await pool.query('UPDATE users SET credits_balance = GREATEST(0, credits_balance - ?) WHERE id = ?', [totalExpired, userId]);
+                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'expiration', -totalExpired, `Expiration automatique de ${totalExpired} cours`]);
+            }
+        }
+    } catch(e) { console.error("Erreur cleanupExpiredBatches:", e); }
+};
+
+/**
  * Initialise la base de données : crée les tables et insère les données par défaut.
  */
 const seedDB = async () => {
@@ -72,8 +93,11 @@ const seedDB = async () => {
             CREATE TABLE IF NOT EXISTS credit_packages (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(100),
+                subtitle VARCHAR(255) DEFAULT '',
                 credits INT,
-                price INT
+                price INT,
+                description VARCHAR(255) DEFAULT '',
+                expires_in_days INT DEFAULT 0
             )
         `);
 
@@ -129,6 +153,30 @@ const seedDB = async () => {
         try { await pool.query(`ALTER TABLE settings ADD COLUMN facebookUrl VARCHAR(255) DEFAULT NULL`); } catch (e) {}
         try { await pool.query(`ALTER TABLE settings ADD COLUMN instagramUrl VARCHAR(255) DEFAULT NULL`); } catch (e) {}
         try { await pool.query(`ALTER TABLE settings ADD COLUMN tiktokUrl VARCHAR(255) DEFAULT NULL`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE credit_packages ADD COLUMN description VARCHAR(255) DEFAULT ''`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE credit_packages ADD COLUMN subtitle VARCHAR(255) DEFAULT ''`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE credit_packages ADD COLUMN expires_in_days INT DEFAULT 0`); } catch (e) {}
+        
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS user_batches (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT,
+                credits INT,
+                expires_at DATETIME NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+
+        // Migration des crédits existants s'ils n'ont pas encore de lot attribué
+        const [batches] = await pool.query('SELECT COUNT(*) as count FROM user_batches');
+        if (batches[0].count === 0) {
+            const [usersToMigrate] = await pool.query('SELECT id, credits_balance FROM users WHERE credits_balance > 0');
+            for (const u of usersToMigrate) {
+                await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, NULL)', [u.id, u.credits_balance]);
+            }
+        }
+
         // Migration des anciens noms vers les nouveaux si nécessaire
         try { await pool.query(`ALTER TABLE users CHANGE points_balance credits_balance INT DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE classes CHANGE points_price credits_price INT DEFAULT 1`); } catch (e) {}
@@ -182,18 +230,18 @@ const seedDB = async () => {
         // 4. Credit Packages (Tarif dégressif)
         const [packages] = await pool.query('SELECT COUNT(*) as count FROM credit_packages');
         if (packages[0].count === 0) {
-            await pool.query('INSERT INTO credit_packages (name, credits, price) VALUES ?', [[
-                ['Pack Découverte', 20, 20],
-                ['Pack Équilibre (100 crédits)', 100, 80],
-                ['Pack Sérénité (200 crédits)', 200, 140]
+            await pool.query('INSERT INTO credit_packages (name, subtitle, description, credits, price, expires_in_days) VALUES ?', [[
+                ["À l'unité", 'Un cours', 'Tout le matériel est fourni sur place.\nSans engagement.', 1, 18, 0],
+                ['Carte', 'Carte 10 cours', 'Soit 15 € le cours.\nValable 6 mois.', 10, 150, 180],
+                ['Abonnement', "Abonnement à l'année", 'Soit 12€50 le cours.\nUn cours fixe par semaine de septembre à fin juin.\nUn cours à chaque vacances scolaires.', 38, 475, 365]
             ]]);
         } else {
             // Mise à jour forcée des packs pour correspondre à la demande
             await pool.query('DELETE FROM credit_packages');
-            await pool.query('INSERT INTO credit_packages (name, credits, price) VALUES ?', [[
-                ['Pack Découverte', 20, 20],
-                ['Pack Équilibre (100 crédits)', 100, 80],
-                ['Pack Sérénité (200 crédits)', 200, 140]
+            await pool.query('INSERT INTO credit_packages (name, subtitle, description, credits, price, expires_in_days) VALUES ?', [[
+                ["À l'unité", 'Un cours', 'Tout le matériel est fourni sur place.\nSans engagement.', 1, 18, 0],
+                ['Carte', 'Carte 10 cours', 'Soit 15 € le cours.\nValable 6 mois.', 10, 150, 180],
+                ['Abonnement', "Abonnement à l'année", 'Soit 12€50 le cours.\nUn cours fixe par semaine de septembre à fin juin.\nUn cours à chaque vacances scolaires.', 38, 475, 365]
             ]]);
         }
         console.log('✅ Base de données MySQL initialisée');
@@ -244,13 +292,20 @@ const handleRequest = async (req, res) => {
             if (method === 'GET') {
                 const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
                 if (users.length > 0) {
-                    const { password: _, ...userWithoutPassword } = users[0];
+                    await cleanupExpiredBatches(userId);
+                    const [updatedUser] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+                    const { password: _, ...userWithoutPassword } = updatedUser[0];
                     const [transactions] = await pool.query(`
                         SELECT id, type, amount, description, DATE_FORMAT(date, '%Y-%m-%d %H:%i') as date 
                         FROM transactions 
                         WHERE user_id = ? 
                         ORDER BY date DESC`, [userId]);
-                    return send(200, { ...userWithoutPassword, transactions });
+                    const [activeBatches] = await pool.query(`
+                        SELECT credits, expires_at 
+                        FROM user_batches 
+                        WHERE user_id = ? AND credits > 0 
+                        ORDER BY expires_at IS NULL, expires_at ASC`, [userId]);
+                    return send(200, { ...userWithoutPassword, transactions, activeBatches });
                 }
                 return send(404, { message: 'Utilisateur non trouvé' });
             }
@@ -265,6 +320,7 @@ const handleRequest = async (req, res) => {
         const userDetailsMatch = path.match(/^\/users\/(\d+)\/details$/);
         if (method === 'GET' && userDetailsMatch) {
             const userId = userDetailsMatch[1];
+            await cleanupExpiredBatches(userId);
             const [user] = await pool.query('SELECT id, firstName, lastName, email, phone, address, zipCode, city, credits_balance, newsletter_subscribed, role FROM users WHERE id = ?', [userId]);
             if (!user.length) return send(404, { message: 'Utilisateur non trouvé' });
 
@@ -287,9 +343,22 @@ const handleRequest = async (req, res) => {
         if (method === 'POST' && giftMatch) {
             const userId = giftMatch[1];
             const { amount } = req.body;
-            const description = amount > 0 ? 'Cadeau administrateur' : 'Retrait manuel administrateur';
-            await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [amount, userId]);
+            await cleanupExpiredBatches(userId);
+            const description = amount > 0 ? 'Ajout de cours (Admin)' : 'Retrait manuel (Admin)';
+            await pool.query('UPDATE users SET credits_balance = GREATEST(0, credits_balance + ?) WHERE id = ?', [amount, userId]);
             await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'adjustment', amount, description]);
+            if (amount > 0) {
+                await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, NULL)', [userId, amount]);
+            } else {
+                let toDeduct = Math.abs(amount);
+                const [batches] = await pool.query('SELECT id, credits FROM user_batches WHERE user_id = ? AND credits > 0 ORDER BY expires_at IS NULL DESC, expires_at DESC', [userId]);
+                for (const b of batches) {
+                    if (toDeduct <= 0) break;
+                    const deduction = Math.min(b.credits, toDeduct);
+                    await pool.query('UPDATE user_batches SET credits = credits - ? WHERE id = ?', [deduction, b.id]);
+                    toDeduct -= deduction;
+                }
+            }
             return send(200, { success: true });
         }
 
@@ -324,8 +393,15 @@ const handleRequest = async (req, res) => {
                 }
 
                 if (match) {
-                    const { password: _, ...userWithoutPassword } = user;
-                    return send(200, { success: true, user: userWithoutPassword });
+                    await cleanupExpiredBatches(user.id);
+                    const [updatedUser] = await pool.query('SELECT * FROM users WHERE id = ?', [user.id]);
+                    const { password: _, ...userWithoutPassword } = updatedUser[0];
+                    const [activeBatches] = await pool.query(`
+                        SELECT credits, expires_at 
+                        FROM user_batches 
+                        WHERE user_id = ? AND credits > 0 
+                        ORDER BY expires_at IS NULL, expires_at ASC`, [user.id]);
+                    return send(200, { success: true, user: { ...userWithoutPassword, activeBatches } });
                 } else {
                     return send(401, { success: false, message: 'Identifiants invalides' });
                 }
@@ -498,7 +574,8 @@ const handleRequest = async (req, res) => {
             const { userId, credits } = req.body;
             await pool.query('START TRANSACTION');
             await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [credits, userId]);
-            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'purchase', credits, 'Achat de crédits (Manuel)']);
+            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'purchase', credits, 'Achat de cours (Manuel)']);
+            await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, NULL)', [userId, credits]);
             await pool.query('COMMIT');
             
             const [updated] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
@@ -553,21 +630,31 @@ const handleRequest = async (req, res) => {
         }
 
         if (method === 'POST' && path === '/credit-packages') {
-            const { name, credits, price } = req.body;
+            const { name, subtitle, description, credits, price, expires_in_days } = req.body;
             await pool.query(
-                'INSERT INTO credit_packages (name, credits, price) VALUES (?, ?, ?)',
-                [name, credits, price]
+                'INSERT INTO credit_packages (name, subtitle, description, credits, price, expires_in_days) VALUES (?, ?, ?, ?, ?, ?)',
+                [name, subtitle, description, credits, price, expires_in_days]
             );
             return send(200, { success: true });
         }
 
-        const packageIdMatch = path.match(/^\/credit-packages\/(\d+)$/);
-        if (method === 'PUT' && packageIdMatch) {
-            const { name, credits, price } = req.body;
-            await pool.query(
-                'UPDATE credit_packages SET name=?, credits=?, price=? WHERE id=?',
-                [name, credits, price, packageIdMatch[1]]
-            );
+        if (method === 'PUT' && path === '/credit-packages/bulk') {
+            const { packages } = req.body;
+            if (!packages || !Array.isArray(packages)) return send(400, { success: false });
+
+            await pool.query('START TRANSACTION');
+            try {
+                for (const pkg of packages) {
+                    await pool.query(
+                        'UPDATE credit_packages SET name=?, subtitle=?, description=?, credits=?, price=?, expires_in_days=? WHERE id=?',
+                        [pkg.name, pkg.subtitle, pkg.description, pkg.credits, pkg.price, pkg.expires_in_days, pkg.id]
+                    );
+                }
+                await pool.query('COMMIT');
+            } catch (err) {
+                await pool.query('ROLLBACK');
+                throw err;
+            }
             return send(200, { success: true });
         }
 
@@ -649,6 +736,7 @@ const handleRequest = async (req, res) => {
             const classId = path.match(/^\/classes\/book-credits\/(\d+)$/)[1];
             const { userId } = req.body;
 
+            await cleanupExpiredBatches(userId);
             const [userRows] = await pool.query('SELECT credits_balance FROM users WHERE id = ?', [userId]);
             const [classRows] = await pool.query('SELECT title, credits_price, capacity FROM classes WHERE id = ?', [classId]);
             const [bookingCount] = await pool.query('SELECT COUNT(*) as count FROM bookings WHERE class_id = ?', [classId]);
@@ -659,20 +747,35 @@ const handleRequest = async (req, res) => {
             const cls = classRows[0];
 
             if (user.credits_balance < cls.credits_price) {
-                return send(400, { success: false, message: 'Solde de crédits insuffisant' });
+                return send(400, { success: false, message: 'Solde de cours insuffisant' });
             }
             if (bookingCount[0].count >= cls.capacity) {
                 return send(400, { success: false, message: 'Cours complet' });
             }
 
             await pool.query('START TRANSACTION');
+            
+            // Déduire un cours du lot le plus proche de l'expiration
+            const [batches] = await pool.query(`
+                SELECT id, credits 
+                FROM user_batches 
+                WHERE user_id = ? AND credits > 0 AND (expires_at IS NULL OR expires_at > NOW())
+                ORDER BY expires_at IS NULL, expires_at ASC
+                LIMIT 1
+            `, [userId]);
+            if (batches.length > 0) {
+                await pool.query('UPDATE user_batches SET credits = credits - 1 WHERE id = ?', [batches[0].id]);
+            }
+            
             await pool.query('UPDATE users SET credits_balance = credits_balance - ? WHERE id = ?', [cls.credits_price, userId]);
             await pool.query('INSERT INTO bookings (class_id, user_id) VALUES (?, ?)', [classId, userId]);
             await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'booking', -cls.credits_price, `Réservation : ${cls.title || 'Séance'}`]);
             await pool.query('COMMIT');
 
             const [updatedUser] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
-            return send(200, { success: true, user: updatedUser[0] });
+            const { password: _, ...userWithoutPassword } = updatedUser[0];
+            const [activeBatches] = await pool.query(`SELECT credits, expires_at FROM user_batches WHERE user_id = ? AND credits > 0 ORDER BY expires_at IS NULL, expires_at ASC`, [userId]);
+            return send(200, { success: true, user: { ...userWithoutPassword, activeBatches } });
         }
 
         const cancelClassMatch = path.match(/^\/classes\/cancel\/(\d+)$/);
@@ -702,6 +805,7 @@ const handleRequest = async (req, res) => {
             if (result.affectedRows > 0 && creditsToRefund > 0) {
                 await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [creditsToRefund, userId]);
                 await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'refund', creditsToRefund, `Annulation : ${cls[0].title}`]);
+                await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, NULL)', [userId, creditsToRefund]);
             }
             await pool.query('COMMIT');
 
@@ -858,15 +962,15 @@ const handleRequest = async (req, res) => {
                 line_items: [{
                     price_data: {
                         currency: 'eur',
-                        product_data: { name: pkg.name, description: `${pkg.credits} crédits Pilates` },
+                        product_data: { name: pkg.name, description: `${pkg.credits} cours de Pilates` },
                         unit_amount: pkg.price * 100,
                     },
                     quantity: 1,
                 }],
                 mode: 'payment',
-                success_url: `http://${req.headers.host}/paiement-succes`,
+                success_url: `http://${req.headers.host}/paiement-succes?package=${encodeURIComponent(pkg.name)}&credits=${pkg.credits}`,
                 cancel_url: `http://${req.headers.host}/#profil?payment=cancel`,
-                metadata: { userId: userId.toString(), credits: pkg.credits.toString(), price: pkg.price.toString(), packageName: pkg.name, type: 'credits_purchase' }
+                metadata: { userId: userId.toString(), credits: pkg.credits.toString(), price: pkg.price.toString(), packageName: pkg.name, expires_in_days: pkg.expires_in_days.toString(), type: 'credits_purchase' }
             });
             console.log("[STRIPE] Session créée avec succès :", session.id);
             return send(200, { url: session.url });
@@ -887,17 +991,26 @@ const handleRequest = async (req, res) => {
                 const session = event.data.object;
                 console.log("🔔 Webhook Stripe : checkout.session.completed reçu.");
 
-                const { userId, credits, price, packageName, type } = session.metadata;
+                const { userId, credits, price, packageName, expires_in_days, type } = session.metadata;
                 
                 if (credits && userId) {
-                    console.log(`[WEBHOOK] Traitement achat : User ${userId}, +${credits} crédits`);
+                    console.log(`[WEBHOOK] Traitement achat : User ${userId}, +${credits} cours`);
                     
-                    const description = price ? `Achat de crédits (${price}€)` : 'Achat de crédits';
+                    const expiresInDaysInt = parseInt(expires_in_days) || 0;
+                    let expiresAtStr = null;
+                    if (expiresInDaysInt > 0) {
+                        const d = new Date();
+                        d.setDate(d.getDate() + expiresInDaysInt);
+                        expiresAtStr = d.toISOString().slice(0, 19).replace('T', ' ');
+                    }
+
+                    const description = price ? `Achat de cours (${price}€)` : 'Achat de cours';
                     await pool.query('START TRANSACTION');
                     await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [parseInt(credits), parseInt(userId)]);
                     await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [parseInt(userId), 'purchase', parseInt(credits), description]);
+                    await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, ?)', [parseInt(userId), parseInt(credits), expiresAtStr]);
                     await pool.query('COMMIT');
-                    console.log(`✅ Crédits ajoutés en DB (+${credits}) pour l'utilisateur ${userId}`);
+                    console.log(`✅ Cours ajoutés en DB (+${credits}) pour l'utilisateur ${userId}`);
 
                     // Récupérer l'email de l'utilisateur depuis la DB pour être sûr de l'adresse
                     const [userRows] = await pool.query('SELECT email FROM users WHERE id = ?', [userId]);
@@ -922,24 +1035,38 @@ const handleRequest = async (req, res) => {
                         }
                     });
 
+                    const isSubscription = packageName && packageName.toLowerCase().includes('abonnement');
+                    const emailHtml = isSubscription ? `
+                        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px; max-width: 600px; margin: auto;">
+                            <h2 style="color: #065f46;">Merci pour votre achat !</h2>
+                            <p>Votre paiement a été validé avec succès. Voici le récapitulatif de votre commande :</p>
+                            <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                <p style="margin: 5px 0;"><strong>Produit :</strong> ${packageName}</p>
+                                <p style="margin: 5px 0;"><strong>Montant :</strong> ${price}€</p>
+                            </div>
+                            <p>Votre abonnement est maintenant activé !</p>
+                            <p style="font-size: 12px; color: #78716c; margin-top: 30px;">Ceci est un email automatique, merci de ne pas y répondre.</p>
+                        </div>
+                    ` : `
+                        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px; max-width: 600px; margin: auto;">
+                            <h2 style="color: #065f46;">Merci pour votre achat !</h2>
+                            <p>Votre paiement a été validé avec succès. Voici le récapitulatif de votre commande :</p>
+                            <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                <p style="margin: 5px 0;"><strong>Produit :</strong> ${packageName || 'Pack de cours'}</p>
+                                <p style="margin: 5px 0;"><strong>Montant :</strong> ${price}€</p>
+                                <p style="margin: 5px 0;"><strong>Cours ajoutés :</strong> +${credits}</p>
+                            </div>
+                            <p>Vos cours sont immédiatement disponibles sur votre compte pour vos prochaines réservations.</p>
+                            <p style="font-size: 12px; color: #78716c; margin-top: 30px;">Ceci est un email automatique, merci de ne pas y répondre.</p>
+                        </div>
+                    `;
+
                     try {
                         const info = await transporter.sendMail({
                             from: `"L'espace doré" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
                             to: targetEmail,
                             subject: "Confirmation de votre achat - L'espace doré",
-                            html: `
-                                <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px; max-width: 600px; margin: auto;">
-                                    <h2 style="color: #065f46;">Merci pour votre achat !</h2>
-                                    <p>Votre paiement a été validé avec succès. Voici le récapitulatif de votre commande :</p>
-                                    <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                                        <p style="margin: 5px 0;"><strong>Produit :</strong> ${packageName || 'Pack de crédits'}</p>
-                                        <p style="margin: 5px 0;"><strong>Montant :</strong> ${price}€</p>
-                                        <p style="margin: 5px 0;"><strong>Crédits ajoutés :</strong> +${credits}</p>
-                                    </div>
-                                    <p>Vos crédits sont immédiatement disponibles sur votre compte pour vos prochaines réservations.</p>
-                                    <p style="font-size: 12px; color: #78716c; margin-top: 30px;">Ceci est un email automatique, merci de ne pas y répondre.</p>
-                                </div>
-                            `
+                            html: emailHtml
                         });
                         console.log("✅ [SMTP] Email de confirmation envoyé ! ID:", info.messageId);
                     } catch (mailErr) {
