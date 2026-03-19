@@ -347,9 +347,9 @@ export const adminView = (app) => {
                                                     <label class="form-label small text-muted mb-1">Prix (€)</label>
                                                     <input type="number" name="price" value="${pkg.price}" required min="0" class="form-control form-control-sm text-center px-1">
                                                 </div>
-                                                <div class="col-md-2 pack-credits-col ${pkg.is_subscription ? 'd-none' : ''}">
-                                                    <label class="form-label small text-muted mb-1">Nb. cours</label>
-                                                    <input type="number" name="credits" value="${pkg.is_subscription ? 10 : pkg.credits}" min="1" class="form-control form-control-sm text-center px-1">
+                                                 <div class="col-md-2 pack-credits-col ${pkg.is_subscription ? 'd-none' : ''}">
+                                                    <label class="form-label small text-muted mb-1 text-nowrap">Nb. cours</label>
+                                                    <input type="number" name="credits" value="${pkg.is_subscription ? 0 : pkg.credits}" min="0" class="form-control form-control-sm text-center px-1">
                                                 </div>
 
                                                 <div class="col-12 d-flex flex-wrap align-items-center gap-4 mt-2">
@@ -377,7 +377,7 @@ export const adminView = (app) => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="col-12">
+                                                <div class="col-12 mt-2">
                                                     <label class="form-label small text-muted mb-1">Description (Sauts de ligne autorisés)</label>
                                                     <textarea name="description" class="form-control form-control-sm" rows="3">${pkg.description || ''}</textarea>
                                                 </div>
@@ -481,21 +481,8 @@ export const adminView = (app) => {
                             const paymentHistory = transactions.filter(t => t.type === 'purchase');
 
                             let subExpirationAdmin = '';
-                            if (user.is_subscribed) {
-                                if (activeBatches && activeBatches.length > 0) {
-                                    const expiringBatches = [...activeBatches].filter(b => b.expires_at).sort((a, b) => new Date(b.expires_at) - new Date(a.expires_at));
-                                    if (expiringBatches.length > 0) {
-                                        subExpirationAdmin = new Date(expiringBatches[0].expires_at).toLocaleDateString('fr-FR');
-                                    }
-                                }
-                                if (!subExpirationAdmin) {
-                                    const subTxs = transactions.filter(t => t.description.toLowerCase().includes('abonnement') || t.description.toLowerCase().includes('abo'));
-                                    if (subTxs.length > 0) {
-                                        const calcDate = new Date(subTxs[0].date);
-                                        calcDate.setFullYear(calcDate.getFullYear() + 1);
-                                        subExpirationAdmin = calcDate.toLocaleDateString('fr-FR');
-                                    }
-                                }
+                            if (user.is_subscribed && user.subscription_expires_at) {
+                                subExpirationAdmin = new Date(user.subscription_expires_at).toLocaleDateString('fr-FR');
                             }
 
                             return `<div class="d-flex flex-column gap-4 animate-fade-in">
@@ -649,15 +636,17 @@ export const adminView = (app) => {
                                                 <div>
                                                     <h4 class="small fw-semibold text-emerald mb-2">Achats (Paiements)</h4>
                                                     <div class="d-flex flex-column gap-1 overflow-auto pr-2" style="max-height: 120px;">
-                                                        ${paymentHistory.map(t => `
+                                                        ${paymentHistory.map(t => {
+                                                            const isSub = t.amount >= 999 || t.description.toLowerCase().includes('abonnement');
+                                                            return `
                                                             <div class="d-flex justify-content-between align-items-center p-1 border-bottom">
                                                                 <div style="font-size: 0.75rem;">
                                                                     <div class="fw-medium">${t.description}</div>
-                                                                    <div class="text-muted">${new Date(t.date).toLocaleDateString()}</div>
+                                                                    <div class="text-muted">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}</div>
                                                                 </div>
-                                                                <div class="small fw-bold text-success">+${t.amount}</div>
+                                                                <div class="small fw-bold text-success">${isSub ? 'Abonnement' : '+' + t.amount}</div>
                                                             </div>
-                                                        `).join('')}
+                                                        `}).join('')}
                                                         ${paymentHistory.length === 0 ? '<p class="text-muted small mb-0">Aucun achat</p>' : ''}
                                                     </div>
                                                 </div>
@@ -672,9 +661,9 @@ export const adminView = (app) => {
                                                             <div class="d-flex justify-content-between align-items-center p-1 border-bottom">
                                                                 <div style="font-size: 0.75rem;">
                                                                     <div class="fw-medium">${desc}</div>
-                                                                    <div class="text-muted">${new Date(t.date).toLocaleDateString()}</div>
+                                                                    <div class="text-muted">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}</div>
                                                                 </div>
-                                                                <div class="small fw-bold ${t.amount > 0 ? 'text-success' : 'text-muted'}">${t.amount > 0 ? '+' : ''}${t.amount}</div>
+                                                                <div class="small fw-bold ${t.amount > 0 ? 'text-success' : 'text-muted'}">${t.amount >= 999 ? 'Abonnement' : (t.amount > 0 ? '+' : '') + t.amount}</div>
                                                             </div>`;
                                                         }).join('')}
                                                         ${creditHistory.length === 0 ? '<p class="text-muted small mb-0">Aucun mouvement</p>' : ''}

@@ -27,6 +27,18 @@ const cleanupExpiredBatches = async (userId) => {
                 await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'expiration', -totalExpired, `Expiration automatique de ${totalExpired} cours`]);
             }
         }
+                
+                // Nettoyage des abonnements expirés
+                const [expiredSubs] = await pool.query('SELECT id FROM users WHERE id = ? AND is_subscribed = 1 AND subscription_expires_at IS NOT NULL AND subscription_expires_at < NOW()', [userId]);
+                if (expiredSubs.length > 0) {
+                    await pool.query('UPDATE users SET is_subscribed = 0, subscription_expires_at = NULL WHERE id = ?', [userId]);
+                    await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'expiration', 0, `Expiration de l'abonnement`]);
+                }
+                
+                // Resynchronisation forcée du solde total pour corriger toute erreur mathématique
+                const [totalRes] = await pool.query('SELECT SUM(credits) as total FROM user_batches WHERE user_id = ? AND credits > 0', [userId]);
+                const actualBalance = totalRes[0].total || 0;
+                await pool.query('UPDATE users SET credits_balance = ? WHERE id = ?', [actualBalance, userId]);
     } catch(e) { console.error("Erreur cleanupExpiredBatches:", e); }
 };
 
@@ -159,6 +171,16 @@ const seedDB = async () => {
         try { await pool.query(`ALTER TABLE credit_packages ADD COLUMN expires_in_days INT DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE users ADD COLUMN is_subscribed BOOLEAN DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE credit_packages ADD COLUMN is_subscription BOOLEAN DEFAULT 0`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE users ADD COLUMN subscription_expires_at DATETIME DEFAULT NULL`); } catch (e) {}
+        
+        // Migration : Convertit les faux lots de 999 crédits en véritables dates d'abonnement
+        try {
+            const [subBatches] = await pool.query('SELECT id, user_id, credits, expires_at FROM user_batches WHERE credits >= 50');
+            for (const b of subBatches) {
+                await pool.query('UPDATE users SET is_subscribed = 1, subscription_expires_at = ?, credits_balance = GREATEST(0, COALESCE(credits_balance, 0) - ?) WHERE id = ?', [b.expires_at, b.credits, b.user_id]);
+                await pool.query('DELETE FROM user_batches WHERE id = ?', [b.id]);
+            }
+        } catch (e) { console.error("Erreur migration abonnements:", e); }
         
         await pool.query(`
             CREATE TABLE IF NOT EXISTS user_batches (
@@ -368,7 +390,12 @@ const handleRequest = async (req, res) => {
         if (method === 'PUT' && subMatch) {
             const userId = subMatch[1];
             const { is_subscribed } = req.body;
-            await pool.query('UPDATE users SET is_subscribed = ? WHERE id = ?', [is_subscribed ? 1 : 0, userId]);
+            if (is_subscribed) {
+                const d = new Date(); d.setFullYear(d.getFullYear() + 1);
+                await pool.query('UPDATE users SET is_subscribed = 1, subscription_expires_at = ? WHERE id = ?', [d.toISOString().slice(0, 19).replace('T', ' '), userId]);
+            } else {
+                await pool.query('UPDATE users SET is_subscribed = 0, subscription_expires_at = NULL WHERE id = ?', [userId]);
+            }
             return send(200, { success: true });
         }
 
@@ -1146,9 +1173,12 @@ const handleRequest = async (req, res) => {
 
                 const { userId, credits, price, packageName, expires_in_days, is_subscription, type } = session.metadata;
                 
-                if (credits && userId) {
-                    console.log(`[WEBHOOK] Traitement achat : User ${userId}, +${credits} cours`);
+                if (userId) {
+                    console.log(`[WEBHOOK] Traitement achat : User ${userId}`);
                     
+                    const parsedCredits = parseInt(credits) || 0;
+                    const isSubscription = is_subscription === '1' || (packageName && packageName.toLowerCase().includes('abonnement'));
+
                     const expiresInDaysInt = parseInt(expires_in_days) || 0;
                     let expiresAtStr = null;
                     if (expiresInDaysInt > 0) {
@@ -1157,19 +1187,21 @@ const handleRequest = async (req, res) => {
                         expiresAtStr = d.toISOString().slice(0, 19).replace('T', ' ');
                     }
 
-                    const description = price ? `Achat de cours (${price}€)` : 'Achat de cours';
                     await pool.query('START TRANSACTION');
-                    await pool.query('UPDATE users SET credits_balance = COALESCE(credits_balance, 0) + ? WHERE id = ?', [parseInt(credits), parseInt(userId)]);
-                    await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [parseInt(userId), 'purchase', parseInt(credits), description]);
-                    await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, ?)', [parseInt(userId), parseInt(credits), expiresAtStr]);
-                    await pool.query('COMMIT');
-                    await cleanupExpiredBatches(parseInt(userId)); // Sécurité pour s'assurer que le compte est parfaitement synchronisé
                     
-                    const isSubscription = is_subscription === '1' || (packageName && packageName.toLowerCase().includes('abonnement'));
-                    if (isSubscription) {
-                        await pool.query('UPDATE users SET is_subscribed = 1 WHERE id = ?', [parseInt(userId)]);
+                    if (parsedCredits > 0 && !isSubscription) {
+                        const description = price ? `Achat de cours (${price}€)` : 'Achat de cours';
+                        await pool.query('UPDATE users SET credits_balance = COALESCE(credits_balance, 0) + ? WHERE id = ?', [parsedCredits, parseInt(userId)]);
+                        await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [parseInt(userId), 'purchase', parsedCredits, description]);
+                        await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, ?)', [parseInt(userId), parsedCredits, expiresAtStr]);
                     }
-                    console.log(`✅ Cours ajoutés en DB (+${credits}) pour l'utilisateur ${userId}`);
+
+                    if (isSubscription) {
+                        await pool.query('UPDATE users SET is_subscribed = 1, subscription_expires_at = ? WHERE id = ?', [expiresAtStr, parseInt(userId)]);
+                        await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [parseInt(userId), 'purchase', 0, `Achat d'abonnement (${price}€)`]);
+                    }
+                    await pool.query('COMMIT');
+                    await cleanupExpiredBatches(parseInt(userId));
 
                     // Récupérer l'email de l'utilisateur depuis la DB pour être sûr de l'adresse
                     const [userRows] = await pool.query('SELECT email FROM users WHERE id = ?', [userId]);

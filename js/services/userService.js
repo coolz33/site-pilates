@@ -147,7 +147,7 @@ export const userService = {
             
             let credits, expires_in_days;
             if (is_subscription) {
-                credits = 999;
+                credits = 0;
                 expires_in_days = parseInt(block.querySelector('[name="duration_days"]').value) || 365;
             } else {
                 credits = parseInt(block.querySelector('[name="credits"]').value) || 1;
@@ -179,7 +179,7 @@ export const userService = {
         
         let credits, expires_in_days;
         if (is_subscription) {
-            credits = 999;
+            credits = 0;
             expires_in_days = parseInt(block.querySelector('[name="duration_days"]').value) || 365;
         } else {
             credits = parseInt(block.querySelector('[name="credits"]').value) || 1;

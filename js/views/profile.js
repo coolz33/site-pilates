@@ -36,6 +36,11 @@ export const profileView = (app) => {
 
     const calculatedBalance = u.activeBatches ? u.activeBatches.reduce((sum, b) => sum + b.credits, 0) : (parseInt(u.credits_balance) || 0);
 
+    let subExpiration = '';
+    if (u.is_subscribed && u.subscription_expires_at) {
+        subExpiration = `<div class="fs-6 fw-normal text-white-50 mt-1" style="letter-spacing: 0;">jusqu'au ${new Date(u.subscription_expires_at).toLocaleDateString('fr-FR')}</div>`;
+    }
+
     // Navigation par onglets
     const navTabs = `
         <div class="d-flex border-bottom mb-4 overflow-auto scrollbar-hide">
@@ -135,7 +140,7 @@ export const profileView = (app) => {
                 <div class="col-12 col-lg-4 d-flex flex-column gap-4">
                     <div class="bg-emerald-strong p-4 shadow-sm" style="border-radius: 1.5rem;">
                         <div class="small opacity-75 mb-1">Mon solde actuel</div>
-                        <div class="display-5 fw-light mb-0">${u.is_subscribed ? 'Abonné' : `${calculatedBalance} <span class="fs-5">cours</span>`}</div>
+                        <div class="display-5 fw-light mb-0">${u.is_subscribed ? `Abonné${subExpiration}` : `${calculatedBalance} <span class="fs-5">cours</span>`}</div>
                         ${u.activeBatches && u.activeBatches.length > 0 ? `
                             <div class="mt-4 pt-3 border-top border-light border-opacity-25 d-flex flex-column gap-2">
                                 <div class="small fw-medium mb-1">Détail des expirations :</div>
