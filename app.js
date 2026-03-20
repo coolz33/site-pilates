@@ -123,6 +123,10 @@ class PilatesApp {
             userPaymentPagination: { page: 1, limit: 10 },
             userCreditFilters: { startDate: '', endDate: '' },
             userCreditPagination: { page: 1, limit: 10 },
+            userFutureSessionFilters: { startDate: '', endDate: '' },
+            userFutureSessionPagination: { page: 1, limit: 10 },
+            userSessionFilters: { startDate: '', endDate: '' },
+            userSessionPagination: { page: 1, limit: 10 },
             visiblePasswords: [],
             selectedAdminClasses: [],
             userSearchQuery: '',
@@ -142,6 +146,40 @@ class PilatesApp {
         this.handleRouteChange = this.handleRouteChange.bind(this);
         this.openCalendarModal = this.openCalendarModal.bind(this);
         this.closeCalendarModal = this.closeCalendarModal.bind(this);
+        
+        this.activeRequests = 0;
+        this.loadingTimeout = null;
+        this.setupFetchInterceptor();
+    }
+
+    setupFetchInterceptor() {
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            this.activeRequests++;
+            if (this.activeRequests === 1) {
+                this.loadingTimeout = setTimeout(() => {
+                    let loader = document.getElementById('global-loader');
+                    if (!loader) {
+                        loader = document.createElement('div');
+                        loader.id = 'global-loader';
+                        loader.className = 'position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center custom-modal-backdrop animate-fade-in';
+                        loader.style.zIndex = '9999';
+                        loader.innerHTML = '<div class="spinner-border text-emerald mb-3" role="status" style="width: 3rem; height: 3rem; border-width: 0.25em;"></div><div class="text-white fw-medium bg-dark bg-opacity-75 px-4 py-2 rounded-pill shadow-sm tracking-wider small">TRAITEMENT EN COURS...</div>';
+                        document.body.appendChild(loader);
+                    }
+                }, 500);
+            }
+            try {
+                return await originalFetch(...args);
+            } finally {
+                this.activeRequests = Math.max(0, this.activeRequests - 1);
+                if (this.activeRequests === 0) {
+                    clearTimeout(this.loadingTimeout);
+                    const loader = document.getElementById('global-loader');
+                    if (loader) loader.remove();
+                }
+            }
+        };
     }
 
     /**
@@ -249,6 +287,10 @@ class PilatesApp {
             this.state.userPaymentPagination = { page: 1, limit: 10 };
             this.state.userCreditFilters = { startDate: '', endDate: '' };
             this.state.userCreditPagination = { page: 1, limit: 10 };
+            this.state.userFutureSessionFilters = { startDate: '', endDate: '' };
+            this.state.userFutureSessionPagination = { page: 1, limit: 10 };
+            this.state.userSessionFilters = { startDate: '', endDate: '' };
+            this.state.userSessionPagination = { page: 1, limit: 10 };
             this.state.ledgerFilters = { startDate: '', endDate: '' };
             this.state.ledgerSort = { column: 'date', direction: 'desc' };
             this.state.ledgerPagination = { page: 1, limit: 10 };
@@ -534,6 +576,50 @@ class PilatesApp {
     setUserCreditLimit(limit) {
         this.state.userCreditPagination.limit = limit === 'all' ? 'all' : parseInt(limit);
         this.state.userCreditPagination.page = 1;
+        this.render();
+    }
+
+    /**
+     * Met à jour le filtre de date des prochaines séances d'un utilisateur.
+     */
+    handleUserFutureSessionFilterChange(key, value) {
+        this.state.userFutureSessionFilters[key] = value;
+        this.state.userFutureSessionPagination.page = 1;
+        this.render();
+    }
+
+    /** Change la page affichée pour les prochaines séances */
+    setUserFutureSessionPage(page) {
+        this.state.userFutureSessionPagination.page = page;
+        this.render();
+    }
+
+    /** Change la limite d'affichage pour les prochaines séances */
+    setUserFutureSessionLimit(limit) {
+        this.state.userFutureSessionPagination.limit = limit === 'all' ? 'all' : parseInt(limit);
+        this.state.userFutureSessionPagination.page = 1;
+        this.render();
+    }
+
+    /**
+     * Met à jour le filtre de date de l'historique des séances d'un utilisateur.
+     */
+    handleUserSessionFilterChange(key, value) {
+        this.state.userSessionFilters[key] = value;
+        this.state.userSessionPagination.page = 1;
+        this.render();
+    }
+
+    /** Change la page affichée pour l'historique des séances */
+    setUserSessionPage(page) {
+        this.state.userSessionPagination.page = page;
+        this.render();
+    }
+
+    /** Change la limite d'affichage pour l'historique des séances */
+    setUserSessionLimit(limit) {
+        this.state.userSessionPagination.limit = limit === 'all' ? 'all' : parseInt(limit);
+        this.state.userSessionPagination.page = 1;
         this.render();
     }
 

@@ -91,12 +91,15 @@ export const classService = {
             return app.render();
         }
 
+        const bookSeriesCheck = document.getElementById('book-series');
+        const bookSeries = bookSeriesCheck ? bookSeriesCheck.checked : false;
+
         // Paiement par crédits
         try {
             const res = await fetch(`${API_URL}/classes/book-credits/${cls.id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: app.state.currentUser.id })
+                body: JSON.stringify({ userId: app.state.currentUser.id, bookSeries })
             });
 
             if (!res.ok) {
@@ -155,14 +158,31 @@ export const classService = {
     async cancelBookingByUser(app, classId) { // Renommée pour éviter la confusion avec l'annulation admin
         const confirmed = await app.confirmDialog("Confirmer l'annulation de ce cours ?");
         if (!confirmed) return;
+        
+        const cls = app.state.classes.find(c => c.id === classId);
+        let cancelSeries = false;
+        
+        if (cls && cls.recurrence_id) {
+            const futureSeriesBookings = app.state.classes.filter(c => 
+                c.recurrence_id === cls.recurrence_id && 
+                c.bookedUsers.includes(app.state.currentUser.id) && 
+                c.id !== classId &&
+                new Date(c.date + 'T' + c.time) >= new Date()
+            );
+
+            if (futureSeriesBookings.length > 0) {
+                cancelSeries = await app.confirmDialog("Voulez-vous également annuler TOUTES vos réservations à venir pour cette même série de cours hebdomadaires ?", { confirmText: 'Oui, tout annuler', cancelText: 'Non, garder les autres', type: 'info' });
+            }
+        }
+        
         const res = await fetch(`${API_URL}/classes/cancel/${classId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: app.state.currentUser.id })
+            body: JSON.stringify({ userId: app.state.currentUser.id, cancelSeries })
         });
         const data = await res.json();
         if (data.success) {
-            app.showNotification("Réservation annulée.");
+            app.showNotification(data.message || "Réservation annulée.");
             app.init(); // Rafraîchir pour mettre à jour le solde et le planning
         } else {
             app.showNotification(data.message, 'error');

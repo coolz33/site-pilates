@@ -76,20 +76,24 @@ export const profileView = (app) => {
                         </div>
                         <div class="row mb-2 align-items-center">
                             <label for="prof-password" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted">Nouveau mdp</label>
-                            <div class="col-sm-9 position-relative">
-                                <input type="${app.state.visiblePasswords.includes('prof-password') ? 'text' : 'password'}" id="prof-password" class="form-control form-control-sm pr-5" placeholder="Laisser vide pour ne pas changer">
-                                <button type="button" onclick="app.togglePasswordVisibility('prof-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-1 me-1 text-decoration-none">
-                                    ${app.state.visiblePasswords.includes('prof-password') ? eyeSlashIcon : eyeIcon}
-                                </button>
+                            <div class="col-sm-9">
+                                <div class="position-relative">
+                                    <input type="${app.state.visiblePasswords.includes('prof-password') ? 'text' : 'password'}" id="prof-password" class="form-control form-control-sm pe-4" placeholder="Laisser vide pour ne pas changer">
+                                    <button type="button" onclick="app.togglePasswordVisibility('prof-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-1 me-1 text-decoration-none">
+                                        ${app.state.visiblePasswords.includes('prof-password') ? eyeSlashIcon : eyeIcon}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="row mb-2 align-items-center">
                             <label for="prof-confirm-password" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted">Confirmer mdp</label>
-                            <div class="col-sm-9 position-relative">
-                                <input type="${app.state.visiblePasswords.includes('prof-confirm-password') ? 'text' : 'password'}" id="prof-confirm-password" class="form-control form-control-sm pr-5">
-                                <button type="button" onclick="app.togglePasswordVisibility('prof-confirm-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-1 me-1 text-decoration-none">
-                                    ${app.state.visiblePasswords.includes('prof-confirm-password') ? eyeSlashIcon : eyeIcon}
-                                </button>
+                            <div class="col-sm-9">
+                                <div class="position-relative">
+                                    <input type="${app.state.visiblePasswords.includes('prof-confirm-password') ? 'text' : 'password'}" id="prof-confirm-password" class="form-control form-control-sm pe-4">
+                                    <button type="button" onclick="app.togglePasswordVisibility('prof-confirm-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-1 me-1 text-decoration-none">
+                                        ${app.state.visiblePasswords.includes('prof-confirm-password') ? eyeSlashIcon : eyeIcon}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="row mb-2 align-items-center">
@@ -200,53 +204,166 @@ export const profileView = (app) => {
     } else if (activeTab === 'sessions') {
         tabContent = `
             <div class="row g-4">
-                <div class="col-md-6">
+                <div class="col-lg-6">
                   <div class="custom-card p-4">
                     <h3 class="fs-5 fw-medium mb-4">Prochaines séances</h3>
-                    ${futureBookings.length === 0 ? '<p class="text-muted small">Aucune séance prévue.</p>' : 
-                    `<div class="d-flex flex-column gap-3">
-                        ${futureBookings.map(c => {
-                            const classDate = new Date(c.date + 'T' + c.time);
-                            const hoursDiff = (classDate - now) / 1000 / 60 / 60;
-                            const canCancel = hoursDiff >= delayHours;
-                            return `
-                            <div class="profile-session-card p-2">
-                                <div class="fw-bold text-emerald small">${c.title}</div>
-                                <div class="text-muted" style="font-size:0.75rem;">${new Date(c.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à ${c.time}</div>
-                                ${canCancel ? 
-                                    `<div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center">
-                                        <span class="text-muted text-uppercase" style="font-size:0.65rem; letter-spacing:0.05em;">Annulable</span>
-                                        <button onclick="app.deleteClass(${c.id})" class="btn btn-link text-danger p-0 text-decoration-none small fw-semibold">Annuler</button>
-                                    </div>` : 
-                                    `<div class="mt-2 pt-2 border-top text-warning fw-bold text-uppercase" style="font-size:0.65rem; letter-spacing:0.05em;">Délai d'annulation dépassé</div>`
-                                }
-                            </div>`;
-                        }).join('')}
-                    </div>`}
+                    ${(() => {
+                        if (futureBookings.length === 0) return '<p class="text-muted small mb-0">Aucune séance prévue.</p>';
+                        
+                        let filteredFuture = futureBookings;
+                        if (app.state.userFutureSessionFilters.startDate) filteredFuture = filteredFuture.filter(c => c.date >= app.state.userFutureSessionFilters.startDate);
+                        if (app.state.userFutureSessionFilters.endDate) filteredFuture = filteredFuture.filter(c => c.date <= app.state.userFutureSessionFilters.endDate);
+                        
+                        const limit = app.state.userFutureSessionPagination.limit;
+                        const totalItems = filteredFuture.length;
+                        const totalPages = limit === 'all' ? 1 : Math.ceil(totalItems / limit) || 1;
+                        const currentPage = Math.max(1, Math.min(app.state.userFutureSessionPagination.page, totalPages));
+                        
+                        let displayedFuture = filteredFuture;
+                        if (limit !== 'all') {
+                            const startIdx = (currentPage - 1) * limit;
+                            displayedFuture = filteredFuture.slice(startIdx, startIdx + limit);
+                        }
+
+                        return `
+                        <div class="d-flex flex-wrap align-items-center gap-3 mb-3 p-2 bg-light rounded-3 border">
+                            <div class="d-flex align-items-center gap-2 text-nowrap">
+                                <label class="small text-muted mb-0 fw-medium">Du :</label>
+                                <input type="date" value="${app.state.userFutureSessionFilters.startDate}" oninput="app.handleUserFutureSessionFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 110px; font-size: 0.75rem; height: 26px;">
+                            </div>
+                            <div class="d-flex align-items-center gap-2 text-nowrap">
+                                <label class="small text-muted mb-0 fw-medium">Au :</label>
+                                <input type="date" value="${app.state.userFutureSessionFilters.endDate}" oninput="app.handleUserFutureSessionFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 110px; font-size: 0.75rem; height: 26px;">
+                            </div>
+                            <div class="d-flex align-items-center gap-2 text-nowrap ms-auto">
+                                <label class="small text-muted mb-0 fw-medium">Afficher :</label>
+                                <select onchange="app.setUserFutureSessionLimit(this.value)" class="form-select form-select-sm py-0 ps-2 pe-4 text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.75rem; height: 26px;">
+                                    <option value="10" ${limit === 10 ? 'selected' : ''}>10</option>
+                                    <option value="20" ${limit === 20 ? 'selected' : ''}>20</option>
+                                    <option value="50" ${limit === 50 ? 'selected' : ''}>50</option>
+                                    <option value="all" ${limit === 'all' ? 'selected' : ''}>Tous</option>
+                                </select>
+                            </div>
+                        </div>
+                        ${displayedFuture.length === 0 ? '<p class="text-muted small">Aucun résultat pour ces dates.</p>' : `
+                        <div class="d-flex flex-column gap-1">
+                            ${displayedFuture.map(c => {
+                                const classDate = new Date(c.date + 'T' + c.time);
+                                const hoursDiff = (classDate - now) / 1000 / 60 / 60;
+                                const canCancel = hoursDiff >= delayHours;
+                                return `
+                                <div class="d-flex align-items-center justify-content-between py-1 border-bottom hover-bg-light transition-colors px-2">
+                                    <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0" style="font-size: 0.8rem;">
+                                        <span class="text-muted text-nowrap" style="width: 125px;">${new Date(c.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à ${c.time}</span>
+                                        <span class="fw-medium text-emerald text-truncate">${c.title}</span>
+                                        <span class="position-relative has-tooltip ms-1 text-${canCancel ? 'success' : 'danger'}" style="cursor: help;">
+                                            ${canCancel ? 
+                                                `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>` : 
+                                                `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`
+                                            }
+                                            <div class="planning-tooltip schedule-tooltip icon-tooltip shadow-lg text-center" style="margin-top: -2px;">
+                                                ${canCancel ? 'Annulable' : "Délai d'annulation dépassé"}
+                                                <div class="tooltip-arrow"></div>
+                                            </div>
+                                        </span>
+                                    </div>
+                                    <div class="d-flex align-items-center flex-shrink-0 ms-2" style="font-size: 0.8rem;">
+                                        ${canCancel ? 
+                                            `<button onclick="app.deleteClass(${c.id})" class="btn btn-link text-danger p-0 text-decoration-none fw-medium" style="font-size: 0.8rem;">Annuler</button>` : 
+                                            `<span class="text-muted fw-medium" style="font-size:0.75rem;">Non annulable</span>`
+                                        }
+                                    </div>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                        ${totalPages > 1 ? `
+                            <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
+                                <span class="text-muted" style="font-size: 0.7rem;">Page ${currentPage}/${totalPages}</span>
+                                <div class="d-flex gap-1">
+                                    <button onclick="app.setUserFutureSessionPage(${currentPage - 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === 1 ? 'disabled' : ''}>&lt;</button>
+                                    <button onclick="app.setUserFutureSessionPage(${currentPage + 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === totalPages ? 'disabled' : ''}>&gt;</button>
+                                </div>
+                            </div>
+                        ` : ''}
+                        `}
+                        `;
+                    })()}
                   </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-lg-6">
                   <div class="custom-card p-4">
                     <h3 class="fs-5 fw-medium mb-4">Séances passées</h3>
-                    ${pastBookings.length === 0 ? '<p class="text-muted small">Aucun historique.</p>' : 
-                    `<div class="d-flex flex-column gap-2 overflow-auto scrollbar-hide pr-2" style="max-height: 500px;">
-                        ${pastBookings.map(c => `
-                            <div class="py-1 px-2 border rounded-3 opacity-75 d-flex justify-content-between align-items-center bg-light">
-                                <div style="line-height: 1.2;">
-                                    <div class="small fw-medium">${c.title}</div>
-                                    <div class="text-muted mt-1" style="font-size:0.7rem;">${new Date(c.date).toLocaleDateString('fr-FR')}</div>
-                                </div>
-                                <span class="text-muted fw-bold text-uppercase" style="font-size:0.65rem;">Effectué</span>
+                    ${(() => {
+                        if (pastBookings.length === 0) return '<p class="text-muted small mb-0">Aucun historique.</p>';
+                        
+                        let filteredPast = pastBookings;
+                        if (app.state.userSessionFilters.startDate) filteredPast = filteredPast.filter(c => c.date >= app.state.userSessionFilters.startDate);
+                        if (app.state.userSessionFilters.endDate) filteredPast = filteredPast.filter(c => c.date <= app.state.userSessionFilters.endDate);
+                        
+                        const limit = app.state.userSessionPagination.limit;
+                        const totalItems = filteredPast.length;
+                        const totalPages = limit === 'all' ? 1 : Math.ceil(totalItems / limit) || 1;
+                        const currentPage = Math.max(1, Math.min(app.state.userSessionPagination.page, totalPages));
+                        
+                        let displayedPast = filteredPast;
+                        if (limit !== 'all') {
+                            const startIdx = (currentPage - 1) * limit;
+                            displayedPast = filteredPast.slice(startIdx, startIdx + limit);
+                        }
+
+                        return `
+                        <div class="d-flex flex-wrap align-items-center gap-3 mb-3 p-2 bg-light rounded-3 border">
+                            <div class="d-flex align-items-center gap-2 text-nowrap">
+                                <label class="small text-muted mb-0 fw-medium">Du :</label>
+                                <input type="date" value="${app.state.userSessionFilters.startDate}" oninput="app.handleUserSessionFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 110px; font-size: 0.75rem; height: 26px;">
                             </div>
-                        `).join('')}
-                    </div>`}
+                            <div class="d-flex align-items-center gap-2 text-nowrap">
+                                <label class="small text-muted mb-0 fw-medium">Au :</label>
+                                <input type="date" value="${app.state.userSessionFilters.endDate}" oninput="app.handleUserSessionFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 110px; font-size: 0.75rem; height: 26px;">
+                            </div>
+                            <div class="d-flex align-items-center gap-2 text-nowrap ms-auto">
+                                <label class="small text-muted mb-0 fw-medium">Afficher :</label>
+                                <select onchange="app.setUserSessionLimit(this.value)" class="form-select form-select-sm py-0 ps-2 pe-4 text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.75rem; height: 26px;">
+                                    <option value="10" ${limit === 10 ? 'selected' : ''}>10</option>
+                                    <option value="20" ${limit === 20 ? 'selected' : ''}>20</option>
+                                    <option value="50" ${limit === 50 ? 'selected' : ''}>50</option>
+                                    <option value="all" ${limit === 'all' ? 'selected' : ''}>Tous</option>
+                                </select>
+                            </div>
+                        </div>
+                        ${displayedPast.length === 0 ? '<p class="text-muted small">Aucun résultat pour ces dates.</p>' : `
+                        <div class="d-flex flex-column gap-1">
+                            ${displayedPast.map(c => `
+                                <div class="d-flex align-items-center justify-content-between py-1 border-bottom hover-bg-light transition-colors px-2">
+                                    <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0" style="font-size: 0.8rem;">
+                                        <span class="text-muted text-nowrap" style="width: 85px;">${new Date(c.date).toLocaleDateString('fr-FR')}</span>
+                                        <span class="fw-medium text-truncate">${c.title}</span>
+                                    </div>
+                                    <div class="d-flex align-items-center flex-shrink-0 ms-2" style="font-size: 0.8rem;">
+                                        <span class="text-muted fw-bold text-uppercase" style="font-size:0.65rem;">Effectué</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        ${totalPages > 1 ? `
+                            <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
+                                <span class="text-muted" style="font-size: 0.7rem;">Page ${currentPage}/${totalPages}</span>
+                                <div class="d-flex gap-1">
+                                    <button onclick="app.setUserSessionPage(${currentPage - 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === 1 ? 'disabled' : ''}>&lt;</button>
+                                    <button onclick="app.setUserSessionPage(${currentPage + 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === totalPages ? 'disabled' : ''}>&gt;</button>
+                                </div>
+                            </div>
+                        ` : ''}
+                        `}
+                        `;
+                    })()}
                   </div>
                 </div>
             </div>`;
     } else if (activeTab === 'payments') {
         tabContent = `
             <div class="row g-4">
-                <div class="col-md-6">
+                <div class="col-lg-6">
                   <div class="custom-card p-4">
                     <h3 class="fs-5 fw-medium mb-4">Historique des achats</h3>
                     ${(() => {
@@ -268,16 +385,24 @@ export const profileView = (app) => {
                         }
                         
                         return `
-                        <div class="d-flex flex-wrap gap-1 mb-2 align-items-center bg-light p-1 px-2 rounded-2 border">
-                            <input type="date" value="${app.state.userPaymentFilters.startDate}" oninput="app.handleUserPaymentFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
-                            <span class="text-muted" style="font-size: 0.7rem;">-</span>
-                            <input type="date" value="${app.state.userPaymentFilters.endDate}" oninput="app.handleUserPaymentFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
-                            <select onchange="app.setUserPaymentLimit(this.value)" class="form-select form-select-sm py-0 ps-1 pe-4 ms-auto text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.7rem; height: 24px;">
-                                <option value="10" ${limit === 10 ? 'selected' : ''}>10/p</option>
-                                <option value="20" ${limit === 20 ? 'selected' : ''}>20/p</option>
-                                <option value="50" ${limit === 50 ? 'selected' : ''}>50/p</option>
+                        <div class="d-flex flex-wrap align-items-center gap-3 mb-3 p-2 bg-light rounded-3 border">
+                            <div class="d-flex align-items-center gap-2 text-nowrap">
+                                <label class="small text-muted mb-0 fw-medium">Du :</label>
+                                <input type="date" value="${app.state.userPaymentFilters.startDate}" oninput="app.handleUserPaymentFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 110px; font-size: 0.75rem; height: 26px;">
+                            </div>
+                            <div class="d-flex align-items-center gap-2 text-nowrap">
+                                <label class="small text-muted mb-0 fw-medium">Au :</label>
+                                <input type="date" value="${app.state.userPaymentFilters.endDate}" oninput="app.handleUserPaymentFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 110px; font-size: 0.75rem; height: 26px;">
+                            </div>
+                            <div class="d-flex align-items-center gap-2 text-nowrap ms-auto">
+                                <label class="small text-muted mb-0 fw-medium">Afficher :</label>
+                                <select onchange="app.setUserPaymentLimit(this.value)" class="form-select form-select-sm py-0 ps-2 pe-4 text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.75rem; height: 26px;">
+                                    <option value="10" ${limit === 10 ? 'selected' : ''}>10</option>
+                                    <option value="20" ${limit === 20 ? 'selected' : ''}>20</option>
+                                    <option value="50" ${limit === 50 ? 'selected' : ''}>50</option>
                                     <option value="all" ${limit === 'all' ? 'selected' : ''}>Tous</option>
                                 </select>
+                            </div>
                         </div>
                         ${displayedPurchases.length === 0 ? '<p class="text-muted small">Aucun résultat pour ces dates.</p>' : `
                         <div class="d-flex flex-column gap-2">
@@ -296,19 +421,15 @@ export const profileView = (app) => {
                             const subtitleText = pkg && pkg.subtitle ? pkg.subtitle : '';
                             const descWithoutPrice = t.description.replace(/\s*\(\d+€\)/, '');
                             return `
-                            <div class="d-flex justify-content-between align-items-center py-1 px-2 border-bottom hover-bg-light transition-colors">
-                                <div style="line-height: 1.2;">
-                                    <div class="d-flex align-items-baseline gap-2">
-                                        <span class="small fw-medium">${descWithoutPrice}</span>
-                                        ${subtitleText ? `<span class="text-emerald" style="font-size:0.7rem;">${subtitleText}</span>` : ''}
-                                    </div>
-                                    <div class="text-muted mt-1" style="font-size:0.7rem;">${new Date(t.date).toLocaleDateString('fr-FR')}</div>
+                            <div class="d-flex align-items-center justify-content-between py-2 border-bottom hover-bg-light transition-colors px-2">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0" style="font-size: 0.85rem;">
+                                    <span class="text-muted text-nowrap" style="width: 85px;">${new Date(t.date).toLocaleDateString('fr-FR')}</span>
+                                    <span class="fw-medium text-truncate">${descWithoutPrice} ${subtitleText ? `<span class="text-emerald ms-1" style="font-size:0.75rem;">(${subtitleText})</span>` : ''}</span>
                                 </div>
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="fw-bold text-success">${isSub ? 'Abonnement' : '+' + t.amount + ' cours'}</div>
-                                    <button onclick="app.downloadInvoice(${JSON.stringify(t).replace(/"/g, '&quot;')}, app.state.currentUser)" class="btn btn-sm btn-outline-secondary px-2 py-1 d-flex align-items-center gap-2" title="Télécharger la facture" style="font-size: 0.75rem;">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                                        Facture
+                                <div class="d-flex align-items-center gap-3 flex-shrink-0 ms-3" style="font-size: 0.85rem;">
+                                    <span class="fw-bold text-success text-nowrap text-end" style="width: 90px;">${isSub ? 'Abonnement' : '+' + t.amount + ' cours'}</span>
+                                    <button onclick="app.downloadInvoice(${JSON.stringify(t).replace(/"/g, '&quot;')}, app.state.currentUser)" class="btn btn-link text-muted p-0 d-flex align-items-center" title="Télécharger la facture">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                                     </button>
                                 </div>
                             </div>
@@ -328,7 +449,7 @@ export const profileView = (app) => {
                     })()}
                   </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-lg-6">
                   <div class="custom-card p-4">
                     <h3 class="fs-5 fw-medium mb-4">Utilisation des cours</h3>
                     ${(() => {
@@ -350,16 +471,24 @@ export const profileView = (app) => {
                         }
 
                         return `
-                        <div class="d-flex flex-wrap gap-1 mb-2 align-items-center bg-light p-1 px-2 rounded-2 border">
-                            <input type="date" value="${app.state.userCreditFilters.startDate}" oninput="app.handleUserCreditFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
-                            <span class="text-muted" style="font-size: 0.7rem;">-</span>
-                            <input type="date" value="${app.state.userCreditFilters.endDate}" oninput="app.handleUserCreditFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
-                            <select onchange="app.setUserCreditLimit(this.value)" class="form-select form-select-sm py-0 ps-1 pe-4 ms-auto text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.7rem; height: 24px;">
-                                <option value="10" ${limit === 10 ? 'selected' : ''}>10/p</option>
-                                <option value="20" ${limit === 20 ? 'selected' : ''}>20/p</option>
-                                <option value="50" ${limit === 50 ? 'selected' : ''}>50/p</option>
-                                <option value="all" ${limit === 'all' ? 'selected' : ''}>Tous</option>
-                            </select>
+                        <div class="d-flex flex-wrap align-items-center gap-3 mb-3 p-2 bg-light rounded-3 border">
+                            <div class="d-flex align-items-center gap-2 text-nowrap">
+                                <label class="small text-muted mb-0 fw-medium">Du :</label>
+                                <input type="date" value="${app.state.userCreditFilters.startDate}" oninput="app.handleUserCreditFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 110px; font-size: 0.75rem; height: 26px;">
+                            </div>
+                            <div class="d-flex align-items-center gap-2 text-nowrap">
+                                <label class="small text-muted mb-0 fw-medium">Au :</label>
+                                <input type="date" value="${app.state.userCreditFilters.endDate}" oninput="app.handleUserCreditFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 110px; font-size: 0.75rem; height: 26px;">
+                            </div>
+                            <div class="d-flex align-items-center gap-2 text-nowrap ms-auto">
+                                <label class="small text-muted mb-0 fw-medium">Afficher :</label>
+                                <select onchange="app.setUserCreditLimit(this.value)" class="form-select form-select-sm py-0 ps-2 pe-4 text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.75rem; height: 26px;">
+                                    <option value="10" ${limit === 10 ? 'selected' : ''}>10</option>
+                                    <option value="20" ${limit === 20 ? 'selected' : ''}>20</option>
+                                    <option value="50" ${limit === 50 ? 'selected' : ''}>50</option>
+                                    <option value="all" ${limit === 'all' ? 'selected' : ''}>Tous</option>
+                                </select>
+                            </div>
                         </div>
                         ${displayedCredits.length === 0 ? '<p class="text-muted small">Aucun résultat pour ces dates.</p>' : `
                         <div class="d-flex flex-column gap-2">
@@ -373,12 +502,14 @@ export const profileView = (app) => {
                                     descriptionText = `Ajustement : ${t.description}`;
                                 }
                                 return `
-                                    <div class="d-flex justify-content-between align-items-center py-1 px-2 border-bottom hover-bg-light transition-colors">
-                                        <div style="line-height: 1.2;">
-                                            <div class="small fw-medium">${descriptionText}</div>
-                                            <div class="text-muted mt-1" style="font-size:0.7rem;">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                    <div class="d-flex align-items-center justify-content-between py-2 border-bottom hover-bg-light transition-colors px-2">
+                                        <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0" style="font-size: 0.85rem;">
+                                            <span class="text-muted text-nowrap" style="width: 120px;">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}</span>
+                                            <span class="fw-medium text-truncate">${descriptionText}</span>
                                         </div>
-                                        <div class="fw-bold ${t.amount > 0 ? 'text-success' : 'text-muted'}">${t.amount > 0 ? '+' : ''}${t.amount}</div>
+                                        <div class="d-flex align-items-center gap-3 flex-shrink-0 ms-3" style="font-size: 0.85rem;">
+                                            <span class="fw-bold ${t.amount > 0 ? 'text-success' : 'text-muted'} text-nowrap text-end" style="width: 50px;">${t.amount > 0 ? '+' : ''}${t.amount}</span>
+                                        </div>
                                     </div>`;
                             }).join('')}
                         </div>

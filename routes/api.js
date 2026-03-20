@@ -936,9 +936,9 @@ const handleRequest = async (req, res) => {
             const { userId } = req.body;
 
             await cleanupExpiredBatches(userId);
-            const [userRows] = await pool.query('SELECT credits_balance, is_subscribed FROM users WHERE id = ?', [userId]);
+            const [userRows] = await pool.query('SELECT credits_balance, is_subscribed, subscription_expires_at FROM users WHERE id = ?', [userId]);
             const [classRows] = await pool.query(`
-                SELECT c.title, c.date, c.credits_price, COALESCE(c.custom_capacity, ct.capacity, c.capacity) as capacity 
+                SELECT c.title, c.date, c.credits_price, c.recurrence_id, COALESCE(c.custom_capacity, ct.capacity, c.capacity) as capacity 
                 FROM classes c 
                 LEFT JOIN course_templates ct ON c.title = ct.title 
                 WHERE c.id = ?`, [classId]);
@@ -1014,6 +1014,41 @@ const handleRequest = async (req, res) => {
             await pool.query('INSERT INTO bookings (class_id, user_id, refund_expires_at) VALUES (?, ?, ?)', [classId, userId, refundExpiresAt]);
             await pool.query('COMMIT');
 
+            // Auto-booking de la série pour les abonnés
+            const bookSeries = req.body.bookSeries;
+            if (bookSeries && userRows[0].is_subscribed && classRows[0].recurrence_id) {
+                try {
+                    const [futureClasses] = await pool.query(`
+                        SELECT c.id, c.title, c.date, COALESCE(c.custom_capacity, ct.capacity, c.capacity) as capacity 
+                        FROM classes c 
+                        LEFT JOIN course_templates ct ON c.title = ct.title 
+                        WHERE c.recurrence_id = ? AND c.date > ? AND (? IS NULL OR c.date <= DATE(?))
+                        ORDER BY c.date ASC
+                    `, [classRows[0].recurrence_id, classRows[0].date, userRows[0].subscription_expires_at, userRows[0].subscription_expires_at]);
+
+                    for (const fc of futureClasses) {
+                        const [bCount] = await pool.query('SELECT COUNT(*) as count FROM bookings WHERE class_id = ?', [fc.id]);
+                        if (bCount[0].count >= fc.capacity) continue;
+
+                        const [existing] = await pool.query('SELECT * FROM bookings WHERE class_id = ? AND user_id = ?', [fc.id, userId]);
+                        if (existing.length > 0) continue;
+
+                        const [wBookings] = await pool.query(`
+                            SELECT COUNT(*) as count FROM bookings b 
+                            JOIN classes c_booked ON b.class_id = c_booked.id 
+                            WHERE b.user_id = ? AND YEARWEEK(c_booked.date, 1) = YEARWEEK(?, 1)
+                        `, [userId, fc.date]);
+
+                        if (wBookings[0].count === 0) {
+                            await pool.query('START TRANSACTION');
+                            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'booking', 0, `Réservation auto (Abonnement) : ${fc.title}`]);
+                            await pool.query('INSERT INTO bookings (class_id, user_id, refund_expires_at) VALUES (?, ?, NULL)', [fc.id, userId]);
+                            await pool.query('COMMIT');
+                        }
+                    }
+                } catch (err) { console.error("[API] Erreur auto-booking série:", err); }
+            }
+
             const [updatedUser] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
             
             if (updatedUser[0].is_subscribed) {
@@ -1031,61 +1066,74 @@ const handleRequest = async (req, res) => {
         const cancelClassMatch = path.match(/^\/classes\/cancel\/(\d+)$/);
         if (method === 'POST' && cancelClassMatch) {
             const classId = cancelClassMatch[1];
-            const { userId } = req.body;
+            const { userId, cancelSeries } = req.body;
 
             // Vérification du délai d'annulation
             const [settings] = await pool.query('SELECT cancellationDelay FROM settings WHERE id = 1');
             const delay = settings[0]?.cancellationDelay || 24;
-            const [cls] = await pool.query('SELECT title, date, time, credits_price FROM classes WHERE id = ?', [classId]);
+            const [cls] = await pool.query('SELECT id, title, date, time, credits_price, recurrence_id FROM classes WHERE id = ?', [classId]);
             
+            if (!cls.length) return send(404, { success: false, message: 'Cours introuvable.' });
+
             const [userRows] = await pool.query('SELECT is_subscribed FROM users WHERE id = ?', [userId]);
             const isSubscribed = userRows.length > 0 ? userRows[0].is_subscribed : false;
 
-            if (cls.length) {
-                const classDate = new Date(cls[0].date + 'T' + cls[0].time);
-                const now = new Date();
+            let classesToCancel = [ cls[0] ];
+
+            if (cancelSeries && cls[0].recurrence_id) {
+                const [futureClasses] = await pool.query(`
+                    SELECT c.id, c.title, c.date, c.time, c.credits_price, c.recurrence_id
+                    FROM classes c
+                    JOIN bookings b ON c.id = b.class_id
+                    WHERE c.recurrence_id = ? AND c.date >= ? AND b.user_id = ? AND c.id != ?
+                `, [cls[0].recurrence_id, cls[0].date, userId, classId]);
+                classesToCancel = classesToCancel.concat(futureClasses);
+            }
+
+            const now = new Date();
+            let successCount = 0;
+
+            for (const classToCancel of classesToCancel) {
+                const classDate = new Date(classToCancel.date + 'T' + classToCancel.time);
                 const hoursDiff = (classDate - now) / 1000 / 60 / 60;
+                
                 if (hoursDiff < delay) {
-                    return send(400, { success: false, message: `Annulation impossible moins de ${delay}h avant le cours.` });
+                    if (classToCancel.id == classId) {
+                        return send(400, { success: false, message: `Annulation impossible moins de ${delay}h avant le cours.` });
+                    } else {
+                        continue; // On ignore les cours futurs qui violeraient la règle
+                    }
                 }
-            }
 
-            let isRefundingExtraCredit = false;
-            if (isSubscribed && cls.length) {
-                const [weeklyBookings] = await pool.query(`
-                    SELECT COUNT(*) as count 
-                    FROM bookings b 
-                    JOIN classes c_booked ON b.class_id = c_booked.id 
-                    WHERE b.user_id = ? AND YEARWEEK(c_booked.date, 1) = YEARWEEK(?, 1)
-                `, [userId, cls[0].date]);
-
-                if (weeklyBookings[0].count > 1) {
-                    isRefundingExtraCredit = true;
+                let isRefundingExtraCredit = false;
+                if (isSubscribed) {
+                    const [weeklyBookings] = await pool.query(`SELECT COUNT(*) as count FROM bookings b JOIN classes c_booked ON b.class_id = c_booked.id WHERE b.user_id = ? AND YEARWEEK(c_booked.date, 1) = YEARWEEK(?, 1)`, [userId, classToCancel.date]);
+                    if (weeklyBookings[0].count > 1) isRefundingExtraCredit = true;
                 }
+
+                let creditsToRefund = classToCancel.credits_price || 0;
+                if (isSubscribed && !isRefundingExtraCredit) creditsToRefund = 0; 
+
+                const [booking] = await pool.query('SELECT refund_expires_at FROM bookings WHERE class_id = ? AND user_id = ?', [classToCancel.id, userId]);
+                let refundExpiresAt = booking.length > 0 ? booking[0].refund_expires_at : null;
+
+                await pool.query('START TRANSACTION');
+                const [result] = await pool.query('DELETE FROM bookings WHERE class_id = ? AND user_id = ?', [classToCancel.id, userId]);
+                
+                if (result.affectedRows > 0) {
+                    successCount++;
+                    if (creditsToRefund > 0) {
+                        await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [creditsToRefund, userId]);
+                        await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'refund', creditsToRefund, `Annulation : ${classToCancel.title}`]);
+                        await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, ?)', [userId, creditsToRefund, refundExpiresAt]);
+                    } else if (isSubscribed) {
+                        await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'refund', 0, `Annulation (Abonnement) : ${classToCancel.title}`]);
+                    }
+                }
+                await pool.query('COMMIT');
             }
 
-            let creditsToRefund = (cls.length && cls[0].credits_price) ? cls[0].credits_price : 0;
-            
-            if (isSubscribed && !isRefundingExtraCredit) {
-                creditsToRefund = 0; // Pas de remboursement de crédit pour les abonnés si c'est leur seul cours de la semaine
-            }
-
-            const [booking] = await pool.query('SELECT refund_expires_at FROM bookings WHERE class_id = ? AND user_id = ?', [classId, userId]);
-            let refundExpiresAt = booking.length > 0 ? booking[0].refund_expires_at : null;
-
-            await pool.query('START TRANSACTION');
-            const [result] = await pool.query('DELETE FROM bookings WHERE class_id = ? AND user_id = ?', [classId, userId]);
-            
-            if (result.affectedRows > 0 && creditsToRefund > 0) {
-                await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [creditsToRefund, userId]);
-                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'refund', creditsToRefund, `Annulation : ${cls[0].title}`]);
-                await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, ?)', [userId, creditsToRefund, refundExpiresAt]);
-            } else if (result.affectedRows > 0 && isSubscribed) {
-                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'refund', 0, `Annulation (Abonnement) : ${cls[0].title}`]);
-            }
-            await pool.query('COMMIT');
-
-            return send(200, { success: true, message: 'Réservation annulée' });
+            return send(200, { success: true, message: successCount > 1 ? `${successCount} réservations annulées.` : 'Réservation annulée.' });
         }
 
         // --- ROUTES AI (Proxy sécurisé) ---
@@ -1275,12 +1323,22 @@ const handleRequest = async (req, res) => {
                     const parsedCredits = parseInt(credits) || 0;
                     const isSubscription = is_subscription === '1' || (packageName && packageName.toLowerCase().includes('abonnement'));
 
+                    // Récupérer l'utilisateur depuis la DB pour gérer l'expiration et l'email
+                    const [userRows] = await pool.query('SELECT email, is_subscribed, subscription_expires_at FROM users WHERE id = ?', [userId]);
+                    const targetEmail = userRows[0]?.email || session.customer_details?.email;
+
                     const expiresInDaysInt = parseInt(expires_in_days) || 0;
                     let expiresAtStr = null;
                     if (expiresInDaysInt > 0) {
-                        const d = new Date();
-                        d.setDate(d.getDate() + expiresInDaysInt);
-                        expiresAtStr = d.toISOString().slice(0, 19).replace('T', ' ');
+                        let baseDate = new Date();
+                        if (isSubscription && userRows[0]?.is_subscribed && userRows[0]?.subscription_expires_at) {
+                            const currentExp = new Date(userRows[0].subscription_expires_at);
+                            if (currentExp > baseDate) {
+                                baseDate = currentExp;
+                            }
+                        }
+                        baseDate.setDate(baseDate.getDate() + expiresInDaysInt);
+                        expiresAtStr = baseDate.toISOString().slice(0, 19).replace('T', ' ');
                     }
 
                     await pool.query('START TRANSACTION');
@@ -1299,10 +1357,6 @@ const handleRequest = async (req, res) => {
                     await pool.query('COMMIT');
                     await cleanupExpiredBatches(parseInt(userId));
 
-                    // Récupérer l'email de l'utilisateur depuis la DB pour être sûr de l'adresse
-                    const [userRows] = await pool.query('SELECT email FROM users WHERE id = ?', [userId]);
-                    const targetEmail = userRows[0]?.email || session.customer_details?.email;
-                    
                     const [settingsRows] = await pool.query('SELECT * FROM settings WHERE id = 1');
                     const studioSettings = settingsRows[0] || {};
 

@@ -59,7 +59,20 @@ export const userService = {
         }
 
         if (app.state.currentUser.is_subscribed) {
-            const confirmed = await app.confirmDialog("Vous êtes déjà abonné(e).\n\nVoulez-vous vraiment acheter des cours supplémentaires ?", { type: 'info', confirmText: 'Oui, acheter' });
+            let msg = "Vous êtes déjà abonné(e).\n\nVoulez-vous vraiment acheter des cours supplémentaires ?";
+            let confirmText = 'Oui, acheter';
+            if (pkg.is_subscription) {
+                const days = pkg.expires_in_days || 365;
+                let durationStr = `${days} jours`;
+                if (days === 365) durationStr = '1 an';
+                else if (days >= 28 && days <= 31) durationStr = '1 mois';
+                else if (days % 30 === 0) durationStr = `${days / 30} mois`;
+                else if (days % 365 === 0) durationStr = `${days / 365} ans`;
+                
+                msg = `Vous êtes déjà abonné(e).\n\nL'achat de cet abonnement prolongera votre accès de ${durationStr} supplémentaires, à partir de votre date d'expiration actuelle.\n\nVoulez-vous continuer ?`;
+                confirmText = 'Oui, prolonger';
+            }
+            const confirmed = await app.confirmDialog(msg, { type: 'info', confirmText: confirmText });
             if (!confirmed) return;
         }
 

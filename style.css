@@ -136,14 +136,14 @@ html.dark {
     border-bottom-color: var(--stone-700);
 }
 .custom-nav-link {
-    color: var(--stone-600);
+    color: var(--stone-600) !important;
     font-weight: 400;
     transition: color 0.3s;
 }
-.custom-nav-link:hover { color: var(--emerald-700); }
-.custom-nav-link.active { color: var(--emerald-800); font-weight: 500; }
-.dark .custom-nav-link { color: var(--stone-300); }
-.dark .custom-nav-link:hover, .dark .custom-nav-link.active { color: var(--emerald-400); }
+.custom-nav-link:hover { color: var(--emerald-700) !important; }
+.custom-nav-link.active { color: var(--emerald-800) !important; font-weight: 500; }
+.dark .custom-nav-link { color: var(--stone-300) !important; }
+.dark .custom-nav-link:hover, .dark .custom-nav-link.active { color: var(--emerald-400) !important; }
 
 .mobile-menu {
     background-color: var(--stone-100);
@@ -363,6 +363,12 @@ html.dark {
 .schedule-tooltip {
     visibility: hidden; opacity: 0; position: absolute; top: -0.5rem; left: 50%;
     transform: translate(-50%, -100%); transition: all 0.3s ease-in-out; pointer-events: none;
+    padding: 0.6rem 0.8rem !important;
+    font-size: 0.8rem !important;
+    line-height: 1.4 !important;
+    min-width: 160px !important;
+    max-width: 280px !important;
+    border-radius: 0.75rem !important;
 }
 .schedule-card:hover .schedule-tooltip, .has-tooltip:hover .schedule-tooltip { visibility: visible; opacity: 1; }
 .tooltip-arrow {
@@ -492,6 +498,32 @@ html.dark {
 .hover-emerald:hover { color: var(--emerald-700) !important; }
 .dark .hover-emerald:hover { color: var(--emerald-400) !important; }
 
+/* --- Override Bootstrap btn-link blue hover --- */
+.btn-link {
+    color: var(--emerald-600);
+}
+.btn-link:hover, .btn-link:focus {
+    color: var(--emerald-800);
+}
+.dark .btn-link {
+    color: var(--emerald-400);
+}
+.dark .btn-link:hover, .dark .btn-link:focus {
+    color: var(--emerald-300);
+}
+.btn-link.text-muted:hover, .btn-link.text-muted:focus {
+    color: var(--emerald-600) !important;
+}
+.dark .btn-link.text-muted:hover, .dark .btn-link.text-muted:focus {
+    color: var(--emerald-400) !important;
+}
+.btn-link.text-danger:hover, .btn-link.text-danger:focus {
+    color: #991b1b !important;
+}
+.dark .btn-link.text-danger:hover, .dark .btn-link.text-danger:focus {
+    color: #fca5a5 !important;
+}
+
 /* --- Overrides Bootstrap : Utilitaires et Tableaux --- */
 .bg-light { background-color: var(--stone-50) !important; }
 .dark .bg-light { background-color: rgba(68, 64, 60, 0.3) !important; } /* stone-700/30 */
@@ -607,6 +639,23 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .dark input[type="number"]::-webkit-outer-spin-button {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2334d399' d='M8 3l4 4H4z M8 13l-4-4h8z'/%3E%3C/svg%3E") !important;
 }
+
+/* Suppression du fond jaune (Autofill Chrome) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--stone-50) inset !important;
+    -webkit-text-fill-color: var(--stone-800) !important;
+}
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover, 
+.dark input:-webkit-autofill:focus, 
+.dark input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--stone-700) inset !important;
+    -webkit-text-fill-color: var(--stone-200) !important;
+}
+
 /* S'assurer que le champ numérique garde un peu de padding à droite pour les flèches */
 input[type="number"] {
     padding-right: 4px !important;
@@ -718,14 +767,27 @@ select:focus,
 /* Styles pour les onglets du profil */
 .tab-active {
     border-bottom: 2px solid #10b981; /* emerald-500 */
-    color: #059669; /* emerald-600 */
+    color: #059669 !important; /* emerald-600 */
     font-weight: 600;
+}
+.dark .tab-active {
+    border-bottom-color: var(--emerald-400);
+    color: var(--emerald-400) !important;
 }
 
 .tab-inactive {
-    color: #78716c; /* stone-500 */
+    color: #78716c !important; /* stone-500 */
     border-bottom: 2px solid transparent;
     transition: all 0.2s;
+}
+.dark .tab-inactive {
+    color: var(--stone-400) !important;
+}
+.tab-inactive:hover {
+    color: #10b981 !important; /* emerald-500 */
+}
+.dark .tab-inactive:hover {
+    color: var(--emerald-400) !important;
 }
 
 /* --- Styles pour les listes d'administration --- */

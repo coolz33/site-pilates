@@ -204,6 +204,9 @@ export const renderPaymentModal = (app, container) => {
     // Sauvegarde de l'état de la case à cocher pour éviter qu'elle ne se décoche lors d'un re-render (ex: notification qui disparaît)
     const confirmCheckbox = document.getElementById('confirm-credits');
     const isChecked = confirmCheckbox ? confirmCheckbox.checked : false;
+    
+    const bookSeriesCheckbox = document.getElementById('book-series');
+    const isSeriesChecked = bookSeriesCheckbox ? bookSeriesCheckbox.checked : false;
 
         const cls = app.state.selectedClassForPayment;
         const userBalance = parseInt(app.state.currentUser?.credits_balance) || 0;
@@ -284,6 +287,16 @@ export const renderPaymentModal = (app, container) => {
                                 </div>
                             </div>
                         `)))}
+                        
+                        ${app.state.currentUser?.is_subscribed && cls.recurrence_id && !isSubscriptionLimit && !isSubscriptionExtra ? `
+                            <div class="p-3 mt-1 rounded-3 border bg-light text-success border-success border-opacity-25 d-flex align-items-center gap-3">
+                                <input type="checkbox" id="book-series" class="form-check-input mt-0 cursor-pointer" style="transform: scale(1.2);">
+                                <label for="book-series" class="small fw-medium cursor-pointer mb-0" style="line-height: 1.3;">
+                                    M'inscrire automatiquement à toutes les futures séances hebdomadaires de ce cours.
+                                </label>
+                            </div>
+                        ` : ''}
+                        
                         <div class="d-flex gap-3 mt-2">
                             <button type="button" onclick="app.cancelPayment()" class="btn btn-light border w-100">Annuler</button>
                             <button type="submit" ${cannotBook ? 'disabled' : ''} class="btn w-100 ${cannotBook ? 'btn-secondary disabled' : 'btn-emerald'}">
@@ -298,6 +311,11 @@ export const renderPaymentModal = (app, container) => {
     const newConfirmCheckbox = document.getElementById('confirm-credits');
     if (newConfirmCheckbox && isChecked) {
         newConfirmCheckbox.checked = true;
+    }
+    
+    const newBookSeriesCheckbox = document.getElementById('book-series');
+    if (newBookSeriesCheckbox && isSeriesChecked) {
+        newBookSeriesCheckbox.checked = true;
     }
 };
 

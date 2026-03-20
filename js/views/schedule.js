@@ -90,17 +90,17 @@ export const scheduleView = (app) => {
             <div class="container-fluid px-3 px-md-4">
                 
                 <!-- Section Assistant IA -->
-                <div class="custom-card p-3 p-md-4 mb-5 mx-auto" style="max-width: 1000px;">
-                    <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
-                        <h2 class="fs-6 fw-medium mb-0 d-flex align-items-center gap-2 text-nowrap">
+                <div class="custom-card p-2 p-md-3 mb-4 mx-auto" style="max-width: 900px;">
+                    <div class="d-flex flex-column flex-md-row align-items-md-center gap-2">
+                        <h2 class="fw-medium mb-0 d-flex align-items-center gap-2 text-nowrap" style="font-size: 0.9rem;">
                             <span class="text-emerald">${icons.sparkles}</span> Quel cours pour moi ?
                         </h2>
-                        <input type="text" id="ai-prompt" placeholder="Ex: Je cherche un cours dynamique pour le dos..." class="form-control form-control-sm rounded-pill px-3 py-2">
-                        <button onclick="app.askAi()" class="btn btn-emerald rounded-pill px-4 py-2 d-flex align-items-center justify-content-center gap-2 btn-sm" style="min-width: 130px;">
+                        <input type="text" id="ai-prompt" placeholder="Ex: Je cherche un cours dynamique pour le dos..." class="form-control form-control-sm rounded-pill px-3 py-1">
+                        <button onclick="app.askAi()" class="btn btn-emerald rounded-pill px-3 py-1 d-flex align-items-center justify-content-center gap-2 btn-sm" style="min-width: 110px;">
                             ${st.isAiLoading ? '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ...' : 'Demander'}
                         </button>
                     </div>
-                    ${st.aiResponse ? `<div class="mt-4 p-3 rounded-3 bg-emerald-light text-emerald-dark border border-success border-opacity-25 animate-fade-in">${st.aiResponse}</div>` : ''}
+                    ${st.aiResponse ? `<div class="mt-3 p-2 rounded-3 bg-emerald-light text-emerald-dark border border-success border-opacity-25 animate-fade-in small">${st.aiResponse}</div>` : ''}
                 </div>
 
                 <!-- En-tête Navigation Planning -->
