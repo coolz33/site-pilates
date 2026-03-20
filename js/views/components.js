@@ -196,8 +196,14 @@ export const renderPaymentModal = (app, container) => {
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'payment-modal'; // Assigne un ID pour pouvoir le cibler et le supprimer
+        modal.className = 'position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 custom-modal-backdrop animate-fade-in';
+        modal.style.zIndex = "1050";
         document.body.appendChild(modal); // Attache au body pour qu'il persiste
     }
+    
+    // Sauvegarde de l'état de la case à cocher pour éviter qu'elle ne se décoche lors d'un re-render (ex: notification qui disparaît)
+    const confirmCheckbox = document.getElementById('confirm-credits');
+    const isChecked = confirmCheckbox ? confirmCheckbox.checked : false;
 
         const cls = app.state.selectedClassForPayment;
         const userBalance = parseInt(app.state.currentUser?.credits_balance) || 0;
@@ -218,8 +224,7 @@ export const renderPaymentModal = (app, container) => {
             : `ℹ️ Annulation possible jusqu'au <strong>${formattedDeadline}</strong>.`;
 
         const modalHtml = `
-            <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 custom-modal-backdrop animate-fade-in">
-                <div class="custom-modal-content custom-modal-emerald p-4 p-md-5 w-100 position-relative" style="max-width: 600px;">
+            <div class="custom-modal-content custom-modal-emerald p-4 p-md-5 w-100 position-relative" style="max-width: 600px;">
                     <h3 class="fs-4 fw-light text-emerald-dark mb-2">Confirmation de réservation</h3>
                     <p class="mb-3 pb-3 border-bottom text-muted">
                         Réservation : <strong class="text-emerald">${cls.title ?? 'Cours inconnu'}</strong><br>
@@ -228,8 +233,7 @@ export const renderPaymentModal = (app, container) => {
                     <form onsubmit="app.confirmPayment(event)" class="d-flex flex-column gap-4">
                         
                         ${app.state.modalMessage && app.state.modalMessage.text ? `
-                            <div class="p-3 rounded-3 small animate-fade-in ${app.state.modalMessage.type === 'error' ? 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25' : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'}">
-                                <p class="d-flex align-items-center gap-2 mb-0">
+                            <div class="p-3 rounded-3 small ${app.state.modalMessage.type === 'error' ? 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25' : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'}">
                                     <span>${app.state.modalMessage.type === 'error' ? '⚠️' : 'ℹ️'}</span>
                                     ${app.state.modalMessage.text}
                                 </p>
@@ -287,9 +291,14 @@ export const renderPaymentModal = (app, container) => {
                             </button>
                         </div>
                     </form>
-                </div>
             </div>`;
         modal.innerHTML = modalHtml;
+        
+    // Restaure l'état de la case à cocher
+    const newConfirmCheckbox = document.getElementById('confirm-credits');
+    if (newConfirmCheckbox && isChecked) {
+        newConfirmCheckbox.checked = true;
+    }
 };
 
 /**
@@ -325,7 +334,15 @@ const formatDateForCalendar = (dateStr, timeStr, durationMin) => {
  * @param {HTMLElement} [container] - Conteneur cible (optionnel).
  */
 export const renderCalendarModal = (app, container) => {
+    let modal = document.getElementById('calendar-modal');
+    if (!app.state.showCalendarModal || !app.state.classForCalendar) {
+        if (modal) modal.remove();
+        return;
+    }
+
     if (app.state.showCalendarModal && app.state.classForCalendar) {
+        if (modal) return; // Si le modal est déjà affiché, on ne fait rien pour ne pas rejouer l'animation
+
         const cls = app.state.classForCalendar;
         const { start, end } = formatDateForCalendar(cls.date, cls.time, cls.duration);
         const title = encodeURIComponent(cls.title);
@@ -340,16 +357,14 @@ export const renderCalendarModal = (app, container) => {
         const icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//PilatesApp//NONSGML v1.0//EN\nBEGIN:VEVENT\nUID:${cls.id}-${start}\nDTSTAMP:${new Date().toISOString().replace(/[-:]|\.\d{3}/g, '')}\nDTSTART:${start}\nDTEND:${end}\nSUMMARY:${title}\nDESCRIPTION:${description}\nLOCATION:${location}\nEND:VEVENT\nEND:VCALENDAR`;
         const icsDataUri = `data:text/calendar;charset=utf8,${encodeURIComponent(icsContent)}`;
 
-        let modal = document.getElementById('calendar-modal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'calendar-modal';
-            document.body.appendChild(modal); // Attache au body pour qu'il persiste
-        }
+        modal = document.createElement('div');
+        modal.id = 'calendar-modal';
+        modal.className = "position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 custom-modal-backdrop";
+        modal.style.zIndex = "1060";
+        document.body.appendChild(modal); // Attache au body pour qu'il persiste
 
         const modalHtml = `
-            <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 custom-modal-backdrop animate-fade-in">
-                <div class="custom-modal-content p-4 p-md-5 w-100" style="max-width: 600px;">
+            <div class="custom-modal-content p-4 p-md-5 w-100 animate-fade-in" style="max-width: 600px;">
                     <h3 class="fs-4 fw-light mb-2">Ajouter au calendrier</h3>
                     <p class="mb-4 pb-3 border-bottom text-muted">
                         Votre réservation pour <strong class="text-emerald">${cls.title}</strong> est confirmée.
@@ -371,9 +386,8 @@ export const renderCalendarModal = (app, container) => {
                             Fermer
                         </button>
                     </div>
-                </div>
             </div>`;
-        modal.innerHTML = modalHtml; // Met à jour le contenu du modal existant ou nouvellement créé
+        modal.innerHTML = modalHtml; 
     }
 };
 
@@ -389,11 +403,13 @@ export const renderConfirmModal = (app) => {
         return;
     }
 
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'confirm-modal';
-        document.body.appendChild(modal);
-    }
+    if (modal) return; // Évite de re-render si déjà affiché
+
+    modal = document.createElement('div');
+    modal.id = 'confirm-modal';
+    modal.className = "position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 custom-modal-backdrop animate-fade-in";
+    modal.style.zIndex = "1060";
+    document.body.appendChild(modal);
 
     const { message, confirmText, cancelText, type } = app.state.confirmModal;
     
@@ -404,18 +420,16 @@ export const renderConfirmModal = (app) => {
         : '<span class="text-warning fs-3">❓</span>';
 
     modal.innerHTML = `
-        <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 custom-modal-backdrop animate-fade-in" style="z-index: 1060;">
-            <div class="custom-modal-content p-4 p-md-5 w-100" style="max-width: 500px;">
+        <div class="custom-modal-content p-4 p-md-5 w-100" style="max-width: 500px;">
                 <div class="d-flex align-items-center gap-3 mb-3">
                     ${iconHtml}
                     <h3 class="fs-5 fw-medium mb-0">${type === 'danger' ? 'Attention' : 'Confirmation'}</h3>
                 </div>
                 <p class="mb-4 text-muted whitespace-pre-line" style="white-space: pre-line;">${message}</p>
                 <div class="d-flex gap-3 justify-content-end">
-                    <button type="button" onclick="app.state.confirmModal.onCancel()" class="btn btn-light border">${cancelText}</button>
+                    ${cancelText ? `<button type="button" onclick="app.state.confirmModal.onCancel()" class="btn btn-light border">${cancelText}</button>` : ''}
                     <button type="button" onclick="app.state.confirmModal.onConfirm()" class="btn ${confirmBtnClass}">${confirmText}</button>
                 </div>
             </div>
-        </div>
     `;
 };

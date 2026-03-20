@@ -197,8 +197,8 @@ export const adminView = (app) => {
                                                                 <div class="fw-medium text-emerald">${c.title}</div>
                                                             </td>
                                                             <td class="py-1 px-2 text-center text-nowrap position-relative has-tooltip">
-                                                                <span class="badge rounded-pill ${c.bookedUsers.length >= c.capacity ? 'bg-danger' : 'bg-success'}">
-                                                                    ${c.bookedUsers.length} / ${c.capacity}
+                                                                <span class="badge rounded-pill ${c.bookedUsers.length >= c.capacity ? 'bg-danger' : 'bg-success'} cursor-pointer hover-opacity-75 transition-all" onclick="app.editClassCapacity(${c.id}, ${c.capacity})" title="Cliquez pour modifier la capacité de cette séance">
+                                                                    ${c.bookedUsers.length} / ${c.capacity || 10}
                                                                 </span>
                                                                 ${c.bookedUsers.length > 0 ? `
                                                                     <div class="planning-tooltip schedule-tooltip admin-booked-users-tooltip shadow-lg">
@@ -345,12 +345,6 @@ export const adminView = (app) => {
                                                     <input type="time" id="planning-time" value="${st.adminAddClassForm.time}" oninput="app.handleAdminAddClassFormChange('time', this.value)" required class="form-control form-control-sm py-0 px-2 text-muted" style="font-size: 0.7rem; height: 24px;">
                                                 </div>
                                             </div>
-                                            <div class="row g-2 align-items-center">
-                                                <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 70px;">Capacité</label>
-                                                <div class="col ps-1">
-                                                    <input type="number" id="planning-capacity" value="${st.adminAddClassForm.capacity}" oninput="app.handleAdminAddClassFormChange('capacity', this.value)" min="1" class="form-control form-control-sm py-0 px-2 text-muted" style="font-size: 0.7rem; height: 24px;">
-                                                </div>
-                                            </div>
                                             
                                             <div class="form-check mt-1 mb-0 ps-0 d-flex align-items-center gap-2">
                                                 <input type="checkbox" id="planning-is-recurring" onchange="app.toggleAdminRecurring()" ${st.isAdminRecurring ? 'checked' : ''} class="form-check-input m-0 cursor-pointer" style="width: 14px; height: 14px;">
@@ -411,7 +405,7 @@ export const adminView = (app) => {
                                                     <div class="position-relative p-3 border rounded-3 bg-light hover-bg-light transition-colors">
                                                         <div onclick="app.editTemplate(${t.id})" class="cursor-pointer pe-4">
                                                             <div class="fw-medium text-emerald text-truncate">${t.title}</div>
-                                                            <div class="small text-muted">${t.duration} min</div>
+                                                            <div class="small text-muted">${t.duration} min • ${t.capacity || 10} places</div>
                                                         </div>
                                                         <button onclick="app.deleteTemplate(${t.id})" class="btn btn-link text-danger position-absolute top-0 end-0 p-2">
                                                             ${icons.trash}
@@ -428,29 +422,39 @@ export const adminView = (app) => {
                                         <h2 class="fs-5 fw-medium mb-4">${st.editingTemplateId ? 'Modifier le modèle' : 'Nouveau modèle'}</h2>
                                         <form onsubmit="event.preventDefault(); app.saveAsTemplate()" class="d-flex flex-column gap-3">
                                             ${(() => {
-                                                const t = st.editingTemplateId ? st.courseTemplates.find(x => x.id === st.editingTemplateId) : null;
+                                                const form = st.adminTemplateForm;
                                                 return `
                                                     <div>
                                                         <label class="form-label small fw-medium mb-1">Titre du cours</label>
-                                                        <input type="text" id="template-title" required class="form-control form-control-sm" value="${t?.title || ''}">
+                                                        <input type="text" id="template-title" required class="form-control form-control-sm" value="${form.title}" oninput="app.state.adminTemplateForm.title = this.value">
                                                     </div>
                                                     <div>
                                                         <div class="d-flex justify-content-between align-items-center mb-1">
                                                             <label class="form-label small fw-medium mb-0">Description</label>
                                                             <button type="button" onclick="app.generateAdminDescription()" class="btn btn-link text-emerald p-0 text-decoration-none small fw-medium" style="font-size: 0.75rem;">✨ IA</button>
                                                         </div>
-                                                        <textarea id="template-desc" rows="3" class="form-control form-control-sm">${t ? t.description : ''}</textarea>
+                                                        <textarea id="template-desc" rows="3" class="form-control form-control-sm" oninput="app.state.adminTemplateForm.description = this.value">${form.description}</textarea>
                                                     </div>
-                                                    <div>
-                                                        <label class="form-label small fw-medium mb-1">Durée (min)</label>
-                                                        <input type="number" id="template-duration" required class="form-control form-control-sm" value="${t?.duration || ''}">
+                                                    <div class="row g-2">
+                                                        <div class="col-6">
+                                                            <label class="form-label small fw-medium mb-1">Durée (min)</label>
+                                                            <input type="number" id="template-duration" required class="form-control form-control-sm" value="${form.duration}" oninput="app.state.adminTemplateForm.duration = this.value">
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <label class="form-label small fw-medium mb-1">Capacité</label>
+                                                            <input type="number" id="template-capacity" required min="1" class="form-control form-control-sm" value="${form.capacity}" oninput="app.state.adminTemplateForm.capacity = this.value">
+                                                        </div>
                                                     </div>
                                                 `;
                                             })()}
-                                            <button type="submit" class="btn btn-dark py-2 mt-2 fw-medium">
-                                                ${st.editingTemplateId ? 'Mettre à jour' : 'Enregistrer le modèle'}
-                                            </button>
-                                            ${st.editingTemplateId ? `<button type="button" onclick="app.cancelEditTemplate()" class="btn btn-link text-muted p-0 small text-decoration-none">Annuler</button>` : ''}
+                                    <div class="d-flex flex-column gap-2 mt-2">
+                                        <button type="submit" class="btn btn-emerald py-2 fw-medium d-flex align-items-center justify-content-center gap-2 shadow-sm">
+                                            ${st.editingTemplateId ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v6h6"/></svg> Mettre à jour le modèle' : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Enregistrer le modèle'}
+                                        </button>
+                                        ${st.editingTemplateId ? `
+                                            <button type="button" onclick="app.cancelEditTemplate()" class="btn btn-outline-secondary py-2 fw-medium small">Annuler</button>
+                                        ` : ''}
+                                    </div>
                                         </form>
                                     </div>
                                 </div>

@@ -212,6 +212,8 @@ const seedDB = async () => {
         try { await pool.query(`ALTER TABLE course_templates DROP COLUMN default_price`); } catch (e) {}
         try { await pool.query(`ALTER TABLE course_templates CHANGE default_points_price default_credits_price INT`); } catch (e) {}
         try { await pool.query(`ALTER TABLE course_templates ADD COLUMN default_credits_price INT DEFAULT 1`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE course_templates ADD COLUMN capacity INT DEFAULT 10`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE classes ADD COLUMN custom_capacity INT DEFAULT NULL`); } catch (e) {}
 
         // 1. Settings
         const [settings] = await pool.query('SELECT COUNT(*) as count FROM settings');
@@ -247,12 +249,12 @@ const seedDB = async () => {
         const [templates] = await pool.query('SELECT COUNT(*) as count FROM course_templates');
         if (templates[0].count === 0) {
             const defaultTemplates = [
-                ['Pilates Mat Fondamental', 'Séance au sol axée sur les principes de base.', 60, 20],
-                ['Pilates Flow Dynamique', 'Enchaînement fluide pour travailler le cardio et la souplesse.', 45, 22],
-                ['Spécial Dos & Posture', 'Focus sur le renforcement des muscles profonds du dos.', 50, 25],
-                ['Pilates avec Accessoires', 'Utilisation de ballons, cercles et élastiques.', 60, 23]
+                ['Pilates Mat Fondamental', 'Séance au sol axée sur les principes de base.', 60, 20, 10],
+                ['Pilates Flow Dynamique', 'Enchaînement fluide pour travailler le cardio et la souplesse.', 45, 22, 10],
+                ['Spécial Dos & Posture', 'Focus sur le renforcement des muscles profonds du dos.', 50, 25, 10],
+                ['Pilates avec Accessoires', 'Utilisation de ballons, cercles et élastiques.', 60, 23, 10]
             ];
-            await pool.query('INSERT INTO course_templates (title, description, duration, default_credits_price) VALUES ?', [defaultTemplates]);
+            await pool.query('INSERT INTO course_templates (title, description, duration, default_credits_price, capacity) VALUES ?', [defaultTemplates]);
         }
 
         // 4. Credit Packages (Tarif dégressif)
@@ -746,10 +748,14 @@ const handleRequest = async (req, res) => {
         }
 
         if (method === 'POST' && path === '/course-templates') {
-            const { title, description, duration, default_credits_price } = req.body;
+            const { title, description, duration, default_credits_price, capacity } = req.body;
+            
+            const [existing] = await pool.query('SELECT id FROM course_templates WHERE title = ?', [title]);
+            if (existing.length > 0) return send(400, { success: false, message: 'Un modèle avec ce titre existe déjà.' });
+
             await pool.query(
-                'INSERT INTO course_templates (title, description, duration, default_credits_price) VALUES (?, ?, ?, ?)',
-                [title, description, duration, default_credits_price]
+                'INSERT INTO course_templates (title, description, duration, default_credits_price, capacity) VALUES (?, ?, ?, ?, ?)',
+                [title, description, duration, default_credits_price, capacity || 10]
             );
             return send(200, { success: true });
         }
@@ -773,12 +779,38 @@ const handleRequest = async (req, res) => {
 
         const templateIdMatch = path.match(/^\/course-templates\/(\d+)$/);
         if (method === 'PUT' && templateIdMatch) {
-            const { title, description, duration, default_credits_price } = req.body;
-            await pool.query(
-                'UPDATE course_templates SET title=?, description=?, duration=?, default_credits_price=? WHERE id=?',
-                [title, description, duration, default_credits_price, templateIdMatch[1]]
-            );
-            return send(200, { success: true });
+            const { title, description, duration, default_credits_price, capacity } = req.body;
+            
+            const [existing] = await pool.query('SELECT id FROM course_templates WHERE title = ? AND id != ?', [title, templateIdMatch[1]]);
+            if (existing.length > 0) return send(400, { success: false, message: 'Un autre modèle avec ce titre existe déjà.' });
+            
+            try {
+                await pool.query('START TRANSACTION');
+                
+                // 1. Récupérer l'ancien titre pour retrouver les séances liées dans le planning
+                const [oldTpl] = await pool.query('SELECT title FROM course_templates WHERE id = ?', [templateIdMatch[1]]);
+                const oldTitle = oldTpl.length > 0 ? oldTpl[0].title : title;
+                
+                // 2. Mettre à jour le modèle lui-même
+                await pool.query(
+                    'UPDATE course_templates SET title=?, description=?, duration=?, default_credits_price=?, capacity=? WHERE id=?',
+                    [title, description, duration, default_credits_price, capacity || 10, templateIdMatch[1]]
+                );
+
+                // 3. Mettre à jour automatiquement TOUTES les séances du planning (passées et futures)
+                if (oldTitle) {
+                    await pool.query(
+                        'UPDATE classes SET title=?, description=?, duration=?, capacity=? WHERE title=?',
+                        [title, description, duration, capacity || 10, oldTitle]
+                    );
+                }
+                
+                await pool.query('COMMIT');
+                return send(200, { success: true });
+            } catch (err) {
+                await pool.query('ROLLBACK');
+                throw err;
+            }
         }
 
         if (method === 'GET' && path === '/credit-packages') {
@@ -817,11 +849,12 @@ const handleRequest = async (req, res) => {
 
         if (method === 'GET' && path === '/classes') {
             const [rows] = await pool.query(`
-                SELECT c.id, c.title, DATE_FORMAT(c.date, '%Y-%m-%d') as date, c.time, c.duration, c.capacity, c.credits_price, c.description, c.recurrence_id,
+                SELECT c.id, c.title, DATE_FORMAT(c.date, '%Y-%m-%d') as date, c.time, c.duration, COALESCE(c.custom_capacity, ct.capacity, c.capacity) as capacity, c.credits_price, c.description, c.recurrence_id,
                 GROUP_CONCAT(b.user_id) as bookedUsersStr 
                 FROM classes c 
+                LEFT JOIN course_templates ct ON c.title = ct.title 
                 LEFT JOIN bookings b ON c.id = b.class_id 
-                GROUP BY c.id, c.title, c.date, c.time, c.duration, c.capacity, c.credits_price, c.description, c.recurrence_id
+                GROUP BY c.id, c.title, c.date, c.time, c.duration, c.custom_capacity, ct.capacity, c.capacity, c.credits_price, c.description, c.recurrence_id
             `);
             
             const classes = rows.map(c => {
@@ -862,17 +895,26 @@ const handleRequest = async (req, res) => {
             return send(200, { message: 'Cours supprimé' });
         }
 
+        const classCapacityMatch = path.match(/^\/classes\/(\d+)\/capacity$/);
+        if (method === 'PUT' && classCapacityMatch) {
+            const classId = classCapacityMatch[1];
+            const { capacity } = req.body;
+            await pool.query('UPDATE classes SET custom_capacity = ?, capacity = ? WHERE id = ?', [capacity, capacity, classId]);
+            return send(200, { success: true });
+        }
+
         const bookClassMatch = path.match(/^\/classes\/book\/(\d+)$/);
         if (method === 'POST' && bookClassMatch) {
             const classId = bookClassMatch[1];
             const { userId } = req.body;
 
             const [rows] = await pool.query(`
-                SELECT c.capacity, COUNT(b.user_id) as currentBookings 
+                SELECT COALESCE(c.custom_capacity, ct.capacity, c.capacity) as capacity, COUNT(b.user_id) as currentBookings 
                 FROM classes c 
+                LEFT JOIN course_templates ct ON c.title = ct.title 
                 LEFT JOIN bookings b ON c.id = b.class_id 
                 WHERE c.id = ? 
-                GROUP BY c.id`, [classId]);
+                GROUP BY c.id, c.custom_capacity, ct.capacity, c.capacity`, [classId]);
 
             if (rows.length === 0) return send(404, { success: false, message: 'Cours non trouvé' });
             
@@ -895,7 +937,11 @@ const handleRequest = async (req, res) => {
 
             await cleanupExpiredBatches(userId);
             const [userRows] = await pool.query('SELECT credits_balance, is_subscribed FROM users WHERE id = ?', [userId]);
-            const [classRows] = await pool.query('SELECT title, date, credits_price, capacity FROM classes WHERE id = ?', [classId]);
+            const [classRows] = await pool.query(`
+                SELECT c.title, c.date, c.credits_price, COALESCE(c.custom_capacity, ct.capacity, c.capacity) as capacity 
+                FROM classes c 
+                LEFT JOIN course_templates ct ON c.title = ct.title 
+                WHERE c.id = ?`, [classId]);
             const [bookingCount] = await pool.query('SELECT COUNT(*) as count FROM bookings WHERE class_id = ?', [classId]);
 
             if (!userRows.length || !classRows.length) return send(404, { message: 'Erreur' });

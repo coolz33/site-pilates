@@ -96,6 +96,13 @@ class PilatesApp {
                 recurrenceType: 'weekly',
                 recurrenceEnd: ''
             },
+            adminTemplateForm: {
+                title: '',
+                description: '',
+                duration: 60,
+                creditsPrice: 1,
+                capacity: 10
+            },
             isAdminRecurring: false,
             adminClassFilters: {
                 startDate: '',
@@ -229,6 +236,13 @@ class PilatesApp {
                 creditsPrice: 1,
                 recurrenceType: 'weekly',
                 recurrenceEnd: ''
+            };
+            this.state.adminTemplateForm = {
+                title: '',
+                description: '',
+                duration: 60,
+                creditsPrice: 1,
+                capacity: 10
             };
             this.state.classForCalendar = null;
             this.state.userPaymentFilters = { startDate: '', endDate: '' };
@@ -390,6 +404,9 @@ class PilatesApp {
         } else if (tab === 'past_sessions') {
             this.state.adminClassesSort = { column: 'date', direction: 'desc' };
             this.state.adminClassesPagination.page = 1;
+        } else if (tab === 'templates') {
+            this.state.editingTemplateId = null;
+            this.state.adminTemplateForm = { title: '', description: '', duration: 60, creditsPrice: 1, capacity: 10 };
         } else if (tab === 'newsletter') {
             this.state.selectedNewsletterRecipients = this.state.users
                 .filter(u => Number(u.newsletter_subscribed) === 1)
@@ -907,7 +924,7 @@ class PilatesApp {
                 isOpen: true,
                 message,
                 confirmText: options.confirmText || 'Confirmer',
-                cancelText: options.cancelText || 'Annuler',
+                cancelText: options.cancelText !== undefined ? options.cancelText : 'Annuler',
                 type: options.type || 'warning',
                 onConfirm: () => {
                     this.state.confirmModal.isOpen = false;
@@ -1059,8 +1076,35 @@ class PilatesApp {
     async deleteClass(id) { await classService.cancelBookingByUser(this, id); }
     async adminCancelBookingForUser(classId, userId) { await classService.adminCancelBookingForUser(this, classId, userId); }
     async adminDeleteClass(id) { await classService.adminDeleteClass(this, id); }
+    async editClassCapacity(id, capacity) { await classService.editClassCapacity(this, id, capacity); }
     async adminBulkDeleteClasses() { await classService.adminBulkDeleteClasses(this); }
-    async generateAdminDescription() { await aiService.generateAdminDescription(this); }
+    async generateAdminDescription() {
+        const title = this.state.adminTemplateForm?.title?.trim();
+        
+        if (!title) {
+            this.showNotification("Veuillez d'abord saisir un titre pour le modèle.", "warning");
+            return;
+        }
+        this.showNotification("Génération IA en cours...", "info");
+        try {
+            const prompt = `Génère une description riche mais en une seule phrase (maximum 35 mots) pour un modèle de cours de Pilates intitulé "${title}". Décris brièvement le contenu et les bienfaits principaux de la séance. Le ton doit être professionnel, bienveillant et invitant. Ne renvoie que le texte de la description, sans guillemets ni introduction.`;
+            const res = await fetch(`${API_URL}/ai/consult`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, userId: this.state.currentUser?.id })
+            });
+            const data = await res.json();
+            if (data.success && data.answer) {
+                if (!this.state.adminTemplateForm) this.state.adminTemplateForm = {};
+                this.state.adminTemplateForm.description = data.answer.trim();
+                this.showNotification("Description générée avec succès !");
+            } else {
+                this.showNotification("L'IA n'a pas pu générer la description.", "error");
+            }
+        } catch (err) {
+            this.showNotification("Erreur de connexion à l'IA.", "error");
+        }
+    }
     async submitAddClass(e) { await classService.submitAddClass(this, e); }
     applyTemplate() { classService.applyTemplate(this); }
     editTemplate(id) { classService.editTemplate(this, id); }

@@ -121,11 +121,15 @@ export const classService = {
                     app.state.currentUser = data.user;
                     localStorage.setItem('pilates_user', JSON.stringify(data.user)); // Mettre à jour le local storage
                 }
-                app.showNotification("Réservation confirmée !");
-                app.openCalendarModal(cls); // Ouvre le modal d'ajout au calendrier
+                
+                // Préparation silencieuse de l'interface suivante
                 app.state.showPaymentModal = false;
                 app.state.selectedClassForPayment = null;
-                app.render();
+                app.state.classForCalendar = cls;
+                app.state.showCalendarModal = true;
+                
+                // Déclenche le rafraîchissement global une seule et unique fois
+                app.showNotification("Réservation confirmée !");
             } else {
                 console.error("[classService] Le backend a signalé un échec (data.success est false):", data.message);
                 app.state.modalMessage = { type: 'error', text: data.message };
@@ -222,6 +226,29 @@ export const classService = {
         }
     },
 
+    async editClassCapacity(app, classId, currentCapacity) {
+        const newCapacityStr = window.prompt("Modifier la capacité pour CETTE séance uniquement :", currentCapacity || 10);
+        if (!newCapacityStr) return;
+        const newCapacity = parseInt(newCapacityStr);
+        if (isNaN(newCapacity) || newCapacity < 1) return app.showNotification("Capacité invalide.", "error");
+
+        try {
+            const res = await fetch(`${API_URL}/classes/${classId}/capacity`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ capacity: newCapacity })
+            });
+            if (res.ok) {
+                app.showNotification("Capacité de la séance modifiée !");
+                await app.init();
+            } else {
+                app.showNotification("Erreur lors de la modification.", "error");
+            }
+        } catch (err) {
+            app.showNotification("Erreur de connexion.", "error");
+        }
+    },
+
     async submitAddClass(app, e) {
         e.preventDefault();
         const form = app.state.adminAddClassForm;
@@ -304,16 +331,28 @@ export const classService = {
         app.state.adminAddClassForm.title = t.title;
         app.state.adminAddClassForm.description = t.description;
         app.state.adminAddClassForm.duration = t.duration;
+        app.state.adminAddClassForm.capacity = t.capacity || 10;
         app.render(); // Re-render pour mettre à jour les champs du formulaire
     },
 
     editTemplate(app, id) {
         app.state.editingTemplateId = id;
+        const t = app.state.courseTemplates.find(x => x.id === id);
+        if (t) {
+            app.state.adminTemplateForm = {
+                title: t.title || '',
+                description: t.description || '',
+                duration: t.duration || 60,
+                creditsPrice: t.default_credits_price || 1,
+                capacity: t.capacity || 10
+            };
+        }
         app.render();
     },
 
     cancelEditTemplate(app) {
         app.state.editingTemplateId = null;
+        app.state.adminTemplateForm = { title: '', description: '', duration: 60, creditsPrice: 1, capacity: 10 };
         app.render();
     },
 
@@ -327,10 +366,26 @@ export const classService = {
     },
 
     async saveAsTemplate(app) {
+        const form = app.state.adminTemplateForm;
+        const finalTitle = (document.getElementById('template-title')?.value || form.title || '').trim();
+
+        if (!finalTitle) {
+            return app.showNotification("Le titre du modèle est obligatoire.", "error");
+        }
+
+        const isDuplicate = app.state.courseTemplates.some(
+            t => t.title.toLowerCase() === finalTitle.toLowerCase() && t.id !== app.state.editingTemplateId
+        );
+        if (isDuplicate) {
+            await app.confirmDialog("Un modèle de cours existe déjà avec ce nom.\n\nVeuillez choisir un titre différent.", { type: 'danger', confirmText: 'J\'ai compris', cancelText: false });
+            return;
+        }
+
         const template = {
-            title: document.getElementById('template-title').value,
-            description: document.getElementById('template-desc').value,
-            duration: parseInt(document.getElementById('template-duration').value) || 0,
+            title: finalTitle,
+            description: document.getElementById('template-desc')?.value || form.description,
+            duration: parseInt(document.getElementById('template-duration')?.value) || parseInt(form.duration) || 0,
+            capacity: parseInt(document.getElementById('template-capacity')?.value) || parseInt(form.capacity) || 10,
             default_credits_price: 1
         };
 
@@ -338,15 +393,26 @@ export const classService = {
         const method = id ? 'PUT' : 'POST';
         const url = id ? `${API_URL}/course-templates/${id}` : `${API_URL}/course-templates`;
 
-        await fetch(url, {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(template)
-        });
+        try {
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(template)
+            });
+            
+            const data = await res.json().catch(() => null);
 
-        app.showNotification(id ? "Modèle mis à jour !" : "Modèle sauvegardé !");
-        app.state.editingTemplateId = null;
-        await app.init();
+            if (!res.ok) {
+                return app.showNotification((data && data.message) ? data.message : "Erreur de sauvegarde.", "error");
+            }
+
+            app.showNotification(id ? "Modèle mis à jour !" : "Modèle sauvegardé !");
+            app.state.editingTemplateId = null;
+            app.state.adminTemplateForm = { title: '', description: '', duration: 60, creditsPrice: 1, capacity: 10 };
+            await app.init();
+        } catch (err) {
+            app.showNotification("Erreur de connexion au serveur.", "error");
+        }
     },
 
     // Annulation par l'administrateur (depuis le détail client)

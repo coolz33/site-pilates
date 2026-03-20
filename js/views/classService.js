@@ -109,14 +109,33 @@ export const classService = {
         document.getElementById('planning-price').value = t.default_price;
         document.getElementById('planning-credits-price').value = t.default_credits_price || 1;
     },
-
+    editTemplate(app, id) {
+        app.state.editingTemplateId = id;
+        const t = app.state.courseTemplates.find(x => x.id === id);
+        if (t) {
+            app.state.adminTemplateForm = {
+                title: t.title || '',
+                description: t.description || '',
+                duration: t.duration || 60,
+                creditsPrice: t.default_credits_price || 1,
+                capacity: t.capacity || 10
+            };
+        }
+        app.render();
+    },
+    cancelEditTemplate(app) {
+        app.state.editingTemplateId = null;
+        app.state.adminTemplateForm = { title: '', description: '', duration: 60, creditsPrice: 1, capacity: 10 };
+        app.render();
+    },
     async saveAsTemplate(app) {
+        const form = app.state.adminTemplateForm;
         const template = {
-            title: document.getElementById('template-title').value,
-            description: document.getElementById('template-desc').value,
-            duration: parseInt(document.getElementById('template-duration').value) || 0,
-            default_price: parseInt(document.getElementById('template-price').value) || 0,
-            default_credits_price: parseInt(document.getElementById('template-credits-price').value) || 1
+            title: document.getElementById('template-title')?.value || form.title,
+            description: document.getElementById('template-desc')?.value || form.description,
+            duration: parseInt(document.getElementById('template-duration')?.value) || parseInt(form.duration) || 0,
+            capacity: parseInt(document.getElementById('template-capacity')?.value) || parseInt(form.capacity) || 10,
+            default_credits_price: 1
         };
 
         const id = app.state.editingTemplateId;
@@ -131,6 +150,7 @@ export const classService = {
 
         app.showNotification(id ? "Modèle mis à jour !" : "Modèle sauvegardé !");
         app.state.editingTemplateId = null;
+        app.state.adminTemplateForm = { title: '', description: '', duration: 60, creditsPrice: 1, capacity: 10 };
         await app.init();
     }
 };
