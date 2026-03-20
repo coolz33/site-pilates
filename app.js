@@ -1065,6 +1065,7 @@ class PilatesApp {
     applyTemplate() { classService.applyTemplate(this); }
     editTemplate(id) { classService.editTemplate(this, id); }
     cancelEditTemplate() { classService.cancelEditTemplate(this); }
+    async deleteTemplate(id) { await classService.deleteTemplate(this, id); }
     async saveAsTemplate() { await classService.saveAsTemplate(this); }
 
     /**
