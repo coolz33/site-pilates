@@ -53,12 +53,12 @@ export const adminView = (app) => {
     return `
        <div class="pt-4 pb-5 animate-fade-in flex-grow-1">
             <div class="container-fluid px-3 px-md-4" style="max-width: 1600px;">
-                <div class="row g-4">
+                <div class="d-flex flex-column flex-lg-row gap-4">
                     <!-- Menu Latéral -->
-                    <aside class="col-12 col-lg-3 col-xl-2">
-                        <div class="custom-card p-3 position-sticky" style="top: 6rem;">
-                            <h1 class="fs-5 fw-light mb-4 px-2">Administration</h1>
-                            <nav class="d-flex flex-column gap-1">
+                    <aside class="admin-sidebar-wrapper flex-shrink-0">
+                        <div class="custom-card p-2 position-sticky" style="top: 6rem;">
+                            <h1 class="fw-bold mb-3 px-2 mt-2 text-muted text-uppercase tracking-wider" style="font-size: 0.7rem;">Administration</h1>
+                            <nav class="d-flex flex-column">
                                 <button onclick="app.setAdminTab('planning')" class="admin-nav-btn ${st.adminTab === 'planning' ? 'active' : ''}">📅 Séances à venir</button>
                                 <button onclick="app.setAdminTab('past_sessions')" class="admin-nav-btn ${st.adminTab === 'past_sessions' ? 'active' : ''}">🕰️ Séances passées</button>
                                 <button onclick="app.setAdminTab('templates')" class="admin-nav-btn ${st.adminTab === 'templates' ? 'active' : ''}">📋 Modèles de cours</button>
@@ -71,7 +71,7 @@ export const adminView = (app) => {
                         </div>
                     </aside>
 
-                    <div class="col-12 col-lg-9 col-xl-10">
+                    <div class="flex-grow-1 w-100" style="min-width: 0;">
                         ${st.isAdminAiLoading ? '<div class="p-5 text-center text-muted">Chargement des données...</div>' : ''}
 
                         ${!st.isAdminAiLoading && (st.adminTab === 'planning' || st.adminTab === 'past_sessions') ? `
@@ -93,33 +93,33 @@ export const adminView = (app) => {
                                             </div>
                                         `}
                                         <div class="table-responsive overflow-visible">
-                                            <table class="table table-hover align-middle mb-0">
+                                            <table class="table table-hover align-middle mb-0" style="font-size: 0.8rem;">
                                                 <thead>
-                                                    <tr class="small text-muted">
-                                                        <th class="p-3" style="width: 40px;">
+                                                    <tr class="text-muted">
+                                                        <th class="py-2 px-2" style="width: 40px;">
                                                             <input type="checkbox" onchange="app.toggleAllAdminClasses(this.checked, ${JSON.stringify(filteredClasses.map(c => c.id)).replace(/"/g, '&quot;')})" ${st.selectedAdminClasses.length === filteredClasses.length && filteredClasses.length > 0 ? 'checked' : ''} class="form-check-input cursor-pointer">
                                                         </th>
-                                                        <th class="p-3 fw-medium">Date & Heure</th>
-                                                        <th class="p-3 fw-medium w-50">Cours</th>
-                                                        <th class="p-3 fw-medium text-center">Inscrits</th>
-                                                        <th class="p-3 fw-medium text-end">Actions</th>
+                                                        <th class="py-2 px-2 fw-medium">Date & Heure</th>
+                                                        <th class="py-2 px-2 fw-medium w-50">Cours</th>
+                                                        <th class="py-2 px-2 fw-medium text-center">Inscrits</th>
+                                                        <th class="py-2 px-2 fw-medium text-end">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    ${filteredClasses.length === 0 ? `<tr><td colspan="5" class="p-4 text-center text-muted">Aucune séance trouvée</td></tr>` : 
+                                                    ${filteredClasses.length === 0 ? `<tr><td colspan="5" class="py-3 text-center text-muted">Aucune séance trouvée</td></tr>` : 
                                                     filteredClasses.map(c => `
                                                         <tr class="${st.selectedAdminClasses.includes(c.id) ? 'table-active' : ''}">
-                                                            <td class="p-3">
+                                                            <td class="py-1 px-2">
                                                                 <input type="checkbox" onchange="app.toggleAdminClassSelection(${c.id})" ${st.selectedAdminClasses.includes(c.id) ? 'checked' : ''} class="form-check-input cursor-pointer">
                                                             </td>
-                                                            <td class="p-3 text-nowrap">
+                                                            <td class="py-1 px-2 text-nowrap">
                                                                 <div class="fw-medium">${new Date(c.date).toLocaleDateString('fr-FR')}</div>
                                                                 <div class="small text-muted">${c.time} (${c.duration} min)</div>
                                                             </td>
-                                                            <td class="p-3">
+                                                            <td class="py-1 px-2">
                                                                 <div class="fw-medium text-emerald">${c.title}</div>
                                                             </td>
-                                                            <td class="p-3 text-center text-nowrap position-relative has-tooltip">
+                                                            <td class="py-1 px-2 text-center text-nowrap position-relative has-tooltip">
                                                                 <span class="badge rounded-pill ${c.bookedUsers.length >= c.capacity ? 'bg-danger' : 'bg-success'}">
                                                                     ${c.bookedUsers.length} / ${c.capacity}
                                                                 </span>
@@ -136,8 +136,8 @@ export const adminView = (app) => {
                                                                     </div>
                                                                 ` : ''}
                                                             </td>
-                                                            <td class="p-3 text-end text-nowrap">
-                                                                <button onclick="app.adminDeleteClass(${c.id})" class="btn btn-link text-danger p-1" title="Supprimer">
+                                                            <td class="py-1 px-2 text-end text-nowrap">
+                                                                <button onclick="app.adminDeleteClass(${c.id})" class="btn btn-link text-danger p-0" title="Supprimer">
                                                                     ${icons.trash}
                                                                 </button>
                                                             </td>
@@ -331,105 +331,128 @@ export const adminView = (app) => {
                             <div class="custom-card p-4 p-md-5 animate-fade-in">
                                 <h2 class="fs-5 fw-medium mb-4">Gestion des Tarifs (Packs de cours)</h2>
                                 <form onsubmit="app.updateAllPackages(event)">
-                                    <div class="d-flex flex-column gap-4 mb-4">
+                                    <div class="d-flex flex-column gap-3 mb-4">
                                     ${st.creditPackages.map(pkg => `
-                                        <div class="d-flex flex-column gap-2 p-3 border rounded-3 bg-light package-block">
+                                        <div class="p-3 border rounded-3 bg-light package-block" style="font-size: 0.85rem;">
                                             <input type="hidden" name="id" value="${pkg.id}">
-                                            <div class="row g-2">
-                                                <div class="col-md-4">
-                                                    <label class="form-label small text-muted mb-1">Titre (En-tête)</label>
-                                                    <input type="text" name="name" value="${pkg.name}" required class="form-control form-control-sm">
+                                            <div class="row g-2 align-items-center mb-2">
+                                                <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Affichage</label>
+                                                <div class="col-sm-4 col-md-5">
+                                                    <input type="text" name="name" value="${pkg.name}" placeholder="Titre (ex: Carte)" required class="form-control form-control-sm">
                                                 </div>
-                                                <div class="col-md-4">
-                                                    <label class="form-label small text-muted mb-1">Sous-titre</label>
-                                                    <input type="text" name="subtitle" value="${pkg.subtitle || ''}" class="form-control form-control-sm">
+                                                <div class="col-sm-5 col-md-5">
+                                                    <input type="text" name="subtitle" value="${pkg.subtitle || ''}" placeholder="Sous-titre (ex: 10 cours)" class="form-control form-control-sm">
                                                 </div>
-                                                <div class="col-md-2">
-                                                    <label class="form-label small text-muted mb-1">Prix (€)</label>
-                                                    <input type="number" name="price" value="${pkg.price}" required min="0" class="form-control form-control-sm text-center px-1">
-                                                </div>
-                                                 <div class="col-md-2 pack-credits-col ${pkg.is_subscription ? 'd-none' : ''}">
-                                                    <label class="form-label small text-muted mb-1 text-nowrap">Nb. cours</label>
-                                                    <input type="number" name="credits" value="${pkg.is_subscription ? 0 : pkg.credits}" min="0" class="form-control form-control-sm text-center px-1">
-                                                </div>
-
-                                                <div class="col-12 d-flex flex-wrap align-items-center gap-4 mt-2">
-                                                    <div class="form-check mb-0">
-                                                        <input type="checkbox" id="is-sub-${pkg.id}" name="is_subscription" value="1" class="form-check-input cursor-pointer" onchange="this.closest('.package-block').querySelector('.pack-credits-col').classList.toggle('d-none', this.checked); this.closest('.package-block').querySelectorAll('.pack-normal-exp-col').forEach(e => e.classList.toggle('d-none', this.checked)); this.closest('.package-block').querySelector('.pack-sub-duration-col').classList.toggle('d-none', !this.checked);" ${pkg.is_subscription ? 'checked' : ''}>
-                                                        <label class="form-check-label small text-muted cursor-pointer" for="is-sub-${pkg.id}">Format Abonnement</label>
+                                            </div>
+                                            <div class="row g-2 align-items-center mb-2">
+                                                <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Détails</label>
+                                                <div class="col-sm-9 col-md-10 d-flex flex-wrap align-items-center gap-3">
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        <input type="number" name="price" value="${pkg.price}" required min="0" class="form-control form-control-sm text-center px-1" style="width: 60px;">
+                                                        <span class="text-muted">€</span>
                                                     </div>
-                                                    <div class="form-check mb-0 pack-normal-exp-col ${pkg.is_subscription ? 'd-none' : ''}">
-                                                        <input type="checkbox" id="exp-cb-${pkg.id}" class="form-check-input cursor-pointer" onchange="document.getElementById('exp-div-${pkg.id}').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('exp-input-${pkg.id}').value = '0';" ${!pkg.is_subscription && pkg.expires_in_days > 0 ? 'checked' : ''}>
-                                                        <label class="form-check-label small text-muted cursor-pointer" for="exp-cb-${pkg.id}">A une date d'expiration ?</label>
+                                                    <div class="pack-credits-col ${pkg.is_subscription ? 'd-none' : ''} d-flex align-items-center gap-1 border-start ps-3">
+                                                        <input type="number" name="credits" value="${pkg.is_subscription ? 0 : pkg.credits}" min="0" class="form-control form-control-sm text-center px-1" style="width: 60px;">
+                                                        <span class="text-muted">cours</span>
+                                                    </div>
+                                                    <div class="form-check mb-0 border-start ps-4 ms-1">
+                                                        <input type="checkbox" id="is-sub-${pkg.id}" name="is_subscription" value="1" class="form-check-input cursor-pointer mt-1" onchange="this.closest('.package-block').querySelector('.pack-credits-col').classList.toggle('d-none', this.checked); this.closest('.package-block').querySelectorAll('.pack-normal-exp-col').forEach(e => e.classList.toggle('d-none', this.checked)); this.closest('.package-block').querySelector('.pack-sub-duration-col').classList.toggle('d-none', !this.checked);" ${pkg.is_subscription ? 'checked' : ''}>
+                                                        <label class="form-check-label text-muted cursor-pointer" for="is-sub-${pkg.id}">Abonnement</label>
                                                     </div>
                                                 </div>
-
-                                                <div class="col-12 d-flex flex-wrap gap-4 mt-1">
+                                            </div>
+                                            <div class="row g-2 align-items-center mb-2">
+                                                <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Validité</label>
+                                                <div class="col-sm-9 col-md-10 d-flex flex-wrap align-items-center gap-3">
                                                     <div class="pack-sub-duration-col ${pkg.is_subscription ? '' : 'd-none'} d-flex align-items-center gap-2">
-                                                        <label class="small text-muted mb-0">Durée :</label>
-                                                        <input type="number" name="duration_days" value="${pkg.is_subscription ? (pkg.expires_in_days || 365) : 365}" min="1" class="form-control form-control-sm text-center px-1" style="width: 70px;">
-                                                        <label class="small text-muted mb-0">jours</label>
+                                                        <span class="text-muted">Durée :</span>
+                                                        <input type="number" name="duration_days" value="${pkg.is_subscription ? (pkg.expires_in_days || 365) : 365}" min="1" class="form-control form-control-sm text-center px-1" style="width: 60px;">
+                                                        <span class="text-muted">jours</span>
                                                     </div>
-                                                    <div class="pack-normal-exp-col ${pkg.is_subscription ? 'd-none' : ''} ${!pkg.is_subscription && pkg.expires_in_days > 0 ? '' : 'd-none'}" id="exp-div-${pkg.id}">
-                                                        <div class="d-flex align-items-center gap-2">
-                                                            <label class="small text-muted mb-0">Expire dans :</label>
-                                                            <input type="number" id="exp-input-${pkg.id}" name="expires_in_days" value="${!pkg.is_subscription ? (pkg.expires_in_days || 0) : 0}" min="0" class="form-control form-control-sm text-center px-1" style="width: 70px;">
-                                                            <label class="small text-muted mb-0">jours</label>
+                                                    <div class="pack-normal-exp-col ${pkg.is_subscription ? 'd-none' : ''} d-flex align-items-center gap-3">
+                                                        <div class="form-check mb-0">
+                                                            <input type="checkbox" id="exp-cb-${pkg.id}" class="form-check-input cursor-pointer mt-1" onchange="document.getElementById('exp-div-${pkg.id}').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('exp-input-${pkg.id}').value = '0';" ${!pkg.is_subscription && pkg.expires_in_days > 0 ? 'checked' : ''}>
+                                                            <label class="form-check-label text-muted cursor-pointer" for="exp-cb-${pkg.id}">A une expiration</label>
+                                                        </div>
+                                                        <div class="${!pkg.is_subscription && pkg.expires_in_days > 0 ? '' : 'd-none'} d-flex align-items-center gap-2 border-start ps-3" id="exp-div-${pkg.id}">
+                                                            <span class="text-muted">Expire dans :</span>
+                                                            <input type="number" id="exp-input-${pkg.id}" name="expires_in_days" value="${!pkg.is_subscription ? (pkg.expires_in_days || 0) : 0}" min="0" class="form-control form-control-sm text-center px-1" style="width: 60px;">
+                                                            <span class="text-muted">jours</span>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="col-12 mt-2">
-                                                    <label class="form-label small text-muted mb-1">Description (Sauts de ligne autorisés)</label>
-                                                    <textarea name="description" class="form-control form-control-sm" rows="3">${pkg.description || ''}</textarea>
+                                            </div>
+                                            <div class="row g-2 align-items-start mt-1">
+                                                <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Description</label>
+                                                <div class="col-sm-9 col-md-10">
+                                                    <textarea name="description" class="form-control form-control-sm" rows="2" placeholder="Sauts de ligne autorisés">${pkg.description || ''}</textarea>
                                                 </div>
                                             </div>
                                         </div>
                                     `).join('')}
                                     </div>
-                                    <button type="submit" class="btn btn-dark px-4 py-2 fw-medium">Enregistrer toutes les modifications</button>
+                                    <div class="text-start">
+                                        <button type="submit" class="btn btn-emerald px-4 py-2 fw-medium">Enregistrer toutes les modifications</button>
+                                    </div>
                                 </form>
                                     
                                 <div class="pt-4 border-top mt-5">
-                                        <h3 class="fs-6 fw-medium mb-3">Ajouter un nouveau pack</h3>
-                                    <form onsubmit="app.createPackage(event)" class="d-flex flex-column gap-2 p-3 border rounded-3 bg-light package-block">
-                                        <div class="row g-2">
-                                            <div class="col-md-4"><input type="text" name="name" placeholder="En-tête" required class="form-control form-control-sm"></div>
-                                            <div class="col-md-4"><input type="text" name="subtitle" placeholder="Sous-titre" class="form-control form-control-sm"></div>
-                                            <div class="col-md-2"><input type="number" name="price" placeholder="Prix €" required min="0" class="form-control form-control-sm text-center px-1"></div>
-                                            <div class="col-md-2 pack-credits-col"><input type="number" name="credits" placeholder="Nb. cours" min="1" class="form-control form-control-sm text-center px-1"></div>
-
-                                            <div class="col-12 d-flex flex-wrap align-items-center gap-4 mt-2">
-                                                <div class="form-check mb-0">
-                                                    <input type="checkbox" id="is-sub-new" name="is_subscription" value="1" class="form-check-input cursor-pointer" onchange="this.closest('.package-block').querySelector('.pack-credits-col').classList.toggle('d-none', this.checked); this.closest('.package-block').querySelectorAll('.pack-normal-exp-col').forEach(e => e.classList.toggle('d-none', this.checked)); this.closest('.package-block').querySelector('.pack-sub-duration-col').classList.toggle('d-none', !this.checked);">
-                                                    <label class="form-check-label small text-muted cursor-pointer" for="is-sub-new">Format Abonnement</label>
+                                    <h3 class="fs-6 fw-medium mb-3">Ajouter un nouveau pack</h3>
+                                    <form onsubmit="app.createPackage(event)" class="p-3 border rounded-3 bg-light package-block" style="font-size: 0.85rem;">
+                                        <div class="row g-2 align-items-center mb-2">
+                                            <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Affichage</label>
+                                            <div class="col-sm-4 col-md-5"><input type="text" name="name" placeholder="Titre (ex: Carte)" required class="form-control form-control-sm"></div>
+                                            <div class="col-sm-5 col-md-5"><input type="text" name="subtitle" placeholder="Sous-titre (ex: 10 cours)" class="form-control form-control-sm"></div>
+                                        </div>
+                                        <div class="row g-2 align-items-center mb-2">
+                                            <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Détails</label>
+                                            <div class="col-sm-9 col-md-10 d-flex flex-wrap align-items-center gap-3">
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <input type="number" name="price" placeholder="Prix" required min="0" class="form-control form-control-sm text-center px-1" style="width: 60px;">
+                                                    <span class="text-muted">€</span>
                                                 </div>
-                                                <div class="form-check mb-0 pack-normal-exp-col">
-                                                    <input type="checkbox" id="exp-cb-new" class="form-check-input cursor-pointer" onchange="document.getElementById('exp-div-new').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('exp-input-new').value = '0';">
-                                                    <label class="form-check-label small text-muted cursor-pointer" for="exp-cb-new">A une date d'expiration ?</label>
+                                                <div class="pack-credits-col d-flex align-items-center gap-1 border-start ps-3">
+                                                    <input type="number" name="credits" placeholder="Qté" min="1" class="form-control form-control-sm text-center px-1" style="width: 60px;">
+                                                    <span class="text-muted">cours</span>
+                                                </div>
+                                                <div class="form-check mb-0 border-start ps-4 ms-1">
+                                                    <input type="checkbox" id="is-sub-new" name="is_subscription" value="1" class="form-check-input cursor-pointer mt-1" onchange="this.closest('.package-block').querySelector('.pack-credits-col').classList.toggle('d-none', this.checked); this.closest('.package-block').querySelectorAll('.pack-normal-exp-col').forEach(e => e.classList.toggle('d-none', this.checked)); this.closest('.package-block').querySelector('.pack-sub-duration-col').classList.toggle('d-none', !this.checked);">
+                                                    <label class="form-check-label text-muted cursor-pointer" for="is-sub-new">Abonnement</label>
                                                 </div>
                                             </div>
-
-                                            <div class="col-12 d-flex flex-wrap gap-4 mt-1">
+                                        </div>
+                                        <div class="row g-2 align-items-center mb-2">
+                                            <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Validité</label>
+                                            <div class="col-sm-9 col-md-10 d-flex flex-wrap align-items-center gap-3">
                                                 <div class="pack-sub-duration-col d-none d-flex align-items-center gap-2">
-                                                    <label class="small text-muted mb-0">Durée :</label>
-                                                    <input type="number" name="duration_days" value="365" min="1" class="form-control form-control-sm text-center px-1" style="width: 70px;">
-                                                    <label class="small text-muted mb-0">jours</label>
+                                                    <span class="text-muted">Durée :</span>
+                                                    <input type="number" name="duration_days" value="365" min="1" class="form-control form-control-sm text-center px-1" style="width: 60px;">
+                                                    <span class="text-muted">jours</span>
                                                 </div>
-                                                
-                                                <div class="pack-normal-exp-col d-none" id="exp-div-new">
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <label class="small text-muted mb-0">Expire dans :</label>
-                                                        <input type="number" id="exp-input-new" name="expires_in_days" value="0" min="0" class="form-control form-control-sm text-center px-1" style="width: 70px;">
-                                                        <label class="small text-muted mb-0">jours</label>
+                                                <div class="pack-normal-exp-col d-flex align-items-center gap-3">
+                                                    <div class="form-check mb-0">
+                                                        <input type="checkbox" id="exp-cb-new" class="form-check-input cursor-pointer mt-1" onchange="document.getElementById('exp-div-new').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('exp-input-new').value = '0';">
+                                                        <label class="form-check-label text-muted cursor-pointer" for="exp-cb-new">A une expiration</label>
+                                                    </div>
+                                                    <div class="d-none d-flex align-items-center gap-2 border-start ps-3" id="exp-div-new">
+                                                        <span class="text-muted">Expire dans :</span>
+                                                        <input type="number" id="exp-input-new" name="expires_in_days" value="0" min="0" class="form-control form-control-sm text-center px-1" style="width: 60px;">
+                                                        <span class="text-muted">jours</span>
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            <div class="col-12"><textarea name="description" placeholder="Description..." class="form-control form-control-sm" rows="2"></textarea></div>
                                         </div>
-                                        <div class="text-end mt-2"><button type="submit" class="btn btn-emerald btn-sm px-4 fw-medium">Ajouter le pack</button></div>
-                                        </form>
-                                    </div>
+                                        <div class="row g-2 align-items-start mt-1">
+                                            <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Description</label>
+                                            <div class="col-sm-9 col-md-10">
+                                                <textarea name="description" placeholder="Description..." class="form-control form-control-sm" rows="2"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="text-start mt-3">
+                                            <button type="submit" class="btn btn-emerald px-4 py-2 fw-medium">Ajouter le pack</button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         ` : ''}
 
@@ -446,25 +469,25 @@ export const adminView = (app) => {
                                     <span class="small fw-medium text-muted">${clients.length} client(s)</span>
                                 </div>
                                 <div class="table-responsive">
-                                    <table class="table table-hover align-middle mb-0">
+                                    <table class="table table-hover align-middle mb-0" style="font-size: 0.8rem;">
                                         <thead>
-                                            <tr class="small text-muted">
-                                                <th class="p-3 fw-bold">Nom</th>
-                                                <th class="p-3 fw-bold">Email</th>
-                                                <th class="p-3 fw-bold">Téléphone</th>
-                                                <th class="p-3 fw-bold">Solde</th>
+                                            <tr class="text-muted">
+                                                <th class="py-2 px-2 fw-bold">Nom</th>
+                                                <th class="py-2 px-2 fw-bold">Email</th>
+                                                <th class="py-2 px-2 fw-bold">Téléphone</th>
+                                                <th class="py-2 px-2 fw-bold">Solde</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             ${clients.map(u => `
                                                 <tr onclick="app.viewUser(${u.id})" class="cursor-pointer transition-colors">
-                                                    <td class="p-3 fw-medium">
+                                                    <td class="py-1 px-2 fw-medium">
                                                         ${u.firstName} ${u.lastName}
                                                         ${u.role === 'admin' ? '<span class="badge bg-dark ms-2" style="font-size: 0.6rem;">Admin</span>' : ''}
                                                     </td>
-                                                    <td class="p-3 small text-muted">${u.email}</td>
-                                                    <td class="p-3 small text-muted">${u.phone || '-'}</td>
-                                                    <td class="p-3"><span class="badge badge-emerald">${u.is_subscribed ? 'Abo.' : (parseInt(u.credits_balance) || 0) + ' cours'}</span></td>
+                                                    <td class="py-1 px-2 text-muted">${u.email}</td>
+                                                    <td class="py-1 px-2 text-muted">${u.phone || '-'}</td>
+                                                    <td class="py-1 px-2"><span class="badge badge-emerald">${u.is_subscribed ? 'Abo.' : (parseInt(u.credits_balance) || 0) + ' cours'}</span></td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
@@ -564,7 +587,7 @@ export const adminView = (app) => {
                                     </div>
                                 </div>
                                 <div class="table-responsive">
-                                    <table class="table table-hover align-middle mb-0">
+                                    <table class="table table-hover align-middle mb-0" style="font-size: 0.8rem;">
                                         ${(() => {
                                             const renderSortIcon = (col) => {
                                                 if (st.ledgerSort?.column === col) {
@@ -574,14 +597,14 @@ export const adminView = (app) => {
                                             };
                                             return `
                                         <thead class="text-nowrap" style="user-select: none;">
-                                            <tr class="small text-muted">
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('date')">Date${renderSortIcon('date')}</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('client')">Client${renderSortIcon('client')}</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('description')">Description${renderSortIcon('description')}</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('achat')">Achat${renderSortIcon('achat')}</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('amount')">Montant HT${renderSortIcon('amount')}</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('amount')">TVA (20%)</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('amount')">Montant TTC</th>
+                                            <tr class="text-muted">
+                                                <th class="py-2 px-2 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('date')">Date${renderSortIcon('date')}</th>
+                                                <th class="py-2 px-2 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('client')">Client${renderSortIcon('client')}</th>
+                                                <th class="py-2 px-2 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('description')">Description${renderSortIcon('description')}</th>
+                                                <th class="py-2 px-2 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('achat')">Achat${renderSortIcon('achat')}</th>
+                                                <th class="py-2 px-2 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('amount')">Montant HT${renderSortIcon('amount')}</th>
+                                                <th class="py-2 px-2 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('amount')">TVA (20%)</th>
+                                                <th class="py-2 px-2 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('amount')">Montant TTC</th>
                                             </tr>
                                         </thead>
                                         `;
@@ -612,16 +635,16 @@ export const adminView = (app) => {
 
                                                 return `
                                                 <tr>
-                                                    <td class="p-3 small text-muted text-nowrap">${t.date}</td>
-                                                    <td class="p-3 fw-medium"><button class="btn btn-link p-0 text-decoration-none text-emerald text-start" onclick="app.viewUser(${t.user_id})">${t.firstName || 'Client'} ${t.lastName || 'Supprimé'}</button></td>
-                                                    <td class="p-3 small">${descriptionWithoutPrice}</td>
-                                                    <td class="p-3 fw-bold text-success">${productText}</td>
-                                                    <td class="p-3 fw-bold text-muted">${priceHT !== '-' ? priceHT + ' €' : '-'}</td>
-                                                    <td class="p-3 fw-bold text-muted">${tvaAmount !== '-' ? tvaAmount + ' €' : '-'}</td>
-                                                    <td class="p-3 fw-bold">${price !== null ? price.toFixed(2) + ' €' : '-'}</td>
+                                                    <td class="py-1 px-2 text-muted text-nowrap">${t.date}</td>
+                                                    <td class="py-1 px-2 fw-medium"><button class="btn btn-link p-0 text-decoration-none text-emerald text-start" style="font-size: inherit;" onclick="app.viewUser(${t.user_id})">${t.firstName || 'Client'} ${t.lastName || 'Supprimé'}</button></td>
+                                                    <td class="py-1 px-2">${descriptionWithoutPrice}</td>
+                                                    <td class="py-1 px-2 fw-bold text-success">${productText}</td>
+                                                    <td class="py-1 px-2 fw-bold text-muted">${priceHT !== '-' ? priceHT + ' €' : '-'}</td>
+                                                    <td class="py-1 px-2 fw-bold text-muted">${tvaAmount !== '-' ? tvaAmount + ' €' : '-'}</td>
+                                                    <td class="py-1 px-2 fw-bold">${price !== null ? price.toFixed(2) + ' €' : '-'}</td>
                                                 </tr>`;
                                             }).join('')}
-                                            ${!displayedPurchases.length ? '<tr><td colspan="7" class="p-4 text-center text-muted">Aucun encaissement trouvé</td></tr>' : ''}
+                                            ${!displayedPurchases.length ? '<tr><td colspan="7" class="py-3 text-center text-muted">Aucun encaissement trouvé</td></tr>' : ''}
                                         </tbody>
                                     </table>
                                 </div>
@@ -1035,66 +1058,93 @@ export const adminView = (app) => {
                         ` : ''}
 
                         ${!st.isAdminAiLoading && st.adminTab === 'settings' ? `
-                            <div class="custom-card p-4 p-md-5 mx-auto animate-fade-in" style="max-width: 600px;">
+                            <div class="custom-card p-4 p-md-5 mx-auto animate-fade-in" style="max-width: 650px;">
                                 <h2 class="fs-5 fw-medium mb-4">Paramètres du Studio</h2>
-                                <form onsubmit="app.updateStudioSettings(event)" class="d-flex flex-column gap-3">
-                                    <div>
-                                        <label class="form-label small fw-medium mb-1">Adresse</label>
-                                        <input type="text" id="admin-studio-address" required class="form-control" value="${st.studioAddress}">
+                                <form onsubmit="app.updateStudioSettings(event)">
+                                    <div class="row mb-2 align-items-center">
+                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Adresse</label>
+                                        <div class="col-sm-8">
+                                            <input type="text" id="admin-studio-address" required class="form-control form-control-sm" value="${st.studioAddress}">
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="form-label small fw-medium mb-1">Téléphone</label>
-                                        <input type="tel" id="admin-studio-phone" required class="form-control" value="${st.studioPhone}">
+                                    <div class="row mb-2 align-items-center">
+                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Téléphone</label>
+                                        <div class="col-sm-8">
+                                            <input type="tel" id="admin-studio-phone" required class="form-control form-control-sm" value="${st.studioPhone}">
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="form-label small fw-medium mb-1">Email</label>
-                                        <input type="email" id="admin-studio-email" required class="form-control" value="${st.studioEmail}">
+                                    <div class="row mb-2 align-items-center">
+                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Email</label>
+                                        <div class="col-sm-8">
+                                            <input type="email" id="admin-studio-email" required class="form-control form-control-sm" value="${st.studioEmail}">
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="form-label small fw-medium mb-1">Numéro de SIRET</label>
-                                        <input type="text" id="admin-studio-siret" class="form-control" value="${st.studioSiret || ''}">
+                                    <div class="row mb-2 align-items-center">
+                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Numéro de SIRET</label>
+                                        <div class="col-sm-8">
+                                            <input type="text" id="admin-studio-siret" class="form-control form-control-sm" value="${st.studioSiret || ''}">
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="form-label small fw-medium mb-1">N° de TVA Intracommunautaire</label>
-                                        <input type="text" id="admin-studio-tva" class="form-control" value="${st.studioTva || ''}">
+                                    <div class="row mb-2 align-items-center">
+                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">N° de TVA</label>
+                                        <div class="col-sm-8">
+                                            <input type="text" id="admin-studio-tva" class="form-control form-control-sm" value="${st.studioTva || ''}">
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="form-label small fw-medium mb-1">Moteur d'Intelligence Artificielle</label>
-                                        <select id="admin-ai-provider" class="form-select">
-                                            <option value="gemini" ${st.aiProvider === 'gemini' ? 'selected' : ''}>Google Gemini 2.0 (Gratuit)</option>
-                                            <option value="mistral" ${st.aiProvider === 'mistral' ? 'selected' : ''}>Mistral AI (Français)</option>
-                                            <option value="groq" ${st.aiProvider === 'groq' ? 'selected' : ''}>Groq (Ultra-rapide)</option>
-                                            <option value="openai" ${st.aiProvider === 'openai' ? 'selected' : ''}>OpenAI (GPT-4o mini)</option>
-                                        </select>
+                                    <div class="row mb-3 align-items-center">
+                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Moteur IA</label>
+                                        <div class="col-sm-8">
+                                            <select id="admin-ai-provider" class="form-select form-select-sm">
+                                                <option value="gemini" ${st.aiProvider === 'gemini' ? 'selected' : ''}>Google Gemini 2.0 (Gratuit)</option>
+                                                <option value="mistral" ${st.aiProvider === 'mistral' ? 'selected' : ''}>Mistral AI (Français)</option>
+                                                <option value="groq" ${st.aiProvider === 'groq' ? 'selected' : ''}>Groq (Ultra-rapide)</option>
+                                                <option value="openai" ${st.aiProvider === 'openai' ? 'selected' : ''}>OpenAI (GPT-4o mini)</option>
+                                            </select>
+                                        </div>
                                     </div>
+                                    
                                     <div class="pt-3 border-top mt-2">
-                                        <label class="form-label small fw-medium mb-1">Lien Instagram</label>
-                                        <div class="position-relative mb-3">
-                                            <div class="position-absolute top-50 start-0 translate-middle-y ps-3 text-muted z-1">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+                                        <div class="row mb-2 align-items-center">
+                                            <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Lien Instagram</label>
+                                            <div class="col-sm-8">
+                                                <div class="position-relative">
+                                                    <div class="position-absolute top-50 start-0 translate-middle-y ps-2 text-muted z-1">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+                                                    </div>
+                                                    <input type="url" id="admin-studio-instagram" class="form-control form-control-sm" style="padding-left: 2rem !important;" value="${st.studioInstagram}" placeholder="https://instagram.com/...">
+                                                </div>
                                             </div>
-                                            <input type="url" id="admin-studio-instagram" class="form-control" style="padding-left: 2.5rem !important;" value="${st.studioInstagram}" placeholder="https://instagram.com/...">
                                         </div>
                                         
-                                        <label class="form-label small fw-medium mb-1">Lien Facebook</label>
-                                        <div class="position-relative mb-3">
-                                            <div class="position-absolute top-50 start-0 translate-middle-y ps-3 text-muted z-1">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                                        <div class="row mb-2 align-items-center">
+                                            <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Lien Facebook</label>
+                                            <div class="col-sm-8">
+                                                <div class="position-relative">
+                                                    <div class="position-absolute top-50 start-0 translate-middle-y ps-2 text-muted z-1">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                                                    </div>
+                                                    <input type="url" id="admin-studio-facebook" class="form-control form-control-sm" style="padding-left: 2rem !important;" value="${st.studioFacebook}" placeholder="https://facebook.com/...">
+                                                </div>
                                             </div>
-                                            <input type="url" id="admin-studio-facebook" class="form-control" style="padding-left: 2.5rem !important;" value="${st.studioFacebook}" placeholder="https://facebook.com/...">
                                         </div>
                                         
-                                        <label class="form-label small fw-medium mb-1">Lien TikTok</label>
-                                        <div class="position-relative mb-2">
-                                            <div class="position-absolute top-50 start-0 translate-middle-y ps-3 text-muted z-1">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>
+                                        <div class="row mb-2 align-items-center">
+                                            <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Lien TikTok</label>
+                                            <div class="col-sm-8">
+                                                <div class="position-relative">
+                                                    <div class="position-absolute top-50 start-0 translate-middle-y ps-2 text-muted z-1">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>
+                                                    </div>
+                                                    <input type="url" id="admin-studio-tiktok" class="form-control form-control-sm" style="padding-left: 2rem !important;" value="${st.studioTiktok}" placeholder="https://tiktok.com/...">
+                                                </div>
                                             </div>
-                                            <input type="url" id="admin-studio-tiktok" class="form-control" style="padding-left: 2.5rem !important;" value="${st.studioTiktok}" placeholder="https://tiktok.com/...">
                                         </div>
                                     </div>
-                                    <button type="submit" class="btn btn-emerald py-2 mt-3 fw-medium">
-                                        Enregistrer les paramètres
-                                    </button>
+                                    <div class="text-end mt-4">
+                                        <button type="submit" class="btn btn-emerald py-2 px-4 fw-medium">
+                                            Enregistrer
+                                        </button>
+                                    </div>
                                 </form>
                             </div>
                         ` : ''}

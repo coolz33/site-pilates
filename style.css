@@ -46,16 +46,27 @@
     border-color: var(--stone-700);
 }
 
+.admin-sidebar-wrapper {
+    width: 100%;
+}
+@media (min-width: 992px) {
+    .admin-sidebar-wrapper {
+        width: 220px !important;
+        min-width: 220px !important;
+    }
+}
+
 .admin-nav-btn {
     width: 100%;
     text-align: left;
-    padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    border-radius: 0.5rem;
     transition: background-color 0.2s, color 0.2s;
     color: var(--stone-600);
     border: none;
     background: transparent;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.15rem;
 }
 .admin-nav-btn:hover { background-color: var(--stone-100); }
 .admin-nav-btn.active {
@@ -604,6 +615,7 @@ input[type="number"]::-webkit-outer-spin-button {
 /* Contour vert unifié lors de la sélection */
 input:focus,
 textarea:focus,
+select:focus,
 .quill-editor-wrapper:focus-within {
     outline: none !important;
     border-color: #10b981 !important; /* emerald-500 */
