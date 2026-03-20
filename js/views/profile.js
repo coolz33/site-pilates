@@ -272,7 +272,7 @@ export const profileView = (app) => {
                             <input type="date" value="${app.state.userPaymentFilters.startDate}" oninput="app.handleUserPaymentFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
                             <span class="text-muted" style="font-size: 0.7rem;">-</span>
                             <input type="date" value="${app.state.userPaymentFilters.endDate}" oninput="app.handleUserPaymentFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
-                            <select onchange="app.setUserPaymentLimit(this.value)" class="form-select form-select-sm py-0 px-1 ms-auto text-muted cursor-pointer" style="width: auto; font-size: 0.7rem; height: 24px;">
+                            <select onchange="app.setUserPaymentLimit(this.value)" class="form-select form-select-sm py-0 ps-1 pe-4 ms-auto text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.7rem; height: 24px;">
                                 <option value="10" ${limit === 10 ? 'selected' : ''}>10/p</option>
                                 <option value="20" ${limit === 20 ? 'selected' : ''}>20/p</option>
                                 <option value="50" ${limit === 50 ? 'selected' : ''}>50/p</option>
@@ -354,7 +354,7 @@ export const profileView = (app) => {
                             <input type="date" value="${app.state.userCreditFilters.startDate}" oninput="app.handleUserCreditFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
                             <span class="text-muted" style="font-size: 0.7rem;">-</span>
                             <input type="date" value="${app.state.userCreditFilters.endDate}" oninput="app.handleUserCreditFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
-                            <select onchange="app.setUserCreditLimit(this.value)" class="form-select form-select-sm py-0 px-1 ms-auto text-muted cursor-pointer" style="width: auto; font-size: 0.7rem; height: 24px;">
+                            <select onchange="app.setUserCreditLimit(this.value)" class="form-select form-select-sm py-0 ps-1 pe-4 ms-auto text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.7rem; height: 24px;">
                                 <option value="10" ${limit === 10 ? 'selected' : ''}>10/p</option>
                                 <option value="20" ${limit === 20 ? 'selected' : ''}>20/p</option>
                                 <option value="50" ${limit === 50 ? 'selected' : ''}>50/p</option>

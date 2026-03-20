@@ -49,6 +49,61 @@ export const adminView = (app) => {
     });
 
     const allTitles = [...new Set(st.classes.map(c => c.title))].sort();
+      // Application du tri dynamique
+    if (st.adminClassesSort && st.adminClassesSort.column) {
+        const sortCol = st.adminClassesSort.column;
+        const sortDir = st.adminClassesSort.direction === 'asc' ? 1 : -1;
+        
+        filteredClasses.sort((a, b) => {
+            let valA, valB;
+            if (sortCol === 'date') {
+                valA = `${a.date}T${a.time}`;
+                valB = `${b.date}T${b.time}`;
+            } else if (sortCol === 'title') {
+                valA = (a.title || '').toLowerCase();
+                valB = (b.title || '').toLowerCase();
+            } else if (sortCol === 'capacity') {
+                valA = a.bookedUsers ? a.bookedUsers.length : 0;
+                valB = b.bookedUsers ? b.bookedUsers.length : 0;
+            }
+            if (valA < valB) return -1 * sortDir;
+            if (valA > valB) return 1 * sortDir;
+            return 0;
+        });
+    }
+    
+    // Calcul des limites dynamiques pour les Range Sliders (Heures et Inscrits)
+    const bookedCounts = st.classes.map(c => c.bookedUsers.length);
+    const minBookingsDb = bookedCounts.length ? Math.min(...bookedCounts) : 0;
+    const maxBookingsDb = bookedCounts.length ? Math.max(...bookedCounts) : 20;
+    const minBookedVal = f.minBooked !== '' ? parseInt(f.minBooked) : minBookingsDb;
+    const maxBookedVal = f.maxBooked !== '' ? parseInt(f.maxBooked) : maxBookingsDb;
+    let rangeBookings = maxBookingsDb - minBookingsDb; if (rangeBookings === 0) rangeBookings = 1;
+    const bookedPercentMin = Math.max(0, Math.min(100, ((minBookedVal - minBookingsDb) / rangeBookings) * 100));
+    const bookedPercentMax = Math.max(0, Math.min(100, ((maxBookedVal - minBookingsDb) / rangeBookings) * 100));
+    
+    const timesList = st.classes.map(c => c.time).filter(Boolean).sort();
+    const minTimeDb = timesList.length ? timesList[0] : '00:00';
+    const maxTimeDb = timesList.length ? timesList[timesList.length - 1] : '23:59';
+    const timeToMins = t => { const [h,m] = t.split(':'); return parseInt(h)*60 + parseInt(m); };
+    const minTimeMins = timesList.length ? timeToMins(minTimeDb) : 0;
+    const maxTimeMins = timesList.length ? timeToMins(maxTimeDb) : 1440;
+    const currentMinTimeMins = f.startTime ? timeToMins(f.startTime) : minTimeMins;
+    const currentMaxTimeMins = f.endTime ? timeToMins(f.endTime) : maxTimeMins;
+    let rangeTime = maxTimeMins - minTimeMins; if (rangeTime === 0) rangeTime = 1;
+    const timePercentMin = Math.max(0, Math.min(100, ((currentMinTimeMins - minTimeMins) / rangeTime) * 100));
+    const timePercentMax = Math.max(0, Math.min(100, ((currentMaxTimeMins - minTimeMins) / rangeTime) * 100));
+
+    const limitAdminClasses = st.adminClassesPagination?.limit || 10;
+    const totalAdminClasses = filteredClasses.length;
+    const totalAdminClassesPages = limitAdminClasses === 'all' ? 1 : Math.ceil(totalAdminClasses / limitAdminClasses) || 1;
+    const currentAdminClassesPage = Math.max(1, Math.min(st.adminClassesPagination?.page || 1, totalAdminClassesPages));
+    
+    let displayedClasses = filteredClasses;
+    if (limitAdminClasses !== 'all') {
+        const startIdx = (currentAdminClassesPage - 1) * limitAdminClasses;
+        displayedClasses = filteredClasses.slice(startIdx, startIdx + limitAdminClasses);
+    }
 
     return `
        <div class="pt-4 pb-5 animate-fade-in flex-grow-1">
@@ -75,9 +130,9 @@ export const adminView = (app) => {
                         ${st.isAdminAiLoading ? '<div class="p-5 text-center text-muted">Chargement des données...</div>' : ''}
 
                         ${!st.isAdminAiLoading && (st.adminTab === 'planning' || st.adminTab === 'past_sessions') ? `
-                            <div class="row g-4">
+                            <div class="row g-3">
                                 <!-- Liste des Séances -->
-                                <div class="col-lg-8">
+                                <div class="col-lg-9">
                                     <div class="custom-card p-0">
                                         ${st.selectedAdminClasses.length > 0 ? `
                                             <div class="p-3 bg-danger bg-opacity-10 border-bottom border-danger border-opacity-25 d-flex justify-content-between align-items-center" style="border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem;">
@@ -87,27 +142,49 @@ export const adminView = (app) => {
                                                 </button>
                                             </div>
                                         ` : `
-                                            <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light" style="border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem;">
-                                                <h2 class="fs-6 fw-medium mb-0">${st.adminTab === 'planning' ? 'Séances à venir' : 'Historique des séances'}</h2>
-                                                <span class="small text-muted">${filteredClasses.length} résultat(s)</span>
+                                            <div class="p-2 px-3 border-bottom d-flex justify-content-between align-items-center bg-light flex-wrap gap-2" style="border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem;">
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <h2 class="fs-6 fw-medium mb-0">${st.adminTab === 'planning' ? 'Séances à venir' : 'Historique des séances'}</h2>
+                                                    <span class="small text-muted">${totalAdminClasses} résultat(s)</span>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <label class="small text-muted mb-0 fw-medium">Afficher :</label>
+                                                    <select onchange="app.setAdminClassesLimit(this.value)" class="form-select form-select-sm py-0 ps-2 pe-4 text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.75rem; height: 26px;">
+                                                        <option value="10" ${limitAdminClasses === 10 ? 'selected' : ''}>10</option>
+                                                        <option value="20" ${limitAdminClasses === 20 ? 'selected' : ''}>20</option>
+                                                        <option value="50" ${limitAdminClasses === 50 ? 'selected' : ''}>50</option>
+                                                        <option value="100" ${limitAdminClasses === 100 ? 'selected' : ''}>100</option>
+                                                        <option value="all" ${limitAdminClasses === 'all' ? 'selected' : ''}>Tous</option>
+                                                    </select>
+                                                </div>
                                             </div>
                                         `}
                                         <div class="table-responsive overflow-visible">
                                             <table class="table table-hover align-middle mb-0" style="font-size: 0.8rem;">
-                                                <thead>
-                                                    <tr class="text-muted">
-                                                        <th class="py-2 px-2" style="width: 40px;">
-                                                            <input type="checkbox" onchange="app.toggleAllAdminClasses(this.checked, ${JSON.stringify(filteredClasses.map(c => c.id)).replace(/"/g, '&quot;')})" ${st.selectedAdminClasses.length === filteredClasses.length && filteredClasses.length > 0 ? 'checked' : ''} class="form-check-input cursor-pointer">
-                                                        </th>
-                                                        <th class="py-2 px-2 fw-medium">Date & Heure</th>
-                                                        <th class="py-2 px-2 fw-medium w-50">Cours</th>
-                                                        <th class="py-2 px-2 fw-medium text-center">Inscrits</th>
-                                                        <th class="py-2 px-2 fw-medium text-end">Actions</th>
-                                                    </tr>
-                                                </thead>
+                                                ${(() => {
+                                                    const renderAdminSortIcon = (col) => {
+                                                        if (st.adminClassesSort?.column === col) {
+                                                            return st.adminClassesSort.direction === 'asc' ? ' <span class="text-emerald">↑</span>' : ' <span class="text-emerald">↓</span>';
+                                                        }
+                                                        return ' <span class="opacity-25">↕</span>';
+                                                    };
+                                                    return `
+                                                    <thead class="text-nowrap" style="user-select: none;">
+                                                        <tr class="text-muted">
+                                                            <th class="py-2 px-2" style="width: 40px;">
+                                                                <input type="checkbox" onchange="app.toggleAllAdminClasses(this.checked, ${JSON.stringify(displayedClasses.map(c => c.id)).replace(/"/g, '&quot;')})" ${st.selectedAdminClasses.length === displayedClasses.length && displayedClasses.length > 0 ? 'checked' : ''} class="form-check-input cursor-pointer">
+                                                            </th>
+                                                            <th class="py-2 px-2 fw-bold cursor-pointer hover-bg-light" onclick="app.handleAdminClassesSort('date')">Date & Heure${renderAdminSortIcon('date')}</th>
+                                                            <th class="py-2 px-2 fw-bold cursor-pointer hover-bg-light w-50" onclick="app.handleAdminClassesSort('title')">Cours${renderAdminSortIcon('title')}</th>
+                                                            <th class="py-2 px-2 fw-bold cursor-pointer hover-bg-light text-center" onclick="app.handleAdminClassesSort('capacity')">Inscrits${renderAdminSortIcon('capacity')}</th>
+                                                            <th class="py-2 px-2 fw-medium text-end">Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    `;
+                                                })()}
                                                 <tbody>
-                                                    ${filteredClasses.length === 0 ? `<tr><td colspan="5" class="py-3 text-center text-muted">Aucune séance trouvée</td></tr>` : 
-                                                    filteredClasses.map(c => `
+                                                    ${displayedClasses.length === 0 ? `<tr><td colspan="5" class="py-3 text-center text-muted">Aucune séance trouvée</td></tr>` : 
+                                                    displayedClasses.map(c => `
                                                         <tr class="${st.selectedAdminClasses.includes(c.id) ? 'table-active' : ''}">
                                                             <td class="py-1 px-2">
                                                                 <input type="checkbox" onchange="app.toggleAdminClassSelection(${c.id})" ${st.selectedAdminClasses.includes(c.id) ? 'checked' : ''} class="form-check-input cursor-pointer">
@@ -146,107 +223,160 @@ export const adminView = (app) => {
                                                 </tbody>
                                             </table>
                                         </div>
+                                        ${totalAdminClassesPages > 1 ? `
+                                            <div class="p-2 border-top bg-light d-flex justify-content-between align-items-center" style="border-bottom-left-radius: 1.5rem; border-bottom-right-radius: 1.5rem;">
+                                                <span class="text-muted fw-medium" style="font-size: 0.75rem;">Page ${currentAdminClassesPage}/${totalAdminClassesPages}</span>
+                                                <div class="d-flex gap-1">
+                                                    <button onclick="app.setAdminClassesPage(${currentAdminClassesPage - 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" ${currentAdminClassesPage === 1 ? 'disabled' : ''}>&lt;</button>
+                                                    ${Array.from({length: totalAdminClassesPages}, (_, i) => i + 1).map(p => {
+                                                        if (totalAdminClassesPages > 7) {
+                                                            if (p === 1 || p === totalAdminClassesPages || (p >= currentAdminClassesPage - 1 && p <= currentAdminClassesPage + 1)) return `<button onclick="app.setAdminClassesPage(${p})" class="btn btn-sm ${p === currentAdminClassesPage ? 'btn-emerald' : 'btn-outline-secondary'} py-0 px-2" style="font-size: 0.75rem;">${p}</button>`;
+                                                            else if (p === currentAdminClassesPage - 2 || p === currentAdminClassesPage + 2) return `<span class="px-1 text-muted align-self-end" style="font-size: 0.75rem;">...</span>`;
+                                                            return '';
+                                                        }
+                                                        return `<button onclick="app.setAdminClassesPage(${p})" class="btn btn-sm ${p === currentAdminClassesPage ? 'btn-emerald' : 'btn-outline-secondary'} py-0 px-2" style="font-size: 0.75rem;">${p}</button>`;
+                                                    }).join('').replace(/(<span.*?<\/span>)+/g, '<span class="px-1 text-muted align-self-end" style="font-size: 0.75rem;">...</span>')}
+                                                    <button onclick="app.setAdminClassesPage(${currentAdminClassesPage + 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" ${currentAdminClassesPage === totalAdminClassesPages ? 'disabled' : ''}>&gt;</button>
+                                                </div>
+                                            </div>
+                                        ` : `
+                                            <div class="border-top bg-light" style="height: 10px; border-bottom-left-radius: 1.5rem; border-bottom-right-radius: 1.5rem;"></div>
+                                        `}
                                     </div>
                                 </div>
                                 
                                 <!-- Filtres & Ajout -->
-                                <div class="col-lg-4 d-flex flex-column gap-4">
-                                    <div class="custom-card p-4">
-                                        <h3 class="fs-6 fw-bold text-muted text-uppercase mb-3 d-flex align-items-center gap-2">
-                                            ${icons.sparkles} Filtres de recherche
-                                        </h3>
-                                        <div class="d-flex flex-column gap-3">
-                                            <div>
-                                                <label class="form-label text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;">Période (Du / Au)</label>
-                                                <div class="d-flex gap-2">
-                                                    <input type="date" value="${f.startDate}" oninput="app.handleAdminClassFilterChange('startDate', this.value)" class="form-control form-control-sm">
-                                                    <input type="date" value="${f.endDate}" oninput="app.handleAdminClassFilterChange('endDate', this.value)" class="form-control form-control-sm">
+                                <div class="col-lg-3 d-flex flex-column gap-3">
+                                    <div class="custom-card p-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h3 class="fs-6 fw-bold text-muted text-uppercase mb-0 d-flex align-items-center gap-2" style="font-size: 0.75rem;">
+                                                ${icons.sparkles} Filtres
+                                            </h3>
+                                            ${Object.values(f).some(v => v !== '' && (!Array.isArray(v) || v.length > 0)) ? `
+                                                <button onclick="app.state.adminClassFilters = {startDate:'',endDate:'',startTime:'',endTime:'',titles:[],minBooked:'',maxBooked:'',userName:''}; app.render();" class="btn btn-link text-danger p-0 small text-decoration-none" style="font-size: 0.7rem;">Réinitialiser</button>
+                                            ` : ''}
+                                        </div>
+                                        
+                                        <div class="d-flex flex-column gap-2" style="font-size: 0.75rem;">
+                                            <div class="row g-2 align-items-center">
+                                                <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 60px;">Période</label>
+                                                <div class="col ps-1 d-flex align-items-center gap-1">
+                                                    <input type="date" value="${f.startDate}" oninput="app.handleAdminClassFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="font-size: 0.7rem; height: 24px;">
+                                                    <input type="date" value="${f.endDate}" oninput="app.handleAdminClassFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="font-size: 0.7rem; height: 24px;">
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label class="form-label text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;">Heures (De / À)</label>
-                                                <div class="d-flex gap-2">
-                                                    <input type="time" value="${f.startTime}" oninput="app.handleAdminClassFilterChange('startTime', this.value)" class="form-control form-control-sm">
-                                                    <input type="time" value="${f.endTime}" oninput="app.handleAdminClassFilterChange('endTime', this.value)" class="form-control form-control-sm">
+                                            
+                                            <div class="row g-2 align-items-center mt-2">
+                                                <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 60px;">Heures</label>
+                                                <div class="col ps-1">
+                                                    <div class="d-flex justify-content-between mb-1 text-muted" style="font-size: 0.65rem;">
+                                                        <span class="fw-bold">${f.startTime || minTimeDb}</span>
+                                                        <span class="fw-bold">${f.endTime || maxTimeDb}</span>
+                                                    </div>
+                                                    <div class="dual-range-container">
+                                                        <div class="dual-range-track"></div>
+                                                        <div class="dual-range-fill" style="left: ${timePercentMin}%; width: ${timePercentMax - timePercentMin}%;"></div>
+                                                        <input type="range" class="dual-range-input" value="${currentMinTimeMins}" min="${minTimeMins}" max="${maxTimeMins}" step="15" oninput="const p=this.parentNode; const v1=parseInt(p.children[2].value); const v2=parseInt(p.children[3].value); const r=this.max-this.min||1; p.children[1].style.left=((Math.min(v1,v2)-this.min)/r*100)+'%'; p.children[1].style.width=((Math.abs(v1-v2))/r*100)+'%';" onchange="const p=this.parentNode; const v1=parseInt(p.children[2].value); const v2=parseInt(p.children[3].value); const minV=Math.min(v1,v2); const maxV=Math.max(v1,v2); app.state.adminClassFilters.startTime = String(Math.floor(minV/60)).padStart(2,'0')+':'+String(minV%60).padStart(2,'0'); app.handleAdminClassFilterChange('endTime', String(Math.floor(maxV/60)).padStart(2,'0')+':'+String(maxV%60).padStart(2,'0'));">
+                                                        <input type="range" class="dual-range-input" value="${currentMaxTimeMins}" min="${minTimeMins}" max="${maxTimeMins}" step="15" oninput="const p=this.parentNode; const v1=parseInt(p.children[2].value); const v2=parseInt(p.children[3].value); const r=this.max-this.min||1; p.children[1].style.left=((Math.min(v1,v2)-this.min)/r*100)+'%'; p.children[1].style.width=((Math.abs(v1-v2))/r*100)+'%';" onchange="const p=this.parentNode; const v1=parseInt(p.children[2].value); const v2=parseInt(p.children[3].value); const minV=Math.min(v1,v2); const maxV=Math.max(v1,v2); app.state.adminClassFilters.startTime = String(Math.floor(minV/60)).padStart(2,'0')+':'+String(minV%60).padStart(2,'0'); app.handleAdminClassFilterChange('endTime', String(Math.floor(maxV/60)).padStart(2,'0')+':'+String(maxV%60).padStart(2,'0'));">
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label class="form-label text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;">Nb Inscrits (Min / Max)</label>
-                                                <div class="d-flex gap-2">
-                                                    <input type="number" placeholder="Min" value="${f.minBooked}" oninput="app.handleAdminClassFilterChange('minBooked', this.value)" class="form-control form-control-sm">
-                                                    <input type="number" placeholder="Max" value="${f.maxBooked}" oninput="app.handleAdminClassFilterChange('maxBooked', this.value)" class="form-control form-control-sm">
+                                            
+                                            <div class="row g-2 align-items-center mt-2">
+                                                <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 60px;">Inscrits</label>
+                                                <div class="col ps-1">
+                                                    <div class="d-flex justify-content-between mb-1 text-muted" style="font-size: 0.65rem;">
+                                                        <span class="fw-bold">${minBookedVal}</span>
+                                                        <span class="fw-bold">${maxBookedVal}</span>
+                                                    </div>
+                                                    <div class="dual-range-container">
+                                                        <div class="dual-range-track"></div>
+                                                        <div class="dual-range-fill" style="left: ${bookedPercentMin}%; width: ${bookedPercentMax - bookedPercentMin}%;"></div>
+                                                        <input type="range" class="dual-range-input" value="${minBookedVal}" min="${minBookingsDb}" max="${maxBookingsDb}" step="1" oninput="const p=this.parentNode; const v1=parseInt(p.children[2].value); const v2=parseInt(p.children[3].value); const r=this.max-this.min||1; p.children[1].style.left=((Math.min(v1,v2)-this.min)/r*100)+'%'; p.children[1].style.width=((Math.abs(v1-v2))/r*100)+'%';" onchange="const p=this.parentNode; const v1=parseInt(p.children[2].value); const v2=parseInt(p.children[3].value); app.state.adminClassFilters.minBooked=Math.min(v1,v2); app.handleAdminClassFilterChange('maxBooked', Math.max(v1,v2));">
+                                                        <input type="range" class="dual-range-input" value="${maxBookedVal}" min="${minBookingsDb}" max="${maxBookingsDb}" step="1" oninput="const p=this.parentNode; const v1=parseInt(p.children[2].value); const v2=parseInt(p.children[3].value); const r=this.max-this.min||1; p.children[1].style.left=((Math.min(v1,v2)-this.min)/r*100)+'%'; p.children[1].style.width=((Math.abs(v1-v2))/r*100)+'%';" onchange="const p=this.parentNode; const v1=parseInt(p.children[2].value); const v2=parseInt(p.children[3].value); app.state.adminClassFilters.minBooked=Math.min(v1,v2); app.handleAdminClassFilterChange('maxBooked', Math.max(v1,v2));">
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div class="position-relative">
-                                                <label class="form-label text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;">Nom inscrit</label>
-                                                <input list="filter-users-list" id="filter-user-name" placeholder="Rechercher un client..." value="${f.userName}" oninput="app.handleAdminClassFilterChange('userName', this.value)" class="form-control form-control-sm pr-4">
-                                                <datalist id="filter-users-list">
-                                                    ${st.users.filter(u => u.role !== 'admin').map(u => `<option value="${u.firstName} ${u.lastName}">`).join('')}
-                                                </datalist>
-                                                ${f.userName ? `
-                                                    <button type="button" onclick="app.handleAdminClassFilterChange('userName', ''); document.getElementById('filter-user-name')?.focus();" class="btn btn-link text-muted position-absolute end-0 bottom-0 p-1 text-decoration-none">×</button>
-                                                ` : ''}
+                                            
+                                            <div class="row g-2 align-items-center mt-1">
+                                                <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 60px;">Client</label>
+                                                <div class="col ps-1">
+                                                    <select onchange="app.handleAdminClassFilterChange('userName', this.value)" class="form-select form-select-sm py-0 ps-2 pe-4 text-muted cursor-pointer" style="font-size: 0.7rem; height: 24px;">
+                                                        <option value="">-- Tous --</option>
+                                                        ${st.users.filter(u => u.role !== 'admin').map(u => { const fullName = `${u.firstName} ${u.lastName}`; return `<option value="${fullName}" ${f.userName === fullName ? 'selected' : ''}>${fullName}</option>`; }).join('')}
+                                                    </select>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <label class="form-label text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;">Type de cours</label>
-                                                <input list="filter-titles-list" placeholder="Sélectionner un cours..." value="${f.titles[0] || ''}" oninput="app.handleAdminClassFilterChange('titles', this.value ? [this.value] : [])" class="form-control form-control-sm">
-                                                <datalist id="filter-titles-list">
-                                                    ${allTitles.map(t => `<option value="${t}">`).join('')}
-                                                </datalist>
+                                            
+                                            <div class="row g-2 align-items-center">
+                                                <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 60px;">Cours</label>
+                                                <div class="col ps-1">
+                                                    <select onchange="app.handleAdminClassFilterChange('titles', this.value ? [this.value] : [])" class="form-select form-select-sm py-0 ps-2 pe-4 text-muted cursor-pointer" style="font-size: 0.7rem; height: 24px;">
+                                                        <option value="">-- Tous --</option>
+                                                        ${allTitles.map(t => `<option value="${t}" ${f.titles.includes(t) ? 'selected' : ''}>${t}</option>`).join('')}
+                                                    </select>
+                                                </div>
                                             </div>
                                         </div>
-                                        ${Object.values(f).some(v => v !== '' && (!Array.isArray(v) || v.length > 0)) ? `
-                                            <button onclick="app.state.adminClassFilters = {startDate:'',endDate:'',startTime:'',endTime:'',titles:[],minBooked:'',maxBooked:'',userName:''}; app.render();" class="btn btn-link text-danger p-0 mt-3 small text-decoration-none text-uppercase fw-bold" style="font-size: 0.65rem;">
-                                                Réinitialiser tous les filtres
-                                            </button>
-                                        ` : ''}
                                     </div>
 
                                     ${st.adminTab === 'planning' ? `
-                                    <div class="custom-card p-4">
-                                        <h2 class="fs-5 fw-medium mb-4">Ajouter un cours</h2>
-                                        <form onsubmit="app.submitAddClass(event)" id="add-class-form" class="d-flex flex-column gap-3">
-                                            <div>
-                                                <label class="form-label small fw-medium mb-1">Modèle de cours</label>
-                                                <select id="planning-template-select" onchange="app.handleAdminAddClassFormChange('templateId', this.value); app.applyTemplate();" class="form-select form-select-sm">
-                                                    <option value="">-- Sélectionner --</option>
-                                                    ${st.courseTemplates.map(t => `<option value="${t.id}" ${st.adminAddClassForm.templateId == t.id ? 'selected' : ''}>${t.title}</option>`).join('')}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label class="form-label small fw-medium mb-1">Date</label>
-                                                <input type="date" id="planning-date" value="${st.adminAddClassForm.date}" oninput="app.handleAdminAddClassFormChange('date', this.value)" required class="form-control form-control-sm">
-                                            </div>
-                                            <div>
-                                                <label class="form-label small fw-medium mb-1">Heure</label>
-                                                <input type="time" id="planning-time" value="${st.adminAddClassForm.time}" oninput="app.handleAdminAddClassFormChange('time', this.value)" required class="form-control form-control-sm">
-                                            </div>
-                                            <div>
-                                                <label class="form-label small fw-medium mb-1">Capacité</label>
-                                                <input type="number" id="planning-capacity" value="${st.adminAddClassForm.capacity}" oninput="app.handleAdminAddClassFormChange('capacity', this.value)" min="1" class="form-control form-control-sm">
-                                            </div>
-                                            
-                                            <div class="form-check mt-2">
-                                                <input type="checkbox" id="planning-is-recurring" onchange="app.toggleAdminRecurring()" ${st.isAdminRecurring ? 'checked' : ''} class="form-check-input">
-                                                <label class="form-check-label small fw-medium cursor-pointer" for="planning-is-recurring">Rendre ce cours récurrent</label>
-                                            </div>
-                                            
-                                            <div id="recurring-fields" class="${st.isAdminRecurring ? 'd-flex' : 'd-none'} flex-column gap-3 p-3 bg-light rounded-3 border animate-fade-in">
-                                                <div>
-                                                    <label class="form-label small text-muted mb-1">Fréquence</label>
-                                                    <select id="planning-recurrence-type" onchange="app.handleAdminAddClassFormChange('recurrenceType', this.value)" class="form-select form-select-sm">
-                                                        <option value="daily" ${st.adminAddClassForm.recurrenceType === 'daily' ? 'selected' : ''}>Quotidienne</option>
-                                                        <option value="weekly" ${st.adminAddClassForm.recurrenceType === 'weekly' ? 'selected' : ''}>Hebdomadaire</option>
-                                                        <option value="monthly" ${st.adminAddClassForm.recurrenceType === 'monthly' ? 'selected' : ''}>Mensuelle</option>
-                                                        <option value="yearly" ${st.adminAddClassForm.recurrenceType === 'yearly' ? 'selected' : ''}>Annuelle</option>
+                                    <div class="custom-card p-3">
+                                        <h3 class="fs-6 fw-bold text-muted text-uppercase mb-3" style="font-size: 0.75rem;">Ajouter un cours</h3>
+                                        <form onsubmit="app.submitAddClass(event)" id="add-class-form" class="d-flex flex-column gap-2" style="font-size: 0.75rem;">
+                                            <div class="row g-2 align-items-center">
+                                                <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 70px;">Modèle</label>
+                                                <div class="col ps-1">
+                                                    <select id="planning-template-select" onchange="app.handleAdminAddClassFormChange('templateId', this.value); app.applyTemplate();" class="form-select form-select-sm py-0 ps-2 pe-4 text-muted" style="font-size: 0.7rem; height: 24px;">
+                                                        <option value="">-- Sélectionner --</option>
+                                                        ${st.courseTemplates.map(t => `<option value="${t.id}" ${st.adminAddClassForm.templateId == t.id ? 'selected' : ''}>${t.title}</option>`).join('')}
                                                     </select>
                                                 </div>
-                                                <div>
-                                                    <label class="form-label small text-muted mb-1">Jusqu'au (inclus)</label>
-                                                    <input type="date" id="planning-recurrence-end" value="${st.adminAddClassForm.recurrenceEnd}" oninput="app.handleAdminAddClassFormChange('recurrenceEnd', this.value)" class="form-control form-control-sm">
+                                            </div>
+                                            <div class="row g-2 align-items-center">
+                                                <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 70px;">Date</label>
+                                                <div class="col ps-1">
+                                                    <input type="date" id="planning-date" value="${st.adminAddClassForm.date}" oninput="app.handleAdminAddClassFormChange('date', this.value)" required class="form-control form-control-sm py-0 px-2 text-muted" style="font-size: 0.7rem; height: 24px;">
                                                 </div>
                                             </div>
-                                            <button type="submit" class="btn btn-emerald py-2 mt-2 fw-medium">Ajouter au planning</button>
+                                            <div class="row g-2 align-items-center">
+                                                <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 70px;">Heure</label>
+                                                <div class="col ps-1">
+                                                    <input type="time" id="planning-time" value="${st.adminAddClassForm.time}" oninput="app.handleAdminAddClassFormChange('time', this.value)" required class="form-control form-control-sm py-0 px-2 text-muted" style="font-size: 0.7rem; height: 24px;">
+                                                </div>
+                                            </div>
+                                            <div class="row g-2 align-items-center">
+                                                <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 70px;">Capacité</label>
+                                                <div class="col ps-1">
+                                                    <input type="number" id="planning-capacity" value="${st.adminAddClassForm.capacity}" oninput="app.handleAdminAddClassFormChange('capacity', this.value)" min="1" class="form-control form-control-sm py-0 px-2 text-muted" style="font-size: 0.7rem; height: 24px;">
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="form-check mt-1 mb-0 ps-0 d-flex align-items-center gap-2">
+                                                <input type="checkbox" id="planning-is-recurring" onchange="app.toggleAdminRecurring()" ${st.isAdminRecurring ? 'checked' : ''} class="form-check-input m-0 cursor-pointer" style="width: 14px; height: 14px;">
+                                                <label class="form-check-label text-muted cursor-pointer" for="planning-is-recurring">Cours récurrent</label>
+                                            </div>
+                                            
+                                            <div id="recurring-fields" class="${st.isAdminRecurring ? 'd-flex' : 'd-none'} flex-column gap-2 p-2 bg-light rounded-2 border animate-fade-in mt-1">
+                                                <div class="row g-2 align-items-center">
+                                                    <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 70px;">Fréquence</label>
+                                                    <div class="col ps-1">
+                                                        <select id="planning-recurrence-type" onchange="app.handleAdminAddClassFormChange('recurrenceType', this.value)" class="form-select form-select-sm py-0 ps-2 pe-4 text-muted" style="font-size: 0.7rem; height: 24px;">
+                                                            <option value="daily" ${st.adminAddClassForm.recurrenceType === 'daily' ? 'selected' : ''}>Quotidienne</option>
+                                                            <option value="weekly" ${st.adminAddClassForm.recurrenceType === 'weekly' ? 'selected' : ''}>Hebdomadaire</option>
+                                                            <option value="monthly" ${st.adminAddClassForm.recurrenceType === 'monthly' ? 'selected' : ''}>Mensuelle</option>
+                                                            <option value="yearly" ${st.adminAddClassForm.recurrenceType === 'yearly' ? 'selected' : ''}>Annuelle</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="row g-2 align-items-center">
+                                                    <label class="col-auto col-form-label py-0 text-muted pe-1" style="width: 70px;">Jusqu'au</label>
+                                                    <div class="col ps-1">
+                                                        <input type="date" id="planning-recurrence-end" value="${st.adminAddClassForm.recurrenceEnd}" oninput="app.handleAdminAddClassFormChange('recurrenceEnd', this.value)" class="form-control form-control-sm py-0 px-2 text-muted" style="font-size: 0.7rem; height: 24px;">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button type="submit" class="btn btn-emerald btn-sm py-1 mt-2 fw-medium w-100" style="font-size: 0.75rem;">Ajouter au planning</button>
                                             
                                             <!-- Champs cachés pour le template -->
                                             <input type="hidden" id="planning-title" value="${st.adminAddClassForm.title}">
@@ -255,13 +385,13 @@ export const adminView = (app) => {
                                         </form>
                                     </div>
 
-                                    <div class="custom-card p-4">
-                                        <h2 class="fs-6 fw-medium mb-3">Paramètres</h2>
-                                        <form onsubmit="app.updateCancellationDelay(event)">
-                                            <label class="form-label small fw-medium mb-1">Délai d'annulation (heures)</label>
+                                    <div class="custom-card p-3">
+                                        <h3 class="fs-6 fw-bold text-muted text-uppercase mb-3" style="font-size: 0.75rem;">Paramètres</h3>
+                                        <form onsubmit="app.updateCancellationDelay(event)" class="d-flex flex-column gap-2" style="font-size: 0.75rem;">
+                                            <label class="col-form-label py-0 text-muted mb-0">Délai d'annulation d'un cours (h)</label>
                                             <div class="d-flex gap-2">
-                                                <input type="number" id="admin-cancellation-delay" required min="0" class="form-control form-control-sm" value="${st.cancellationDelay}">
-                                                <button type="submit" class="btn btn-dark btn-sm fw-medium">OK</button>
+                                                <input type="number" id="admin-cancellation-delay" required min="0" class="form-control form-control-sm py-0 px-1 text-muted text-center" style="font-size: 0.7rem; height: 26px; max-width: 80px;" value="${st.cancellationDelay}">
+                                                <button type="submit" class="btn btn-emerald btn-sm py-0 px-3 fw-medium" style="font-size: 0.7rem;">OK</button>
                                             </div>
                                         </form>
                                     </div>
@@ -336,7 +466,7 @@ export const adminView = (app) => {
                                         <div class="p-3 border rounded-3 bg-light package-block" style="font-size: 0.85rem;">
                                             <input type="hidden" name="id" value="${pkg.id}">
                                             <div class="row g-2 align-items-center mb-2">
-                                                <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Affichage</label>
+                                                <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 85px;">Affichage</label>
                                                 <div class="col-sm-4 col-md-5">
                                                     <input type="text" name="name" value="${pkg.name}" placeholder="Titre (ex: Carte)" required class="form-control form-control-sm">
                                                 </div>
@@ -345,8 +475,8 @@ export const adminView = (app) => {
                                                 </div>
                                             </div>
                                             <div class="row g-2 align-items-center mb-2">
-                                                <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Détails</label>
-                                                <div class="col-sm-9 col-md-10 d-flex flex-wrap align-items-center gap-3">
+                                                <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 85px;">Détails</label>
+                                                <div class="col d-flex flex-wrap align-items-center gap-3">
                                                     <div class="d-flex align-items-center gap-1">
                                                         <input type="number" name="price" value="${pkg.price}" required min="0" class="form-control form-control-sm text-center px-1" style="width: 60px;">
                                                         <span class="text-muted">€</span>
@@ -362,8 +492,8 @@ export const adminView = (app) => {
                                                 </div>
                                             </div>
                                             <div class="row g-2 align-items-center mb-2">
-                                                <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Validité</label>
-                                                <div class="col-sm-9 col-md-10 d-flex flex-wrap align-items-center gap-3">
+                                                <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 85px;">Validité</label>
+                                                <div class="col d-flex flex-wrap align-items-center gap-3">
                                                     <div class="pack-sub-duration-col ${pkg.is_subscription ? '' : 'd-none'} d-flex align-items-center gap-2">
                                                         <span class="text-muted">Durée :</span>
                                                         <input type="number" name="duration_days" value="${pkg.is_subscription ? (pkg.expires_in_days || 365) : 365}" min="1" class="form-control form-control-sm text-center px-1" style="width: 60px;">
@@ -383,8 +513,8 @@ export const adminView = (app) => {
                                                 </div>
                                             </div>
                                             <div class="row g-2 align-items-start mt-1">
-                                                <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Description</label>
-                                                <div class="col-sm-9 col-md-10">
+                                                <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 85px;">Description</label>
+                                                <div class="col">
                                                     <textarea name="description" class="form-control form-control-sm" rows="2" placeholder="Sauts de ligne autorisés">${pkg.description || ''}</textarea>
                                                 </div>
                                             </div>
@@ -400,13 +530,13 @@ export const adminView = (app) => {
                                     <h3 class="fs-6 fw-medium mb-3">Ajouter un nouveau pack</h3>
                                     <form onsubmit="app.createPackage(event)" class="p-3 border rounded-3 bg-light package-block" style="font-size: 0.85rem;">
                                         <div class="row g-2 align-items-center mb-2">
-                                            <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Affichage</label>
+                                            <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 85px;">Affichage</label>
                                             <div class="col-sm-4 col-md-5"><input type="text" name="name" placeholder="Titre (ex: Carte)" required class="form-control form-control-sm"></div>
                                             <div class="col-sm-5 col-md-5"><input type="text" name="subtitle" placeholder="Sous-titre (ex: 10 cours)" class="form-control form-control-sm"></div>
                                         </div>
                                         <div class="row g-2 align-items-center mb-2">
-                                            <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Détails</label>
-                                            <div class="col-sm-9 col-md-10 d-flex flex-wrap align-items-center gap-3">
+                                            <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 85px;">Détails</label>
+                                            <div class="col d-flex flex-wrap align-items-center gap-3">
                                                 <div class="d-flex align-items-center gap-1">
                                                     <input type="number" name="price" placeholder="Prix" required min="0" class="form-control form-control-sm text-center px-1" style="width: 60px;">
                                                     <span class="text-muted">€</span>
@@ -422,8 +552,8 @@ export const adminView = (app) => {
                                             </div>
                                         </div>
                                         <div class="row g-2 align-items-center mb-2">
-                                            <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Validité</label>
-                                            <div class="col-sm-9 col-md-10 d-flex flex-wrap align-items-center gap-3">
+                                            <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 85px;">Validité</label>
+                                            <div class="col d-flex flex-wrap align-items-center gap-3">
                                                 <div class="pack-sub-duration-col d-none d-flex align-items-center gap-2">
                                                     <span class="text-muted">Durée :</span>
                                                     <input type="number" name="duration_days" value="365" min="1" class="form-control form-control-sm text-center px-1" style="width: 60px;">
@@ -443,8 +573,8 @@ export const adminView = (app) => {
                                             </div>
                                         </div>
                                         <div class="row g-2 align-items-start mt-1">
-                                            <label class="col-sm-3 col-md-2 col-form-label col-form-label-sm fw-medium text-muted">Description</label>
-                                            <div class="col-sm-9 col-md-10">
+                                            <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 85px;">Description</label>
+                                            <div class="col">
                                                 <textarea name="description" placeholder="Description..." class="form-control form-control-sm" rows="2"></textarea>
                                             </div>
                                         </div>
@@ -515,10 +645,10 @@ export const adminView = (app) => {
                                 let valA, valB;
                                 if (sortCol === 'date') {
                                     const parseSortDate = (dStr) => {
-                                        if (!dStr) return 0;
+                                        if (!dStr) return '';
                                         const [d, t] = dStr.split(' ');
                                         const [day, mo, yr] = d.split('/');
-                                        return new Date(`${yr}-${mo}-${day}T${t}`).getTime();
+                                        return `${yr}-${mo}-${day}T${t ? t.padStart(5, '0') : '00:00'}`;
                                     };
                                     valA = parseSortDate(a.date);
                                     valB = parseSortDate(b.date);
@@ -576,7 +706,7 @@ export const adminView = (app) => {
                                         </div>
                                         <div class="d-flex align-items-center gap-2 text-nowrap ms-auto">
                                             <label class="small text-muted mb-0 fw-medium">Afficher :</label>
-                                            <select onchange="app.setLedgerLimit(this.value)" class="form-select form-select-sm py-0 px-2 text-muted cursor-pointer" style="width: auto; font-size: 0.75rem; height: 26px;">
+                                            <select onchange="app.setLedgerLimit(this.value)" class="form-select form-select-sm py-0 ps-2 pe-4 text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.75rem; height: 26px;">
                                                 <option value="10" ${limit === 10 ? 'selected' : ''}>10</option>
                                                 <option value="20" ${limit === 20 ? 'selected' : ''}>20</option>
                                                 <option value="50" ${limit === 50 ? 'selected' : ''}>50</option>
@@ -852,7 +982,7 @@ export const adminView = (app) => {
                                                             <input type="date" value="${app.state.userPaymentFilters.startDate}" oninput="app.handleUserPaymentFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
                                                             <span class="small text-muted">-</span>
                                                             <input type="date" value="${app.state.userPaymentFilters.endDate}" oninput="app.handleUserPaymentFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
-                                                            <select onchange="app.setUserPaymentLimit(this.value)" class="form-select form-select-sm py-0 px-1 ms-auto text-muted cursor-pointer" style="width: auto; font-size: 0.7rem; height: 24px;">
+                                                            <select onchange="app.setUserPaymentLimit(this.value)" class="form-select form-select-sm py-0 ps-1 pe-4 ms-auto text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.7rem; height: 24px;">
                                                                 <option value="10" ${limit === 10 ? 'selected' : ''}>10/p</option>
                                                                 <option value="20" ${limit === 20 ? 'selected' : ''}>20/p</option>
                                                                 <option value="50" ${limit === 50 ? 'selected' : ''}>50/p</option>
@@ -929,7 +1059,7 @@ export const adminView = (app) => {
                                                             <input type="date" value="${app.state.userCreditFilters.startDate}" oninput="app.handleUserCreditFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
                                                             <span class="small text-muted">-</span>
                                                             <input type="date" value="${app.state.userCreditFilters.endDate}" oninput="app.handleUserCreditFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
-                                                            <select onchange="app.setUserCreditLimit(this.value)" class="form-select form-select-sm py-0 px-1 ms-auto text-muted cursor-pointer" style="width: auto; font-size: 0.7rem; height: 24px;">
+                                                            <select onchange="app.setUserCreditLimit(this.value)" class="form-select form-select-sm py-0 ps-1 pe-4 ms-auto text-muted cursor-pointer" style="width: auto; min-width: 75px; font-size: 0.7rem; height: 24px;">
                                                                 <option value="10" ${limit === 10 ? 'selected' : ''}>10/p</option>
                                                                 <option value="20" ${limit === 20 ? 'selected' : ''}>20/p</option>
                                                                 <option value="50" ${limit === 50 ? 'selected' : ''}>50/p</option>
@@ -1062,38 +1192,38 @@ export const adminView = (app) => {
                                 <h2 class="fs-5 fw-medium mb-4">Paramètres du Studio</h2>
                                 <form onsubmit="app.updateStudioSettings(event)">
                                     <div class="row mb-2 align-items-center">
-                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Adresse</label>
-                                        <div class="col-sm-8">
+                                        <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 140px;">Adresse</label>
+                                        <div class="col">
                                             <input type="text" id="admin-studio-address" required class="form-control form-control-sm" value="${st.studioAddress}">
                                         </div>
                                     </div>
                                     <div class="row mb-2 align-items-center">
-                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Téléphone</label>
-                                        <div class="col-sm-8">
+                                        <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 140px;">Téléphone</label>
+                                        <div class="col">
                                             <input type="tel" id="admin-studio-phone" required class="form-control form-control-sm" value="${st.studioPhone}">
                                         </div>
                                     </div>
                                     <div class="row mb-2 align-items-center">
-                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Email</label>
-                                        <div class="col-sm-8">
+                                        <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 140px;">Email</label>
+                                        <div class="col">
                                             <input type="email" id="admin-studio-email" required class="form-control form-control-sm" value="${st.studioEmail}">
                                         </div>
                                     </div>
                                     <div class="row mb-2 align-items-center">
-                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Numéro de SIRET</label>
-                                        <div class="col-sm-8">
+                                        <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 140px;">Numéro de SIRET</label>
+                                        <div class="col">
                                             <input type="text" id="admin-studio-siret" class="form-control form-control-sm" value="${st.studioSiret || ''}">
                                         </div>
                                     </div>
                                     <div class="row mb-2 align-items-center">
-                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">N° de TVA</label>
-                                        <div class="col-sm-8">
+                                        <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 140px;">N° de TVA</label>
+                                        <div class="col">
                                             <input type="text" id="admin-studio-tva" class="form-control form-control-sm" value="${st.studioTva || ''}">
                                         </div>
                                     </div>
                                     <div class="row mb-3 align-items-center">
-                                        <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Moteur IA</label>
-                                        <div class="col-sm-8">
+                                        <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 140px;">Moteur IA</label>
+                                        <div class="col">
                                             <select id="admin-ai-provider" class="form-select form-select-sm">
                                                 <option value="gemini" ${st.aiProvider === 'gemini' ? 'selected' : ''}>Google Gemini 2.0 (Gratuit)</option>
                                                 <option value="mistral" ${st.aiProvider === 'mistral' ? 'selected' : ''}>Mistral AI (Français)</option>
@@ -1105,8 +1235,8 @@ export const adminView = (app) => {
                                     
                                     <div class="pt-3 border-top mt-2">
                                         <div class="row mb-2 align-items-center">
-                                            <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Lien Instagram</label>
-                                            <div class="col-sm-8">
+                                            <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 140px;">Lien Instagram</label>
+                                            <div class="col">
                                                 <div class="position-relative">
                                                     <div class="position-absolute top-50 start-0 translate-middle-y ps-2 text-muted z-1">
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
@@ -1117,8 +1247,8 @@ export const adminView = (app) => {
                                         </div>
                                         
                                         <div class="row mb-2 align-items-center">
-                                            <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Lien Facebook</label>
-                                            <div class="col-sm-8">
+                                            <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 140px;">Lien Facebook</label>
+                                            <div class="col">
                                                 <div class="position-relative">
                                                     <div class="position-absolute top-50 start-0 translate-middle-y ps-2 text-muted z-1">
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
@@ -1129,8 +1259,8 @@ export const adminView = (app) => {
                                         </div>
                                         
                                         <div class="row mb-2 align-items-center">
-                                            <label class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted">Lien TikTok</label>
-                                            <div class="col-sm-8">
+                                            <label class="col-auto col-form-label col-form-label-sm fw-medium text-muted pe-2" style="width: 140px;">Lien TikTok</label>
+                                            <div class="col">
                                                 <div class="position-relative">
                                                     <div class="position-absolute top-50 start-0 translate-middle-y ps-2 text-muted z-1">
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>

@@ -107,6 +107,8 @@ class PilatesApp {
                 maxBooked: '',
                 userName: ''
             },
+            adminClassesSort: { column: 'date', direction: 'asc' },
+            adminClassesPagination: { page: 1, limit: 10 },
             ledgerFilters: { startDate: '', endDate: '' },
             ledgerSort: { column: 'date', direction: 'desc' },
             ledgerPagination: { page: 1, limit: 10 },
@@ -236,6 +238,8 @@ class PilatesApp {
             this.state.ledgerFilters = { startDate: '', endDate: '' };
             this.state.ledgerSort = { column: 'date', direction: 'desc' };
             this.state.ledgerPagination = { page: 1, limit: 10 };
+            this.state.adminClassesPagination = { page: 1, limit: 10 };
+            this.state.adminClassesSort = { column: 'date', direction: 'asc' };
             
             if (!window.opener) {
                 window.scrollTo(0, 0);
@@ -380,7 +384,13 @@ class PilatesApp {
     async setAdminTab(tab) {
         this.state.adminTab = tab;
         this.state.selectedAdminClasses = [];
-        if (tab === 'newsletter') {
+        if (tab === 'planning') {
+            this.state.adminClassesSort = { column: 'date', direction: 'asc' };
+            this.state.adminClassesPagination.page = 1;
+        } else if (tab === 'past_sessions') {
+            this.state.adminClassesSort = { column: 'date', direction: 'desc' };
+            this.state.adminClassesPagination.page = 1;
+        } else if (tab === 'newsletter') {
             this.state.selectedNewsletterRecipients = this.state.users
                 .filter(u => Number(u.newsletter_subscribed) === 1)
                 .map(u => u.id);
@@ -404,6 +414,34 @@ class PilatesApp {
     handleLedgerFilterChange(key, value) {
         this.state.ledgerFilters[key] = value;
         this.state.ledgerPagination.page = 1; // Retour à la première page
+        this.render();
+    }
+
+    /**
+     * Change la page affichée pour les séances côté admin.
+     */
+    setAdminClassesPage(page) {
+        this.state.adminClassesPagination.page = page;
+        this.render();
+    }
+
+    setAdminClassesLimit(limit) {
+        this.state.adminClassesPagination.limit = limit === 'all' ? 'all' : parseInt(limit);
+        this.state.adminClassesPagination.page = 1;
+        this.render();
+    }
+
+    /**
+     * Met à jour le tri du tableau des séances.
+     */
+    handleAdminClassesSort(column) {
+        if (this.state.adminClassesSort.column === column) {
+            this.state.adminClassesSort.direction = this.state.adminClassesSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.state.adminClassesSort.column = column;
+            this.state.adminClassesSort.direction = 'asc';
+        }
+        this.state.adminClassesPagination.page = 1;
         this.render();
     }
 

@@ -25,6 +25,14 @@
 }
 
 /* --- Configurations Globales --- */
+html {
+    accent-color: #10b981; /* emerald-500 : Teinte les sélections natives (bleu par défaut -> vert) */
+}
+html.dark {
+    color-scheme: dark; /* Force les popups natifs (date, heure) et scrollbars en mode sombre */
+    accent-color: #34d399; /* emerald-400 */
+}
+
 .custom-body {
     background-color: var(--stone-50);
     color: var(--stone-800);
@@ -536,6 +544,19 @@
     color: var(--stone-200) !important;
 }
 
+/* Supprimer la double bordure en bas des tableaux pour un arrondi parfait */
+.table > tbody > tr:last-child > td,
+.table > tbody > tr:last-child > th {
+    border-bottom: none !important;
+}
+
+.form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2310b981' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+}
+.dark .form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2334d399' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+}
+
 .form-control::placeholder { color: var(--stone-400) !important; opacity: 1 !important; }
 .dark .form-control::placeholder { color: var(--stone-400) !important; }
 
@@ -551,16 +572,44 @@
 .dark .form-check-input { background-color: var(--stone-700) !important; border-color: var(--stone-600) !important; }
 .dark .form-check-input:checked { background-color: var(--emerald-500) !important; border-color: var(--emerald-500) !important; }
 
-/* Amélioration des flèches des champs numériques */
+/* Amélioration des flèches des champs numériques (Teinte via Filtre pour Chrome/Safari) */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
-    opacity: 1; /* Toujours visible */
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 14px !important;
+    height: 1.5em !important;
+    min-height: 24px !important; /* Force l'affichage sur Chrome */
+    background-color: transparent !important; /* Retire le fond au survol */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2310b981' d='M8 3l4 4H4z M8 13l-4-4h8z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    background-size: 10px 14px !important;
     cursor: pointer;
-    padding: 0 4px;
+    opacity: 1 !important;
+    margin: 0 !important;
+    filter: none !important; /* Retire l'ancien filtre coloré de fond */
+}
+
+/* Colorisation des icônes d'horloge et de calendrier (Chrome/Safari) */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    background-color: transparent !important; /* Retire le fond au survol */
+    filter: invert(55%) sepia(61%) saturate(2288%) hue-rotate(114deg) brightness(96%) contrast(89%); /* Émeraude */
+}
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
+    background-color: transparent !important;
+    filter: invert(75%) sepia(35%) saturate(880%) hue-rotate(110deg) brightness(96%) contrast(90%); /* Émeraude clair */
 }
 .dark input[type="number"]::-webkit-inner-spin-button,
 .dark input[type="number"]::-webkit-outer-spin-button {
-    filter: invert(1) hue-rotate(180deg);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2334d399' d='M8 3l4 4H4z M8 13l-4-4h8z'/%3E%3C/svg%3E") !important;
+}
+/* S'assurer que le champ numérique garde un peu de padding à droite pour les flèches */
+input[type="number"] {
+    padding-right: 4px !important;
 }
 
 /* ------------------------------------------- */
@@ -734,4 +783,48 @@ select:focus,
     max-width: 250px !important;
     padding: 0.4rem 0.8rem !important;
     font-size: 0.75rem !important;
+}
+
+/* --- Dual Range Slider (Filtres Administration) --- */
+.dual-range-container {
+    position: relative;
+    width: 100%;
+    height: 16px;
+    display: flex;
+    align-items: center;
+}
+.dual-range-track {
+    position: absolute;
+    width: 100%;
+    height: 4px;
+    background-color: var(--stone-200);
+    border-radius: 2px;
+    z-index: 1;
+}
+.dark .dual-range-track { background-color: var(--stone-700); }
+.dual-range-fill {
+    position: absolute;
+    height: 4px;
+    background-color: var(--emerald-500);
+    border-radius: 2px;
+    z-index: 2;
+}
+.dual-range-input {
+    position: absolute;
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    background: none;
+    pointer-events: none;
+    z-index: 3;
+    margin: 0;
+    outline: none !important;
+}
+.dual-range-input:focus, .dual-range-input:active {
+    z-index: 4;
+}
+.dual-range-input::-webkit-slider-thumb, .dual-range-input::-moz-range-thumb {
+    appearance: none; -webkit-appearance: none; pointer-events: all;
+    width: 14px; height: 14px; background-color: #fff; border: 2px solid var(--emerald-600);
+    border-radius: 50%; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
