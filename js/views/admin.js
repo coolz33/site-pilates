@@ -64,6 +64,7 @@ export const adminView = (app) => {
                                 <button onclick="app.setAdminTab('templates')" class="admin-nav-btn ${st.adminTab === 'templates' ? 'active' : ''}">📋 Modèles de cours</button>
                                 <button onclick="app.setAdminTab('packages')" class="admin-nav-btn ${st.adminTab === 'packages' ? 'active' : ''}">💳 Tarifs & Packs</button>
                                 <button onclick="app.setAdminTab('users')" class="admin-nav-btn ${st.adminTab === 'users' ? 'active' : ''}">👥 Clients</button>
+                                <button onclick="app.setAdminTab('ledger')" class="admin-nav-btn ${st.adminTab === 'ledger' ? 'active' : ''}">📖 Livre de recettes</button>
                                 <button onclick="app.setAdminTab('newsletter')" class="admin-nav-btn ${st.adminTab === 'newsletter' ? 'active' : ''}">✉️ Newsletter</button>
                                 <button onclick="app.setAdminTab('settings')" class="admin-nav-btn ${st.adminTab === 'settings' ? 'active' : ''}">⚙️ Studio</button>
                             </nav>
@@ -472,6 +473,80 @@ export const adminView = (app) => {
                             </div>
                         ` : ''}
 
+                        ${!st.isAdminAiLoading && st.adminTab === 'ledger' ? (() => {
+                            const ledgerPurchases = (st.adminLedger || []).filter(t => t.type === 'purchase');
+                            return `
+                            <div class="custom-card p-0 overflow-hidden animate-fade-in">
+                                <div class="p-4 border-bottom bg-light d-flex justify-content-between align-items-center">
+                                    <h2 class="fs-5 fw-medium mb-0">Livre de recettes (Encaissements)</h2>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="small fw-medium text-muted">${ledgerPurchases.length} encaissement(s)</span>
+                                        <div class="d-flex gap-2">
+                                            <button onclick="app.exportLedgerToCSV()" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2" title="Format comptable standard">
+                                                CSV
+                                            </button>
+                                            <button onclick="app.exportLedgerToXLSX()" class="btn btn-sm btn-outline-success d-flex align-items-center gap-2" title="Ouvrir directement avec Excel">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                                Excel (.xlsx)
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="table-responsive" style="max-height: 700px; overflow-y: auto;">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead>
+                                            <tr class="small text-muted">
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Date</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Client</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Description</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Achat</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Montant HT</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">TVA (20%)</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Montant TTC</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${ledgerPurchases.map(t => {
+                                                let productText = '';
+                                                const isSub = t.amount >= 999 || (t.amount === 0 && t.description.toLowerCase().includes('abonnement'));
+                                                
+                                                const priceMatch = t.description.match(/\((\d+)€\)/);
+                                                const price = priceMatch ? parseInt(priceMatch[1]) : null;
+                                                
+                                                const descriptionWithoutPrice = t.description.replace(/\s*\(\d+€\)/, '');
+
+                                                let pkg = null;
+                                                if (isSub) {
+                                                    pkg = st.creditPackages.find(p => p.is_subscription && (price === null || p.price === price)) || st.creditPackages.find(p => p.is_subscription);
+                                                    productText = pkg ? (pkg.subtitle || pkg.name) : 'Abonnement';
+                                                } else {
+                                                    pkg = st.creditPackages.find(p => p.credits === t.amount && (price === null || p.price === price)) || st.creditPackages.find(p => p.credits === t.amount && !p.is_subscription);
+                                                    productText = pkg ? (pkg.subtitle || pkg.name) : `${t.amount} cours`;
+                                                }
+
+                                                // Calculs comptables
+                                                const priceTTC = price !== null ? price : 0;
+                                                const priceHT = priceTTC > 0 ? (priceTTC / 1.2).toFixed(2) : '-';
+                                                const tvaAmount = priceTTC > 0 ? (priceTTC - (priceTTC / 1.2)).toFixed(2) : '-';
+
+                                                return `
+                                                <tr>
+                                                    <td class="p-3 small text-muted text-nowrap">${t.date}</td>
+                                                    <td class="p-3 fw-medium"><button class="btn btn-link p-0 text-decoration-none text-emerald text-start" onclick="app.viewUser(${t.user_id})">${t.firstName || 'Client'} ${t.lastName || 'Supprimé'}</button></td>
+                                                    <td class="p-3 small">${descriptionWithoutPrice}</td>
+                                                    <td class="p-3 fw-bold text-success">${productText}</td>
+                                                    <td class="p-3 fw-bold text-muted">${priceHT !== '-' ? priceHT + ' €' : '-'}</td>
+                                                    <td class="p-3 fw-bold text-muted">${tvaAmount !== '-' ? tvaAmount + ' €' : '-'}</td>
+                                                    <td class="p-3 fw-bold">${price !== null ? price.toFixed(2) + ' €' : '-'}</td>
+                                                </tr>`;
+                                            }).join('')}
+                                            ${!ledgerPurchases.length ? '<tr><td colspan="7" class="p-4 text-center text-muted">Aucun encaissement trouvé</td></tr>' : ''}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;})() : ''}
+
                         ${!st.isAdminAiLoading && st.adminTab === 'user_details' && st.selectedUserDetails && st.selectedUserDetails.user ? (() => {
                             const { user, bookings, transactions, activeBatches } = st.selectedUserDetails;
                             const now = new Date();
@@ -585,7 +660,7 @@ export const adminView = (app) => {
                                         </div>
 
                                         <form onsubmit="app.adjustUserCredits(event, ${user.id})" class="p-3 bg-light border rounded-3 mt-3">
-                                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                            <div class="d-flex flex-wrap align-items-center gap-3">
                                                 <label class="fw-medium small mb-0 text-nowrap">Ajouter des cours :</label>
                                                 <input type="number" name="amount" placeholder="Qté" required min="1" class="form-control form-control-sm text-center px-1" style="width: 60px;">
                                                 
@@ -593,18 +668,16 @@ export const adminView = (app) => {
                                                     <input type="checkbox" id="admin-exp-cb" class="form-check-input mt-0 cursor-pointer" onchange="document.getElementById('admin-exp-div').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('admin-exp-input').value = '0';">
                                                     <label class="form-check-label small text-muted cursor-pointer text-nowrap" style="padding-top: 2px;" for="admin-exp-cb">A une expiration ?</label>
                                                 </div>
-                                                
-                                                <button type="submit" class="btn btn-emerald btn-sm ms-auto px-4">Ajouter</button>
-                                            </div>
-                                            
-                                            <div class="d-none mt-3" id="admin-exp-div">
-                                                <div class="d-flex align-items-center justify-content-end gap-2">
+                                                <div class="d-none d-flex align-items-center gap-2" id="admin-exp-div">
                                                     <label class="small text-muted mb-0">Expire dans :</label>
-                                                    <div class="input-group input-group-sm" style="max-width: 150px;">
-                                                        <input type="number" id="admin-exp-input" name="expires_in_days" value="0" min="0" class="form-control text-center">
-                                                        <span class="input-group-text">jours</span>
-                                                    </div>
+                                                    <input type="number" id="admin-exp-input" name="expires_in_value" value="0" min="0" class="form-control form-control-sm text-center" style="width: 70px;">
+                                                    <select name="expires_in_unit" class="form-select form-select-sm text-muted small" style="width: auto; padding-right: 2rem; cursor: pointer;">
+                                                        <option value="days">jours</option>
+                                                        <option value="months">mois</option>
+                                                        <option value="years">années</option>
+                                                    </select>
                                                 </div>
+                                                <button type="submit" class="btn btn-emerald btn-sm ms-auto px-4">Ajouter</button>
                                             </div>
                                         </form>
                                     </div>

@@ -172,6 +172,7 @@ const seedDB = async () => {
         try { await pool.query(`ALTER TABLE users ADD COLUMN is_subscribed BOOLEAN DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE credit_packages ADD COLUMN is_subscription BOOLEAN DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE users ADD COLUMN subscription_expires_at DATETIME DEFAULT NULL`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE bookings ADD COLUMN refund_expires_at DATETIME DEFAULT NULL`); } catch (e) {}
         
         // Migration : Convertit les faux lots de 999 crédits en véritables dates d'abonnement
         try {
@@ -376,6 +377,16 @@ const handleRequest = async (req, res) => {
                 ORDER BY expires_at IS NULL, expires_at ASC`, [userId]);
 
             return send(200, { user: user[0], bookings, transactions, activeBatches });
+        }
+
+        if (method === 'GET' && path === '/transactions') {
+            const [transactions] = await pool.query(`
+                SELECT t.id, t.user_id, t.type, t.amount, t.description, DATE_FORMAT(t.date, '%d/%m/%Y %H:%i') as date, u.firstName, u.lastName 
+                FROM transactions t 
+                LEFT JOIN users u ON t.user_id = u.id 
+                ORDER BY t.date DESC LIMIT 1000
+            `);
+            return send(200, transactions);
         }
 
         const roleMatch = path.match(/^\/users\/(\d+)\/role$/);
@@ -869,7 +880,7 @@ const handleRequest = async (req, res) => {
             if (existing.length > 0) return send(400, { success: false, message: 'Déjà inscrit' });
 
             if (currentBookings < capacity) {
-                await pool.query('INSERT INTO bookings (class_id, user_id) VALUES (?, ?)', [classId, userId]);
+                await pool.query('INSERT INTO bookings (class_id, user_id, refund_expires_at) VALUES (?, ?, NULL)', [classId, userId]);
                 return send(200, { success: true, message: 'Réservation ajoutée' });
             } else {
                 return send(400, { success: false, message: 'Le cours est complet' });
@@ -882,7 +893,7 @@ const handleRequest = async (req, res) => {
 
             await cleanupExpiredBatches(userId);
             const [userRows] = await pool.query('SELECT credits_balance, is_subscribed FROM users WHERE id = ?', [userId]);
-            const [classRows] = await pool.query('SELECT title, credits_price, capacity FROM classes WHERE id = ?', [classId]);
+            const [classRows] = await pool.query('SELECT title, date, credits_price, capacity FROM classes WHERE id = ?', [classId]);
             const [bookingCount] = await pool.query('SELECT COUNT(*) as count FROM bookings WHERE class_id = ?', [classId]);
 
             if (!userRows.length || !classRows.length) return send(404, { message: 'Erreur' });
@@ -897,6 +908,7 @@ const handleRequest = async (req, res) => {
                 return send(400, { success: false, message: 'Cours complet' });
             }
 
+            let isUsingExtraCredit = false;
             if (userRows[0].is_subscribed) {
                 const [weeklyBookings] = await pool.query(`
                     SELECT COUNT(*) as count 
@@ -906,33 +918,52 @@ const handleRequest = async (req, res) => {
                 `, [userId, cls.date]);
 
                 if (weeklyBookings[0].count >= 1) {
-                    return send(400, { success: false, message: "Limite d'un cours par semaine atteinte (Abonnement)." });
+                    if (user.credits_balance < cls.credits_price) {
+                        return send(400, { success: false, message: "Limite d'un cours par semaine atteinte et solde insuffisant." });
+                    } else {
+                        isUsingExtraCredit = true;
+                    }
                 }
             }
 
             await pool.query('START TRANSACTION');
+            let refundExpiresAt = null;
             
-            if (!userRows[0].is_subscribed) {
-                // Déduire un cours du lot le plus proche de l'expiration
+            if (!userRows[0].is_subscribed || isUsingExtraCredit) {
+                // Déduire les cours nécessaires en vidant les lots qui expirent le plus vite
+                let toDeduct = cls.credits_price;
                 const [batches] = await pool.query(`
-                    SELECT id, credits 
+                    SELECT id, credits, expires_at 
                     FROM user_batches 
                     WHERE user_id = ? AND credits > 0 AND (expires_at IS NULL OR expires_at > NOW())
                     ORDER BY expires_at IS NULL, expires_at ASC
-                    LIMIT 1
                 `, [userId]);
-                if (batches.length > 0) {
-                    await pool.query('UPDATE user_batches SET credits = credits - 1 WHERE id = ?', [batches[0].id]);
+                
+                let usedExpirations = [];
+                for (const b of batches) {
+                    if (toDeduct <= 0) break;
+                    const deduction = Math.min(b.credits, toDeduct);
+                    await pool.query('UPDATE user_batches SET credits = credits - ? WHERE id = ?', [deduction, b.id]);
+                    toDeduct -= deduction;
+                    usedExpirations.push(b.expires_at);
+                }
+                
+                if (usedExpirations.includes(null)) {
+                    refundExpiresAt = null;
+                } else if (usedExpirations.length > 0) {
+                    const maxDate = new Date(Math.max(...usedExpirations.map(e => new Date(e))));
+                    const pad = n => n < 10 ? '0' + n : n;
+                    refundExpiresAt = `${maxDate.getFullYear()}-${pad(maxDate.getMonth()+1)}-${pad(maxDate.getDate())} ${pad(maxDate.getHours())}:${pad(maxDate.getMinutes())}:${pad(maxDate.getSeconds())}`;
                 }
                 
                 await pool.query('UPDATE users SET credits_balance = GREATEST(0, credits_balance - ?) WHERE id = ?', [cls.credits_price, userId]);
-                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'booking', -cls.credits_price, `Réservation : ${cls.title || 'Séance'}`]);
+                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'booking', -cls.credits_price, `Réservation${isUsingExtraCredit ? ' (Supp)' : ''} : ${cls.title || 'Séance'}`]);
             } else {
                 // Pour un abonnement, on enregistre une transaction neutre sans toucher aux crédits
                 await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'booking', 0, `Réservation (Abonnement) : ${cls.title || 'Séance'}`]);
             }
             
-            await pool.query('INSERT INTO bookings (class_id, user_id) VALUES (?, ?)', [classId, userId]);
+            await pool.query('INSERT INTO bookings (class_id, user_id, refund_expires_at) VALUES (?, ?, ?)', [classId, userId, refundExpiresAt]);
             await pool.query('COMMIT');
 
             const [updatedUser] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
@@ -971,11 +1002,28 @@ const handleRequest = async (req, res) => {
                 }
             }
 
+            let isRefundingExtraCredit = false;
+            if (isSubscribed && cls.length) {
+                const [weeklyBookings] = await pool.query(`
+                    SELECT COUNT(*) as count 
+                    FROM bookings b 
+                    JOIN classes c_booked ON b.class_id = c_booked.id 
+                    WHERE b.user_id = ? AND YEARWEEK(c_booked.date, 1) = YEARWEEK(?, 1)
+                `, [userId, cls[0].date]);
+
+                if (weeklyBookings[0].count > 1) {
+                    isRefundingExtraCredit = true;
+                }
+            }
+
             let creditsToRefund = (cls.length && cls[0].credits_price) ? cls[0].credits_price : 0;
             
-            if (isSubscribed) {
-                creditsToRefund = 0; // Pas de remboursement de crédit pour les abonnés
+            if (isSubscribed && !isRefundingExtraCredit) {
+                creditsToRefund = 0; // Pas de remboursement de crédit pour les abonnés si c'est leur seul cours de la semaine
             }
+
+            const [booking] = await pool.query('SELECT refund_expires_at FROM bookings WHERE class_id = ? AND user_id = ?', [classId, userId]);
+            let refundExpiresAt = booking.length > 0 ? booking[0].refund_expires_at : null;
 
             await pool.query('START TRANSACTION');
             const [result] = await pool.query('DELETE FROM bookings WHERE class_id = ? AND user_id = ?', [classId, userId]);
@@ -983,7 +1031,7 @@ const handleRequest = async (req, res) => {
             if (result.affectedRows > 0 && creditsToRefund > 0) {
                 await pool.query('UPDATE users SET credits_balance = credits_balance + ? WHERE id = ?', [creditsToRefund, userId]);
                 await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'refund', creditsToRefund, `Annulation : ${cls[0].title}`]);
-                await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, NULL)', [userId, creditsToRefund]);
+                await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, ?)', [userId, creditsToRefund, refundExpiresAt]);
             } else if (result.affectedRows > 0 && isSubscribed) {
                 await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'refund', 0, `Annulation (Abonnement) : ${cls[0].title}`]);
             }

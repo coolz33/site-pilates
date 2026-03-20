@@ -39,6 +39,8 @@ export const classService = {
 
             // Vérifier la limite d'abonnement (1 cours par semaine)
             let limitReached = false;
+            let isSubscriptionExtra = false;
+            const classCost = cls.credits_price || 1;
             if (app.state.currentUser.is_subscribed) {
                 const getWeekStart = (dateStr) => {
                     const [y, m, d] = dateStr.split('-');
@@ -49,15 +51,23 @@ export const classService = {
                     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                 };
                 const targetWeekStart = getWeekStart(cls.date);
-                limitReached = app.state.classes.some(c => 
+                const weeklyCount = app.state.classes.filter(c => 
                     c.bookedUsers.includes(app.state.currentUser.id) && getWeekStart(c.date) === targetWeekStart
-                );
+                ).length;
+
+                limitReached = weeklyCount >= 1;
+                
+                if (limitReached && (parseInt(app.state.currentUser.credits_balance) || 0) >= classCost) {
+                    isSubscriptionExtra = true;
+                }
             }
 
-            if (limitReached) {
-                app.state.modalMessage = { type: 'error', text: 'Vous avez déjà atteint votre limite d\'un cours pour cette semaine.', isSubscriptionLimit: true };
-            } else if (!app.state.currentUser.is_subscribed && (parseInt(app.state.currentUser.credits_balance) || 0) < 1) {
-                app.state.modalMessage = { type: 'error', text: 'Solde de cours insuffisant', isInsufficientCredits: true };
+            if (limitReached && !isSubscriptionExtra) {
+                app.state.modalMessage = { type: 'error', isSubscriptionLimit: true };
+            } else if (limitReached && isSubscriptionExtra) {
+                app.state.modalMessage = { type: 'info', isSubscriptionExtra: true };
+            } else if (!app.state.currentUser.is_subscribed && (parseInt(app.state.currentUser.credits_balance) || 0) < classCost) {
+                app.state.modalMessage = { type: 'error', isInsufficientCredits: true };
             } else {
                 app.state.modalMessage = null;
             }
@@ -72,15 +82,13 @@ export const classService = {
         if (!cls || cls.bookedUsers.length >= cls.capacity) return;
 
         // Réinitialiser le message d'erreur précédent
-        app.state.modalMessage = null;
+        if (app.state.modalMessage?.text) app.state.modalMessage.text = null;
 
         // Vérification de la case à cocher
-        if (!app.state.currentUser.is_subscribed) {
-            const confirmCheck = document.getElementById('confirm-credits');
-            if (!confirmCheck || !confirmCheck.checked) {
-                app.state.modalMessage = { type: 'error', text: "Veuillez cocher la case pour confirmer l'utilisation d'un cours." };
-                return app.render();
-            }
+        const confirmCheck = document.getElementById('confirm-credits');
+        if (confirmCheck && !confirmCheck.checked) {
+            app.state.modalMessage = { ...app.state.modalMessage, type: 'error', text: "Veuillez cocher la case pour confirmer l'utilisation d'un cours." };
+            return app.render();
         }
 
         // Paiement par crédits

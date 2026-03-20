@@ -155,6 +155,7 @@ export const renderFooter = (app) => {
                         <ul class="list-unstyled small d-flex flex-column gap-1">
                             <li><button onclick="app.navigate('mentions-legales')" class="footer-link"><span class="text-muted">→</span> Mentions Légales</button></li>
                             <li><button onclick="app.navigate('politique-confidentialite')" class="footer-link"><span class="text-muted">→</span> Politique de Confidentialité</button></li>
+                            <li><button onclick="app.navigate('cgv')" class="footer-link"><span class="text-muted">→</span> Conditions Générales de Vente</button></li>
                         </ul>
                     </div>
                 </div>
@@ -202,8 +203,9 @@ export const renderPaymentModal = (app, container) => {
         const userBalance = parseInt(app.state.currentUser?.credits_balance) || 0;
         const classCost = cls.credits_price ?? 1;
         const isSubscriptionLimit = app.state.modalMessage?.isSubscriptionLimit;
+        const isSubscriptionExtra = app.state.modalMessage?.isSubscriptionExtra;
         const isInsufficient = !app.state.currentUser?.is_subscribed && userBalance < classCost;
-        const cannotBook = isInsufficient || isSubscriptionLimit;
+        const cannotBook = isInsufficient || isSubscriptionLimit || (!app.state.currentUser?.is_subscribed && userBalance < classCost);
 
         // Calcul de la date d'annulation limite
         const delayHours = app.state.cancellationDelay || 24;
@@ -225,34 +227,46 @@ export const renderPaymentModal = (app, container) => {
                     </p>
                     <form onsubmit="app.confirmPayment(event)" class="d-flex flex-column gap-4">
                         
-                        ${app.state.modalMessage ? `
+                        ${app.state.modalMessage && app.state.modalMessage.text ? `
                             <div class="p-3 rounded-3 small animate-fade-in ${app.state.modalMessage.type === 'error' ? 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25' : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'}">
                                 <p class="d-flex align-items-center gap-2 mb-0">
                                     <span>${app.state.modalMessage.type === 'error' ? '⚠️' : 'ℹ️'}</span>
                                     ${app.state.modalMessage.text}
                                 </p>
-                                ${app.state.modalMessage.isInsufficientCredits ? `
-                                    <button type="button" onclick="app.navigate('tarifs'); app.state.showPaymentModal=false; app.render()" class="btn btn-link text-danger p-0 mt-2 w-100 text-end small fw-bold text-uppercase text-decoration-none">
-                                        Acheter des cours →
-                                    </button>
-                                ` : ''}
                             </div>
                         ` : ''}
 
                         ${isSubscriptionLimit ? `
                             <div class="p-4 rounded-3 text-center d-flex flex-column gap-1 border bg-danger bg-opacity-10 text-danger border-danger border-opacity-25">
                                 <span class="fw-bold">Limite d'abonnement atteinte</span>
-                                <span class="small">Vous avez déjà réservé un cours pour cette semaine.</span>
+                                <span class="small">Vous avez déjà réservé votre cours pour cette semaine et n'avez pas de cours supplémentaire.</span>
+                                <button type="button" onclick="app.navigate('tarifs'); app.state.showPaymentModal=false; app.render()" class="btn btn-sm btn-outline-danger mt-3 fw-medium">
+                                    Acheter des cours
+                                </button>
                             </div>
                         ` : (isInsufficient ? `
                             <div class="p-4 rounded-3 text-center d-flex flex-column gap-1 border bg-danger bg-opacity-10 text-danger border-danger border-opacity-25">
                                 <span class="fw-bold">Solde insuffisant</span>
-                                <span class="small">Votre solde : ${app.state.currentUser?.is_subscribed ? 'Abonné' : userBalance + ' cours'}</span>
+                                <span class="small">Votre solde : ${userBalance} cours</span>
+                                <button type="button" onclick="app.navigate('tarifs'); app.state.showPaymentModal=false; app.render()" class="btn btn-sm btn-outline-danger mt-3 fw-medium">
+                                    Acheter des cours
+                                </button>
+                            </div>
+                        ` : (isSubscriptionExtra ? `
+                            <div class="p-4 rounded-3 text-center d-flex flex-column gap-1 border bg-success bg-opacity-10 text-success border-success border-opacity-25">
+                                <span class="fw-bold">Cours supplémentaire</span>
+                                <span class="small">Vous avez déjà utilisé votre cours hebdomadaire. Cette réservation déduira <strong>${classCost} cours</strong> de votre solde supplémentaire (Solde actuel : ${userBalance}).</span>
+                                <div class="mt-3 pt-3 border-top border-success border-opacity-25 d-flex align-items-center justify-content-center gap-2">
+                                    <input type="checkbox" id="confirm-credits" required class="form-check-input mt-0">
+                                    <label for="confirm-credits" class="small fw-medium text-success">
+                                        Je confirme l'utilisation d'un cours
+                                    </label>
+                                </div>
                             </div>
                         ` : (app.state.currentUser?.is_subscribed ? `
                             <div class="p-4 rounded-3 text-center d-flex flex-column gap-1 border bg-success bg-opacity-10 text-success border-success border-opacity-25">
                                 <span class="fw-bold">Utilisation de l'abonnement</span>
-                                <span class="small">Cette réservation utilise votre accès abonné (1 cours / semaine).</span>
+                                <span class="small">Cette réservation utilise votre accès abonné hebdomadaire disponible.</span>
                             </div>
                         ` : `
                             <div class="p-4 rounded-3 text-center d-flex flex-column gap-1 border bg-success bg-opacity-10 text-success border-success border-opacity-25">
@@ -265,7 +279,7 @@ export const renderPaymentModal = (app, container) => {
                                     </label>
                                 </div>
                             </div>
-                        `))}
+                        `)))}
                         <div class="d-flex gap-3 mt-2">
                             <button type="button" onclick="app.cancelPayment()" class="btn btn-light border w-100">Annuler</button>
                             <button type="submit" ${cannotBook ? 'disabled' : ''} class="btn w-100 ${cannotBook ? 'btn-secondary disabled' : 'btn-emerald'}">
@@ -341,14 +355,14 @@ export const renderCalendarModal = (app, container) => {
                         Votre réservation pour <strong class="text-emerald">${cls.title}</strong> est confirmée.
                         Ajoutez-la à votre calendrier pour ne rien oublier !
                     </p>
-                    <div class="d-flex flex-column gap-3">
-                        <a href="${googleCalendarLink}" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-100 py-2">
+                    <div class="d-flex flex-column gap-2">
+                        <a href="${googleCalendarLink}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-emerald rounded-pill w-100 fw-medium">
                             Ajouter à Google Calendar
                         </a>
-                        <a href="${outlookCalendarLink}" target="_blank" rel="noopener noreferrer" class="btn btn-info text-white w-100 py-2" style="background-color: #0078d4;">
+                        <a href="${outlookCalendarLink}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-success rounded-pill w-100 fw-medium">
                             Ajouter à Outlook Calendar
                         </a>
-                        <a href="${icsDataUri}" download="${cls.title.replace(/\s/g, '_')}.ics" class="btn btn-secondary w-100 py-2">
+                        <a href="${icsDataUri}" download="${cls.title.replace(/\s/g, '_')}.ics" class="btn btn-sm btn-outline-secondary rounded-pill w-100 fw-medium">
                             Télécharger le fichier .ics (Apple, autres)
                         </a>
                     </div>

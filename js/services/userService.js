@@ -58,6 +58,11 @@ export const userService = {
             return;
         }
 
+        if (app.state.currentUser.is_subscribed) {
+            const confirmed = await app.confirmDialog("Vous êtes déjà abonné(e).\n\nVoulez-vous vraiment acheter des cours supplémentaires ?", { type: 'info', confirmText: 'Oui, acheter' });
+            if (!confirmed) return;
+        }
+
         // Ouvrir le popup immédiatement
         const width = 600;
         const height = 800;
@@ -206,7 +211,22 @@ export const userService = {
     async adjustUserCredits(app, e, userId) {
         e.preventDefault();
         const amount = parseInt(e.target.amount.value);
-        const expires_in_days = parseInt(e.target.expires_in_days?.value || 0);
+        let expires_in_days = 0;
+
+        if (e.target.expires_in_value) {
+            const expires_value = parseInt(e.target.expires_in_value.value || 0);
+            const expires_unit = e.target.expires_in_unit.value || 'days';
+            
+            if (expires_value > 0) {
+                const now = new Date();
+                const future = new Date(now);
+                if (expires_unit === 'days') future.setDate(future.getDate() + expires_value);
+                else if (expires_unit === 'months') future.setMonth(future.getMonth() + expires_value);
+                else if (expires_unit === 'years') future.setFullYear(future.getFullYear() + expires_value);
+                
+                expires_in_days = Math.ceil((future - now) / (1000 * 60 * 60 * 24));
+            }
+        }
 
         await fetch(`${API_URL}/users/${userId}/batches`, {
             method: 'POST',

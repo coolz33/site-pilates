@@ -78,6 +78,7 @@ class PilatesApp {
             isHtmlView: false,
             selectedNewsletterRecipients: [],
             selectedUserDetails: null,
+            adminLedger: [],
             adminUserQuill: null,
             adminUserMessageContent: '',
             isSendingAdminMessage: false,
@@ -192,31 +193,37 @@ class PilatesApp {
         const path = window.location.pathname;
         const queryParams = new URLSearchParams(window.location.search);
 
-        this.state.isVerifyingEmail = false;
-        this.state.registrationData = null;
-        clearInterval(this.state.resendCodeInterval);
-        this.state.resendCodeTimer = 0;
-        this.state.isMenuOpen = false;
-        this.state.aiResponse = '';
-        this.state.userSearchQuery = '';
-        this.state.showCalendarModal = false;
-        this.state.selectedAdminClasses = [];
-        this.state.adminAddClassForm = {
-            templateId: '',
-            title: '',
-            description: '',
-            date: '',
-            time: '',
-            duration: 60,
-            capacity: 10,
-            creditsPrice: 1,
-            recurrenceType: 'weekly',
-            recurrenceEnd: ''
-        };
-        this.state.classForCalendar = null;
-        
-        if (!window.opener) {
-            window.scrollTo(0, 0);
+        const segments = path.split('/').filter(Boolean);
+        let view = segments.length > 0 ? segments[segments.length - 1] : 'accueil';
+        const isViewChange = this.state.view !== view;
+
+        if (isViewChange) {
+            this.state.isVerifyingEmail = false;
+            this.state.registrationData = null;
+            clearInterval(this.state.resendCodeInterval);
+            this.state.resendCodeTimer = 0;
+            this.state.isMenuOpen = false;
+            this.state.aiResponse = '';
+            this.state.userSearchQuery = '';
+            this.state.showCalendarModal = false;
+            this.state.selectedAdminClasses = [];
+            this.state.adminAddClassForm = {
+                templateId: '',
+                title: '',
+                description: '',
+                date: '',
+                time: '',
+                duration: 60,
+                capacity: 10,
+                creditsPrice: 1,
+                recurrenceType: 'weekly',
+                recurrenceEnd: ''
+            };
+            this.state.classForCalendar = null;
+            
+            if (!window.opener) {
+                window.scrollTo(0, 0);
+            }
         }
 
         if (queryParams.get('desabonne') === 'success') {
@@ -233,9 +240,6 @@ class PilatesApp {
             history.replaceState(null, '', window.location.pathname);
         }
 
-        const segments = path.split('/').filter(Boolean);
-        let view = segments.length > 0 ? segments[segments.length - 1] : 'accueil';
-
         if (view === 'reset-password' && queryParams.has('token')) {
             this.state.resetPasswordToken = queryParams.get('token');
             history.replaceState(null, '', window.location.pathname);
@@ -246,8 +250,10 @@ class PilatesApp {
         }
 
         this.state.view = view;
-        if (this.state.view === 'profil') this.state.profileTab = 'infos';
-        if (this.state.view === 'planning') this.state.currentDate = new Date();
+        if (isViewChange) {
+            if (this.state.view === 'profil') this.state.profileTab = 'infos';
+            if (this.state.view === 'planning') this.state.currentDate = new Date();
+        }
 
         try {
             console.log("[APP] Chargement des données initiales...");
@@ -353,15 +359,164 @@ class PilatesApp {
      * Gère également l'auto-sélection des abonnés pour la newsletter.
      * @param {string} tab - Nom de l'onglet admin.
      */
-    setAdminTab(tab) {
+    async setAdminTab(tab) {
         this.state.adminTab = tab;
         this.state.selectedAdminClasses = [];
         if (tab === 'newsletter') {
             this.state.selectedNewsletterRecipients = this.state.users
                 .filter(u => Number(u.newsletter_subscribed) === 1)
                 .map(u => u.id);
+        } else if (tab === 'ledger') {
+            this.state.isAdminAiLoading = true;
+            this.render();
+            try {
+                const res = await fetch(`${API_URL}/transactions`);
+                if (res.ok) this.state.adminLedger = await res.json();
+            } catch (e) {
+                console.error("Erreur de chargement du livre de recettes", e);
+            }
+            this.state.isAdminAiLoading = false;
         }
         this.render();
+    }
+
+    /**
+     * Exporte les encaissements du livre de recettes au format Excel (.xlsx) natif.
+     */
+    async exportLedgerToXLSX() {
+        const ledgerPurchases = (this.state.adminLedger || []).filter(t => t.type === 'purchase');
+        if (ledgerPurchases.length === 0) return this.showNotification("Aucune donnée à exporter.", "warning");
+
+        this.showNotification("Génération du fichier Excel en cours...", "info");
+
+        // Chargement dynamique de la librairie SheetJS pour créer un vrai XLSX
+        if (typeof XLSX === 'undefined') {
+            try {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            } catch (e) {
+                return this.showNotification("Erreur lors du chargement de la librairie Excel.", "error");
+            }
+        }
+
+        const data = ledgerPurchases.map(t => {
+            const client = `${t.firstName || ''} ${t.lastName || ''}`.trim() || 'Client Supprimé';
+            let productText = '';
+            const isSub = t.amount >= 999 || (t.amount === 0 && t.description.toLowerCase().includes('abonnement'));
+            const priceMatch = t.description.match(/\((\d+)€\)/);
+            const price = priceMatch ? parseInt(priceMatch[1]) : 0;
+            
+            const descriptionWithoutPrice = t.description.replace(/\s*\(\d+€\)/, '');
+
+            let pkg = null;
+            if (isSub) {
+                pkg = this.state.creditPackages.find(p => p.is_subscription && (price === 0 || p.price === price)) || this.state.creditPackages.find(p => p.is_subscription);
+                productText = pkg ? (pkg.subtitle || pkg.name) : 'Abonnement';
+            } else {
+                pkg = this.state.creditPackages.find(p => p.credits === t.amount && (price === 0 || p.price === price)) || this.state.creditPackages.find(p => p.credits === t.amount && !p.is_subscription);
+                productText = pkg ? (pkg.subtitle || pkg.name) : `${t.amount} cours`;
+            }
+
+            const priceTTC = price || 0;
+            const priceHT = priceTTC > 0 ? Number((priceTTC / 1.2).toFixed(2)) : 0;
+            const tva = priceTTC > 0 ? Number((priceTTC - (priceTTC / 1.2)).toFixed(2)) : 0;
+
+            return {
+                "Date": t.date,
+                "Client": client,
+                "Description": descriptionWithoutPrice,
+                "Produit acheté": productText,
+                "Montant HT (€)": priceHT,
+                "TVA 20% (€)": tva,
+                "Montant TTC (€)": priceTTC
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        
+        // 1. Espacement intelligent des colonnes
+        worksheet['!cols'] = [
+            { wch: 18 }, // Date
+            { wch: 25 }, // Client
+            { wch: 50 }, // Description
+            { wch: 25 }, // Produit acheté
+            { wch: 15 }, // Montant HT
+            { wch: 15 }, // TVA
+            { wch: 15 }  // Montant TTC
+        ];
+
+        // 2. Activation des filtres et du tri sur les colonnes
+        worksheet['!autofilter'] = { ref: `A1:G${data.length + 1}` };
+
+        // 3. Stylisation de la ligne d'en-tête (Ligne 1)
+        for (let C = 0; C <= 6; ++C) {
+            const address = XLSX.utils.encode_col(C) + "1";
+            if (worksheet[address]) {
+                worksheet[address].s = {
+                    fill: { fgColor: { rgb: "FF10B981" } }, // Vert émeraude
+                    font: { color: { rgb: "FFFFFFFF" }, bold: true }, // Texte Blanc
+                    alignment: { horizontal: "center", vertical: "center" }
+                };
+            }
+        }
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Livre de recettes");
+        
+        XLSX.writeFile(workbook, `Livre_Recettes_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
+
+    /**
+     * Exporte les encaissements du livre de recettes au format CSV lisible sous Excel.
+     */
+    exportLedgerToCSV() {
+        const ledgerPurchases = (this.state.adminLedger || []).filter(t => t.type === 'purchase');
+        if (ledgerPurchases.length === 0) return this.showNotification("Aucune donnée à exporter.", "warning");
+
+        // En-têtes du CSV (utilisation du point-virgule pour compatibilité Excel FR)
+        let csvContent = "Date;Client;Description;Produit achete;Montant HT (€);TVA 20% (€);Montant TTC (€)\n";
+
+        ledgerPurchases.forEach(t => {
+            const client = `${t.firstName || ''} ${t.lastName || ''}`.trim() || 'Client Supprime';
+            let productText = '';
+            const isSub = t.amount >= 999 || (t.amount === 0 && t.description.toLowerCase().includes('abonnement'));
+            const priceMatch = t.description.match(/\((\d+)€\)/);
+            const price = priceMatch ? parseInt(priceMatch[1]) : 0;
+            
+            const descriptionWithoutPrice = t.description.replace(/\s*\(\d+€\)/, '');
+
+            let pkg = null;
+            if (isSub) {
+                pkg = this.state.creditPackages.find(p => p.is_subscription && (price === 0 || p.price === price)) || this.state.creditPackages.find(p => p.is_subscription);
+                productText = pkg ? (pkg.subtitle || pkg.name) : 'Abonnement';
+            } else {
+                pkg = this.state.creditPackages.find(p => p.credits === t.amount && (price === 0 || p.price === price)) || this.state.creditPackages.find(p => p.credits === t.amount && !p.is_subscription);
+                productText = pkg ? (pkg.subtitle || pkg.name) : `${t.amount} cours`;
+            }
+
+            // Calculs comptables
+            const priceTTC = price || 0;
+            const priceHT = priceTTC > 0 ? (priceTTC / 1.2).toFixed(2).replace('.', ',') : '0';
+            const tva = priceTTC > 0 ? (priceTTC - (priceTTC / 1.2)).toFixed(2).replace('.', ',') : '0';
+
+            const escapeCsv = (str) => `"${String(str).replace(/"/g, '""')}"`;
+            csvContent += `${escapeCsv(t.date)};${escapeCsv(client)};${escapeCsv(descriptionWithoutPrice)};${escapeCsv(productText)};${priceHT};${tva};${priceTTC.toFixed(2).replace('.', ',')}\n`;
+        });
+
+        // Ajout du BOM (Byte Order Mark) pour forcer Excel à lire le fichier en UTF-8 (gestion des accents)
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Livre_Recettes_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     /**
@@ -666,6 +821,7 @@ class PilatesApp {
                 administration: adminView,
                 'mentions-legales': (app) => legalView(app, 'mentions-legales'),
                 'politique-confidentialite': (app) => legalView(app, 'politique-confidentialite'),
+                'cgv': (app) => legalView(app, 'cgv'),
             };
             let html = viewMap[v] ? viewMap[v](this) : '';
             

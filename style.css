@@ -503,6 +503,14 @@
 .table-active > * { background-color: var(--emerald-50) !important; }
 .dark .table-active > * { background-color: rgba(6, 78, 59, 0.2) !important; }
 
+/* Forcer le fond opaque pour les entêtes figées du tableau (Livre de recettes) */
+.table > thead > tr > th.position-sticky {
+    background-color: var(--stone-50) !important;
+}
+.dark .table > thead > tr > th.position-sticky {
+    background-color: var(--stone-800) !important;
+}
+
 /* --- Composants Sémantiques Formulaires --- */
 .form-control, .form-select {
     background-color: var(--stone-50) !important;
