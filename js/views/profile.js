@@ -210,15 +210,15 @@ export const profileView = (app) => {
                             const hoursDiff = (classDate - now) / 1000 / 60 / 60;
                             const canCancel = hoursDiff >= delayHours;
                             return `
-                            <div class="profile-session-card p-3">
-                                <div class="fw-bold text-emerald">${c.title}</div>
-                                <div class="small text-muted">${new Date(c.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à ${c.time}</div>
+                            <div class="profile-session-card p-2">
+                                <div class="fw-bold text-emerald small">${c.title}</div>
+                                <div class="text-muted" style="font-size:0.75rem;">${new Date(c.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à ${c.time}</div>
                                 ${canCancel ? 
-                                    `<div class="mt-3 pt-3 border-top d-flex justify-content-between align-items-center">
+                                    `<div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center">
                                         <span class="text-muted text-uppercase" style="font-size:0.65rem; letter-spacing:0.05em;">Annulable</span>
                                         <button onclick="app.deleteClass(${c.id})" class="btn btn-link text-danger p-0 text-decoration-none small fw-semibold">Annuler</button>
                                     </div>` : 
-                                    `<div class="mt-3 pt-3 border-top text-warning fw-bold text-uppercase" style="font-size:0.65rem; letter-spacing:0.05em;">Délai d'annulation dépassé</div>`
+                                    `<div class="mt-2 pt-2 border-top text-warning fw-bold text-uppercase" style="font-size:0.65rem; letter-spacing:0.05em;">Délai d'annulation dépassé</div>`
                                 }
                             </div>`;
                         }).join('')}
@@ -231,10 +231,10 @@ export const profileView = (app) => {
                     ${pastBookings.length === 0 ? '<p class="text-muted small">Aucun historique.</p>' : 
                     `<div class="d-flex flex-column gap-2 overflow-auto scrollbar-hide pr-2" style="max-height: 500px;">
                         ${pastBookings.map(c => `
-                            <div class="p-2 border rounded-3 opacity-75 d-flex justify-content-between align-items-center bg-light">
-                                <div>
+                            <div class="py-1 px-2 border rounded-3 opacity-75 d-flex justify-content-between align-items-center bg-light">
+                                <div style="line-height: 1.2;">
                                     <div class="small fw-medium">${c.title}</div>
-                                    <div class="text-muted" style="font-size:0.75rem;">${new Date(c.date).toLocaleDateString('fr-FR')}</div>
+                                    <div class="text-muted mt-1" style="font-size:0.7rem;">${new Date(c.date).toLocaleDateString('fr-FR')}</div>
                                 </div>
                                 <span class="text-muted fw-bold text-uppercase" style="font-size:0.65rem;">Effectué</span>
                             </div>
@@ -249,44 +249,151 @@ export const profileView = (app) => {
                 <div class="col-md-6">
                   <div class="custom-card p-4">
                     <h3 class="fs-5 fw-medium mb-4">Historique des achats</h3>
-                    ${paymentHistory.length === 0 ? '<p class="text-muted small">Aucun achat effectué.</p>' : 
-                    `<div class="d-flex flex-column gap-2">
-                        ${paymentHistory.map(t => `
-                            <div class="d-flex justify-content-between align-items-center p-2 border-bottom hover-bg-light transition-colors">
-                                <div>
-                                    <div class="small fw-medium">${t.description}</div>
-                                    <div class="text-muted" style="font-size:0.75rem;">${new Date(t.date).toLocaleDateString('fr-FR')}</div>
+                    ${(() => {
+                        if (paymentHistory.length === 0) return '<p class="text-muted small">Aucun achat effectué.</p>';
+                        
+                        let filteredPayments = paymentHistory;
+                        if (app.state.userPaymentFilters.startDate) filteredPayments = filteredPayments.filter(t => t.date.substring(0, 10) >= app.state.userPaymentFilters.startDate);
+                        if (app.state.userPaymentFilters.endDate) filteredPayments = filteredPayments.filter(t => t.date.substring(0, 10) <= app.state.userPaymentFilters.endDate);
+                        
+                        const limit = app.state.userPaymentPagination.limit;
+                        const totalItems = filteredPayments.length;
+                        const totalPages = limit === 'all' ? 1 : Math.ceil(totalItems / limit) || 1;
+                        const currentPage = Math.max(1, Math.min(app.state.userPaymentPagination.page, totalPages));
+                        
+                        let displayedPurchases = filteredPayments;
+                        if (limit !== 'all') {
+                            const startIdx = (currentPage - 1) * limit;
+                            displayedPurchases = filteredPayments.slice(startIdx, startIdx + limit);
+                        }
+                        
+                        return `
+                        <div class="d-flex flex-wrap gap-1 mb-2 align-items-center bg-light p-1 px-2 rounded-2 border">
+                            <input type="date" value="${app.state.userPaymentFilters.startDate}" oninput="app.handleUserPaymentFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
+                            <span class="text-muted" style="font-size: 0.7rem;">-</span>
+                            <input type="date" value="${app.state.userPaymentFilters.endDate}" oninput="app.handleUserPaymentFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
+                            <select onchange="app.setUserPaymentLimit(this.value)" class="form-select form-select-sm py-0 px-1 ms-auto text-muted cursor-pointer" style="width: auto; font-size: 0.7rem; height: 24px;">
+                                <option value="10" ${limit === 10 ? 'selected' : ''}>10/p</option>
+                                <option value="20" ${limit === 20 ? 'selected' : ''}>20/p</option>
+                                <option value="50" ${limit === 50 ? 'selected' : ''}>50/p</option>
+                                    <option value="all" ${limit === 'all' ? 'selected' : ''}>Tous</option>
+                                </select>
+                        </div>
+                        ${displayedPurchases.length === 0 ? '<p class="text-muted small">Aucun résultat pour ces dates.</p>' : `
+                        <div class="d-flex flex-column gap-2">
+                            ${displayedPurchases.map(t => {
+                            const isSub = t.amount >= 999 || (t.amount === 0 && t.description.toLowerCase().includes('abonnement'));
+                            const priceMatch = t.description.match(/\((\d+)€\)/);
+                            const price = priceMatch ? parseInt(priceMatch[1]) : null;
+                            
+                            let pkg = null;
+                            if (isSub) {
+                                pkg = app.state.creditPackages.find(p => p.is_subscription && (price === null || p.price === price)) || app.state.creditPackages.find(p => p.is_subscription);
+                            } else {
+                                pkg = app.state.creditPackages.find(p => p.credits === t.amount && (price === null || p.price === price)) || app.state.creditPackages.find(p => p.credits === t.amount && !p.is_subscription);
+                            }
+                            
+                            const subtitleText = pkg && pkg.subtitle ? pkg.subtitle : '';
+                            const descWithoutPrice = t.description.replace(/\s*\(\d+€\)/, '');
+                            return `
+                            <div class="d-flex justify-content-between align-items-center py-1 px-2 border-bottom hover-bg-light transition-colors">
+                                <div style="line-height: 1.2;">
+                                    <div class="d-flex align-items-baseline gap-2">
+                                        <span class="small fw-medium">${descWithoutPrice}</span>
+                                        ${subtitleText ? `<span class="text-emerald" style="font-size:0.7rem;">${subtitleText}</span>` : ''}
+                                    </div>
+                                    <div class="text-muted mt-1" style="font-size:0.7rem;">${new Date(t.date).toLocaleDateString('fr-FR')}</div>
                                 </div>
-                                <div class="fw-bold text-success">+${t.amount} cours</div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="fw-bold text-success">${isSub ? 'Abonnement' : '+' + t.amount + ' cours'}</div>
+                                    <button onclick="app.downloadInvoice(${JSON.stringify(t).replace(/"/g, '&quot;')}, app.state.currentUser)" class="btn btn-sm btn-outline-secondary px-2 py-1 d-flex align-items-center gap-2" title="Télécharger la facture" style="font-size: 0.75rem;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                        Facture
+                                    </button>
+                                </div>
                             </div>
-                        `).join('')}
-                    </div>`}
+                        `}).join('')}
+                        </div>
+                        ${totalPages > 1 ? `
+                            <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
+                                <span class="text-muted" style="font-size: 0.7rem;">Page ${currentPage}/${totalPages}</span>
+                                <div class="d-flex gap-1">
+                                    <button onclick="app.setUserPaymentPage(${currentPage - 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === 1 ? 'disabled' : ''}>&lt;</button>
+                                    <button onclick="app.setUserPaymentPage(${currentPage + 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === totalPages ? 'disabled' : ''}>&gt;</button>
+                                </div>
+                            </div>
+                        ` : ''}
+                        `}
+                        `;
+                    })()}
                   </div>
                 </div>
                 <div class="col-md-6">
                   <div class="custom-card p-4">
                     <h3 class="fs-5 fw-medium mb-4">Utilisation des cours</h3>
-                    ${creditHistory.length === 0 ? '<p class="text-muted small">Aucun mouvement.</p>' : 
-                    `<div class="d-flex flex-column gap-1 overflow-auto scrollbar-hide pr-2" style="max-height: 500px;">
-                        ${creditHistory.map(t => {
-                            let descriptionText = t.description;
-                            if (t.type === 'booking' && t.description.startsWith('Réservation : ')) {
-                                descriptionText = `Réservation du cours : ${t.description.substring('Réservation : '.length)}`;
-                            } else if (t.type === 'refund' && t.description.startsWith('Annulation : ')) {
-                                descriptionText = `Annulation du cours : ${t.description.substring('Annulation : '.length)}`;
-                            } else if (t.type === 'adjustment') {
-                                descriptionText = `Ajustement : ${t.description}`;
-                            }
-                            return `
-                                <div class="d-flex justify-content-between align-items-center p-2 rounded-3 hover-bg-light transition-colors">
-                                    <div>
-                                        <div class="small fw-medium">${descriptionText}</div>
-                                        <div class="text-muted" style="font-size:0.75rem;">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                                    </div>
-                                    <div class="fw-bold ${t.amount > 0 ? 'text-success' : 'text-muted'}">${t.amount > 0 ? '+' : ''}${t.amount}</div>
-                                </div>`;
-                        }).join('')}
-                    </div>`}
+                    ${(() => {
+                        if (creditHistory.length === 0) return '<p class="text-muted small">Aucun mouvement.</p>';
+                        
+                        let filteredCredits = creditHistory;
+                        if (app.state.userCreditFilters.startDate) filteredCredits = filteredCredits.filter(t => t.date.substring(0, 10) >= app.state.userCreditFilters.startDate);
+                        if (app.state.userCreditFilters.endDate) filteredCredits = filteredCredits.filter(t => t.date.substring(0, 10) <= app.state.userCreditFilters.endDate);
+                        
+                        const limit = app.state.userCreditPagination.limit;
+                        const totalItems = filteredCredits.length;
+                        const totalPages = limit === 'all' ? 1 : Math.ceil(totalItems / limit) || 1;
+                        const currentPage = Math.max(1, Math.min(app.state.userCreditPagination.page, totalPages));
+                        
+                        let displayedCredits = filteredCredits;
+                        if (limit !== 'all') {
+                            const startIdx = (currentPage - 1) * limit;
+                            displayedCredits = filteredCredits.slice(startIdx, startIdx + limit);
+                        }
+
+                        return `
+                        <div class="d-flex flex-wrap gap-1 mb-2 align-items-center bg-light p-1 px-2 rounded-2 border">
+                            <input type="date" value="${app.state.userCreditFilters.startDate}" oninput="app.handleUserCreditFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
+                            <span class="text-muted" style="font-size: 0.7rem;">-</span>
+                            <input type="date" value="${app.state.userCreditFilters.endDate}" oninput="app.handleUserCreditFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
+                            <select onchange="app.setUserCreditLimit(this.value)" class="form-select form-select-sm py-0 px-1 ms-auto text-muted cursor-pointer" style="width: auto; font-size: 0.7rem; height: 24px;">
+                                <option value="10" ${limit === 10 ? 'selected' : ''}>10/p</option>
+                                <option value="20" ${limit === 20 ? 'selected' : ''}>20/p</option>
+                                <option value="50" ${limit === 50 ? 'selected' : ''}>50/p</option>
+                                <option value="all" ${limit === 'all' ? 'selected' : ''}>Tous</option>
+                            </select>
+                        </div>
+                        ${displayedCredits.length === 0 ? '<p class="text-muted small">Aucun résultat pour ces dates.</p>' : `
+                        <div class="d-flex flex-column gap-2">
+                            ${displayedCredits.map(t => {
+                                let descriptionText = t.description;
+                                if (t.type === 'booking' && t.description.startsWith('Réservation : ')) {
+                                    descriptionText = `Réservation du cours : ${t.description.substring('Réservation : '.length)}`;
+                                } else if (t.type === 'refund' && t.description.startsWith('Annulation : ')) {
+                                    descriptionText = `Annulation du cours : ${t.description.substring('Annulation : '.length)}`;
+                                } else if (t.type === 'adjustment') {
+                                    descriptionText = `Ajustement : ${t.description}`;
+                                }
+                                return `
+                                    <div class="d-flex justify-content-between align-items-center py-1 px-2 border-bottom hover-bg-light transition-colors">
+                                        <div style="line-height: 1.2;">
+                                            <div class="small fw-medium">${descriptionText}</div>
+                                            <div class="text-muted mt-1" style="font-size:0.7rem;">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                                        </div>
+                                        <div class="fw-bold ${t.amount > 0 ? 'text-success' : 'text-muted'}">${t.amount > 0 ? '+' : ''}${t.amount}</div>
+                                    </div>`;
+                            }).join('')}
+                        </div>
+                        ${totalPages > 1 ? `
+                            <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
+                                <span class="text-muted" style="font-size: 0.7rem;">Page ${currentPage}/${totalPages}</span>
+                                <div class="d-flex gap-1">
+                                    <button onclick="app.setUserCreditPage(${currentPage - 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === 1 ? 'disabled' : ''}>&lt;</button>
+                                    <button onclick="app.setUserCreditPage(${currentPage + 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === totalPages ? 'disabled' : ''}>&gt;</button>
+                                </div>
+                            </div>
+                        ` : ''}
+                        `}
+                        `;
+                    })()}
                   </div>
                 </div>
             </div>`;

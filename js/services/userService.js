@@ -105,6 +105,8 @@ export const userService = {
             studioAddress: document.getElementById('admin-studio-address').value,
             studioPhone: document.getElementById('admin-studio-phone').value,
             studioEmail: document.getElementById('admin-studio-email').value,
+            studioSiret: document.getElementById('admin-studio-siret').value,
+            studioTva: document.getElementById('admin-studio-tva').value,
             aiProvider: document.getElementById('admin-ai-provider').value,
             instagramUrl: document.getElementById('admin-studio-instagram').value,
             facebookUrl: document.getElementById('admin-studio-facebook').value,

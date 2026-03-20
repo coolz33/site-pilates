@@ -474,39 +474,120 @@ export const adminView = (app) => {
                         ` : ''}
 
                         ${!st.isAdminAiLoading && st.adminTab === 'ledger' ? (() => {
-                            const ledgerPurchases = (st.adminLedger || []).filter(t => t.type === 'purchase');
+                            let ledgerPurchases = (st.adminLedger || []).filter(t => t.type === 'purchase');
+                            
+                            const parseDate = (dStr) => {
+                                const [datePart] = dStr.split(' ');
+                                const [d, m, y] = datePart.split('/');
+                                return `${y}-${m}-${d}`;
+                            };
+
+                            if (st.ledgerFilters.startDate) ledgerPurchases = ledgerPurchases.filter(t => parseDate(t.date) >= st.ledgerFilters.startDate);
+                            if (st.ledgerFilters.endDate) ledgerPurchases = ledgerPurchases.filter(t => parseDate(t.date) <= st.ledgerFilters.endDate);
+
+                            const sortCol = st.ledgerSort?.column || 'date';
+                            const sortDir = st.ledgerSort?.direction === 'asc' ? 1 : -1;
+                            
+                            ledgerPurchases.sort((a, b) => {
+                                let valA, valB;
+                                if (sortCol === 'date') {
+                                    const parseSortDate = (dStr) => {
+                                        if (!dStr) return 0;
+                                        const [d, t] = dStr.split(' ');
+                                        const [day, mo, yr] = d.split('/');
+                                        return new Date(`${yr}-${mo}-${day}T${t}`).getTime();
+                                    };
+                                    valA = parseSortDate(a.date);
+                                    valB = parseSortDate(b.date);
+                                } else if (sortCol === 'client') {
+                                    valA = ((a.firstName || '') + ' ' + (a.lastName || '')).toLowerCase();
+                                    valB = ((b.firstName || '') + ' ' + (b.lastName || '')).toLowerCase();
+                                } else if (sortCol === 'description') {
+                                    valA = (a.description || '').replace(/\s*\(\d+€\)/, '').toLowerCase();
+                                    valB = (b.description || '').replace(/\s*\(\d+€\)/, '').toLowerCase();
+                                } else if (sortCol === 'amount') {
+                                    const matchA = (a.description || '').match(/\((\d+)€\)/); valA = matchA ? parseInt(matchA[1]) : 0;
+                                    const matchB = (b.description || '').match(/\((\d+)€\)/); valB = matchB ? parseInt(matchB[1]) : 0;
+                                } else if (sortCol === 'achat') {
+                                    valA = a.amount >= 999 || (a.amount === 0 && (a.description || '').toLowerCase().includes('abonnement')) ? 'abonnement' : `${a.amount} cours`;
+                                    valB = b.amount >= 999 || (b.amount === 0 && (b.description || '').toLowerCase().includes('abonnement')) ? 'abonnement' : `${b.amount} cours`;
+                                }
+                                if (valA < valB) return -1 * sortDir;
+                                if (valA > valB) return 1 * sortDir;
+                                return 0;
+                            });
+
+                            const limit = st.ledgerPagination.limit;
+                            const totalItems = ledgerPurchases.length;
+                            const totalPages = limit === 'all' ? 1 : Math.ceil(totalItems / limit);
+                            const currentPage = Math.max(1, Math.min(st.ledgerPagination.page, totalPages));
+
+                            let displayedPurchases = ledgerPurchases;
+                            if (limit !== 'all') {
+                                const startIdx = (currentPage - 1) * limit;
+                                displayedPurchases = ledgerPurchases.slice(startIdx, startIdx + limit);
+                            }
+
                             return `
-                            <div class="custom-card p-0 overflow-hidden animate-fade-in">
-                                <div class="p-4 border-bottom bg-light d-flex justify-content-between align-items-center">
-                                    <h2 class="fs-5 fw-medium mb-0">Livre de recettes (Encaissements)</h2>
-                                    <div class="d-flex align-items-center gap-3">
-                                        <span class="small fw-medium text-muted">${ledgerPurchases.length} encaissement(s)</span>
+                            <div class="custom-card p-0 overflow-hidden animate-fade-in d-flex flex-column">
+                                <div class="p-4 border-bottom bg-light d-flex flex-column gap-3">
+                                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                                        <div>
+                                            <h2 class="fs-5 fw-medium mb-1">Historique des achats (Livre de recettes)</h2>
+                                            <span class="small fw-medium text-muted">${totalItems} encaissement(s) filtré(s)</span>
+                                        </div>
                                         <div class="d-flex gap-2">
-                                            <button onclick="app.exportLedgerToCSV()" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2" title="Format comptable standard">
-                                                CSV
-                                            </button>
-                                            <button onclick="app.exportLedgerToXLSX()" class="btn btn-sm btn-outline-success d-flex align-items-center gap-2" title="Ouvrir directement avec Excel">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                                                Excel (.xlsx)
-                                            </button>
+                                            <button onclick="app.exportLedgerToCSV()" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2" title="Format comptable standard">CSV</button>
+                                            <button onclick="app.exportLedgerToXLSX()" class="btn btn-sm btn-outline-success d-flex align-items-center gap-2" title="Ouvrir avec Excel"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg> Excel (.xlsx)</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex flex-wrap align-items-center gap-3 pt-2 border-top">
+                                        <div class="d-flex align-items-center gap-2 text-nowrap">
+                                            <label class="small text-muted mb-0 fw-medium">Du :</label>
+                                            <input type="date" value="${st.ledgerFilters.startDate}" oninput="app.handleLedgerFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 110px; font-size: 0.75rem; height: 26px;">
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 text-nowrap">
+                                            <label class="small text-muted mb-0 fw-medium">Au :</label>
+                                            <input type="date" value="${st.ledgerFilters.endDate}" oninput="app.handleLedgerFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 110px; font-size: 0.75rem; height: 26px;">
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 text-nowrap ms-auto">
+                                            <label class="small text-muted mb-0 fw-medium">Afficher :</label>
+                                            <select onchange="app.setLedgerLimit(this.value)" class="form-select form-select-sm py-0 px-2 text-muted cursor-pointer" style="width: auto; font-size: 0.75rem; height: 26px;">
+                                                <option value="10" ${limit === 10 ? 'selected' : ''}>10</option>
+                                                <option value="20" ${limit === 20 ? 'selected' : ''}>20</option>
+                                                <option value="50" ${limit === 50 ? 'selected' : ''}>50</option>
+                                                <option value="100" ${limit === 100 ? 'selected' : ''}>100</option>
+                                                <option value="all" ${limit === 'all' ? 'selected' : ''}>Tous</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="table-responsive" style="max-height: 700px; overflow-y: auto;">
+                                <div class="table-responsive">
                                     <table class="table table-hover align-middle mb-0">
-                                        <thead>
+                                        ${(() => {
+                                            const renderSortIcon = (col) => {
+                                                if (st.ledgerSort?.column === col) {
+                                                    return st.ledgerSort.direction === 'asc' ? ' <span class="text-emerald">↑</span>' : ' <span class="text-emerald">↓</span>';
+                                                }
+                                                return ' <span class="opacity-25">↕</span>';
+                                            };
+                                            return `
+                                        <thead class="text-nowrap" style="user-select: none;">
                                             <tr class="small text-muted">
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Date</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Client</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Description</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Achat</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Montant HT</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">TVA (20%)</th>
-                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom" style="z-index: 10;">Montant TTC</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('date')">Date${renderSortIcon('date')}</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('client')">Client${renderSortIcon('client')}</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('description')">Description${renderSortIcon('description')}</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('achat')">Achat${renderSortIcon('achat')}</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('amount')">Montant HT${renderSortIcon('amount')}</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('amount')">TVA (20%)</th>
+                                                <th class="p-3 fw-bold position-sticky top-0 border-bottom cursor-pointer hover-bg-light" style="z-index: 10;" onclick="app.handleLedgerSort('amount')">Montant TTC</th>
                                             </tr>
                                         </thead>
+                                        `;
+                                        })()}
                                         <tbody>
-                                            ${ledgerPurchases.map(t => {
+                                            ${displayedPurchases.map(t => {
                                                 let productText = '';
                                                 const isSub = t.amount >= 999 || (t.amount === 0 && t.description.toLowerCase().includes('abonnement'));
                                                 
@@ -540,10 +621,27 @@ export const adminView = (app) => {
                                                     <td class="p-3 fw-bold">${price !== null ? price.toFixed(2) + ' €' : '-'}</td>
                                                 </tr>`;
                                             }).join('')}
-                                            ${!ledgerPurchases.length ? '<tr><td colspan="7" class="p-4 text-center text-muted">Aucun encaissement trouvé</td></tr>' : ''}
+                                            ${!displayedPurchases.length ? '<tr><td colspan="7" class="p-4 text-center text-muted">Aucun encaissement trouvé</td></tr>' : ''}
                                         </tbody>
                                     </table>
                                 </div>
+                                ${totalPages > 1 ? `
+                                    <div class="p-2 border-top bg-light d-flex justify-content-between align-items-center">
+                                        <span class="text-muted fw-medium" style="font-size: 0.75rem;">Page ${currentPage}/${totalPages}</span>
+                                        <div class="d-flex gap-1">
+                                            <button onclick="app.setLedgerPage(${currentPage - 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" ${currentPage === 1 ? 'disabled' : ''}>&lt;</button>
+                                            ${Array.from({length: totalPages}, (_, i) => i + 1).map(p => {
+                                                if (totalPages > 7) {
+                                                    if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) return `<button onclick="app.setLedgerPage(${p})" class="btn btn-sm ${p === currentPage ? 'btn-emerald' : 'btn-outline-secondary'} py-0 px-2" style="font-size: 0.75rem;">${p}</button>`;
+                                                    else if (p === currentPage - 2 || p === currentPage + 2) return `<span class="px-1 text-muted align-self-end" style="font-size: 0.75rem;">...</span>`;
+                                                    return '';
+                                                }
+                                                return `<button onclick="app.setLedgerPage(${p})" class="btn btn-sm ${p === currentPage ? 'btn-emerald' : 'btn-outline-secondary'} py-0 px-2" style="font-size: 0.75rem;">${p}</button>`;
+                                            }).join('').replace(/(<span.*?<\/span>)+/g, '<span class="px-1 text-muted align-self-end" style="font-size: 0.75rem;">...</span>')}
+                                            <button onclick="app.setLedgerPage(${currentPage + 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" ${currentPage === totalPages ? 'disabled' : ''}>&gt;</button>
+                                        </div>
+                                    </div>
+                                ` : ''}
                             </div>
                         `;})() : ''}
 
@@ -687,16 +785,16 @@ export const adminView = (app) => {
                                     <div class="col-md-6">
                                         <div class="custom-card p-4 h-100">
                                             <h3 class="fs-5 fw-medium mb-3">Historique des réservations</h3>
-                                            <div class="d-flex flex-column gap-2 overflow-auto pr-2" style="max-height: 300px;">
+                                            <div class="d-flex flex-column gap-2 overflow-auto pe-3" style="max-height: 300px;">
                                                 ${futureBookings.map(b => `
-                                                    <div class="d-flex align-items-center justify-content-between p-2 rounded-3 bg-emerald-light text-emerald-dark small">
+                                                    <div class="d-flex align-items-center justify-content-between p-1 px-2 rounded-3 bg-emerald-light text-emerald-dark small">
                                                         <span>📅 ${new Date(b.date).toLocaleDateString()} à ${b.time} - ${b.title}</span>
                                                         <button onclick="app.adminCancelBookingForUser(${b.class_id}, ${user.id})" class="btn btn-link text-danger p-0" title="Annuler cette réservation">
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
                                                         </button>
                                                     </div>
                                                 `).join('')}
-                                                ${pastBookings.map(b => `<div class="p-2 bg-light rounded-3 small text-muted">✔️ ${new Date(b.date).toLocaleDateString()} - ${b.title}</div>`).join('')}
+                                                ${pastBookings.map(b => `<div class="p-1 px-2 bg-light rounded-3 small text-muted">✔️ ${new Date(b.date).toLocaleDateString()} - ${b.title}</div>`).join('')}
                                                 ${bookings.length === 0 ? '<p class="text-muted small mb-0">Aucune réservation</p>' : ''}
                                             </div>
                                         </div>
@@ -708,39 +806,141 @@ export const adminView = (app) => {
                                             <div class="d-flex flex-column gap-3">
                                                 <div>
                                                     <h4 class="small fw-semibold text-emerald mb-2">Achats (Paiements)</h4>
-                                                    <div class="d-flex flex-column gap-1 overflow-auto pr-2" style="max-height: 120px;">
-                                                        ${paymentHistory.map(t => {
+                                                    ${(() => {
+                                                        if (paymentHistory.length === 0) return '<p class="text-muted small mb-0">Aucun achat effectué.</p>';
+                                                        
+                                                        let filteredPayments = paymentHistory;
+                                                        if (app.state.userPaymentFilters.startDate) filteredPayments = filteredPayments.filter(t => t.date.substring(0, 10) >= app.state.userPaymentFilters.startDate);
+                                                        if (app.state.userPaymentFilters.endDate) filteredPayments = filteredPayments.filter(t => t.date.substring(0, 10) <= app.state.userPaymentFilters.endDate);
+                                                        
+                                                        const limit = app.state.userPaymentPagination.limit;
+                                                        const totalItems = filteredPayments.length;
+                                                        const totalPages = limit === 'all' ? 1 : Math.ceil(totalItems / limit) || 1;
+                                                        const currentPage = Math.max(1, Math.min(app.state.userPaymentPagination.page, totalPages));
+                                                        
+                                                        let displayedPurchases = filteredPayments;
+                                                        if (limit !== 'all') {
+                                                            const startIdx = (currentPage - 1) * limit;
+                                                            displayedPurchases = filteredPayments.slice(startIdx, startIdx + limit);
+                                                        }
+                                                        
+                                                        return `
+                                                        <div class="d-flex flex-wrap gap-1 mb-2 align-items-center bg-light p-1 px-2 rounded-2 border">
+                                                            <input type="date" value="${app.state.userPaymentFilters.startDate}" oninput="app.handleUserPaymentFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
+                                                            <span class="small text-muted">-</span>
+                                                            <input type="date" value="${app.state.userPaymentFilters.endDate}" oninput="app.handleUserPaymentFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
+                                                            <select onchange="app.setUserPaymentLimit(this.value)" class="form-select form-select-sm py-0 px-1 ms-auto text-muted cursor-pointer" style="width: auto; font-size: 0.7rem; height: 24px;">
+                                                                <option value="10" ${limit === 10 ? 'selected' : ''}>10/p</option>
+                                                                <option value="20" ${limit === 20 ? 'selected' : ''}>20/p</option>
+                                                                <option value="50" ${limit === 50 ? 'selected' : ''}>50/p</option>
+                                                                    <option value="all" ${limit === 'all' ? 'selected' : ''}>Tous</option>
+                                                                </select>
+                                                        </div>
+                                                        ${displayedPurchases.length === 0 ? '<p class="text-muted small mb-0">Aucun résultat pour ces dates.</p>' : `
+                                                        <div class="d-flex flex-column gap-1 overflow-auto pe-3" style="max-height: 250px;">
+                                                            ${displayedPurchases.map(t => {
                                                             const isSub = t.amount >= 999 || t.description.toLowerCase().includes('abonnement');
+                                                            const priceMatch = t.description.match(/\((\d+)€\)/);
+                                                            const price = priceMatch ? parseInt(priceMatch[1]) : null;
+                                                            let pkg = null;
+                                                            if (isSub) {
+                                                                pkg = st.creditPackages.find(p => p.is_subscription && (price === null || p.price === price)) || st.creditPackages.find(p => p.is_subscription);
+                                                            } else {
+                                                                pkg = st.creditPackages.find(p => p.credits === t.amount && (price === null || p.price === price)) || st.creditPackages.find(p => p.credits === t.amount && !p.is_subscription);
+                                                            }
+                                                            const subtitleText = pkg && pkg.subtitle ? pkg.subtitle : '';
+                                                            const descWithoutPrice = t.description.replace(/\s*\(\d+€\)/, '');
                                                             return `
-                                                            <div class="d-flex justify-content-between align-items-center p-1 border-bottom">
-                                                                <div style="font-size: 0.75rem;">
-                                                                    <div class="fw-medium">${t.description}</div>
-                                                                    <div class="text-muted">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}</div>
+                                                            <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                                                                <div style="font-size: 0.75rem; line-height: 1.2;">
+                                                                    <div class="d-flex align-items-baseline gap-2">
+                                                                        <span class="fw-medium">${descWithoutPrice}</span>
+                                                                        ${subtitleText ? `<span class="text-emerald" style="font-size: 0.65rem;">${subtitleText}</span>` : ''}
+                                                                    </div>
+                                                                    <div class="text-muted mt-1">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}</div>
                                                                 </div>
-                                                                <div class="small fw-bold text-success">${isSub ? 'Abonnement' : '+' + t.amount}</div>
+                                                                <div class="d-flex align-items-center gap-3">
+                                                                    <div class="small fw-bold text-success">${isSub ? 'Abonnement' : '+' + t.amount + ' cours'}</div>
+                                                                    <button onclick="app.downloadInvoice(${JSON.stringify(t).replace(/"/g, '&quot;')}, app.state.selectedUserDetails.user)" class="btn btn-sm btn-link text-muted p-0" title="Télécharger la facture">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         `}).join('')}
-                                                        ${paymentHistory.length === 0 ? '<p class="text-muted small mb-0">Aucun achat</p>' : ''}
-                                                    </div>
+                                                        </div>
+                                                        ${totalPages > 1 ? `
+                                                            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                                                <span class="small text-muted" style="font-size: 0.7rem;">Page ${currentPage}/${totalPages}</span>
+                                                                <div class="d-flex gap-1">
+                                                                    <button onclick="app.setUserPaymentPage(${currentPage - 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === 1 ? 'disabled' : ''}>&lt;</button>
+                                                                    <button onclick="app.setUserPaymentPage(${currentPage + 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === totalPages ? 'disabled' : ''}>&gt;</button>
+                                                                </div>
+                                                            </div>
+                                                        ` : ''}
+                                                        `}
+                                                        `;
+                                                    })()}
                                                 </div>
                                                 <div class="pt-3 border-top">
                                                     <h4 class="small fw-semibold text-muted mb-2">Mouvements de cours</h4>
-                                                    <div class="d-flex flex-column gap-1 overflow-auto pr-2" style="max-height: 120px;">
-                                                        ${creditHistory.map(t => {
+                                                    ${(() => {
+                                                        if (creditHistory.length === 0) return '<p class="text-muted small mb-0">Aucun mouvement.</p>';
+                                                        
+                                                        let filteredCredits = creditHistory;
+                                                        if (app.state.userCreditFilters.startDate) filteredCredits = filteredCredits.filter(t => t.date.substring(0, 10) >= app.state.userCreditFilters.startDate);
+                                                        if (app.state.userCreditFilters.endDate) filteredCredits = filteredCredits.filter(t => t.date.substring(0, 10) <= app.state.userCreditFilters.endDate);
+                                                        
+                                                        const limit = app.state.userCreditPagination.limit;
+                                                        const totalItems = filteredCredits.length;
+                                                        const totalPages = limit === 'all' ? 1 : Math.ceil(totalItems / limit) || 1;
+                                                        const currentPage = Math.max(1, Math.min(app.state.userCreditPagination.page, totalPages));
+                                                        
+                                                        let displayedCredits = filteredCredits;
+                                                        if (limit !== 'all') {
+                                                            const startIdx = (currentPage - 1) * limit;
+                                                            displayedCredits = filteredCredits.slice(startIdx, startIdx + limit);
+                                                        }
+                                                        
+                                                        return `
+                                                        <div class="d-flex flex-wrap gap-1 mb-2 align-items-center bg-light p-1 px-2 rounded-2 border">
+                                                            <input type="date" value="${app.state.userCreditFilters.startDate}" oninput="app.handleUserCreditFilterChange('startDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
+                                                            <span class="small text-muted">-</span>
+                                                            <input type="date" value="${app.state.userCreditFilters.endDate}" oninput="app.handleUserCreditFilterChange('endDate', this.value)" class="form-control form-control-sm py-0 px-1 text-muted" style="max-width: 100px; font-size: 0.7rem; height: 24px;">
+                                                            <select onchange="app.setUserCreditLimit(this.value)" class="form-select form-select-sm py-0 px-1 ms-auto text-muted cursor-pointer" style="width: auto; font-size: 0.7rem; height: 24px;">
+                                                                <option value="10" ${limit === 10 ? 'selected' : ''}>10/p</option>
+                                                                <option value="20" ${limit === 20 ? 'selected' : ''}>20/p</option>
+                                                                <option value="50" ${limit === 50 ? 'selected' : ''}>50/p</option>
+                                                                <option value="all" ${limit === 'all' ? 'selected' : ''}>Tous</option>
+                                                            </select>
+                                                        </div>
+                                                        ${displayedCredits.length === 0 ? '<p class="text-muted small mb-0">Aucun résultat pour ces dates.</p>' : `
+                                                        <div class="d-flex flex-column gap-1 overflow-auto pe-3" style="max-height: 250px;">
+                                                            ${displayedCredits.map(t => {
                                                             let desc = t.description;
                                                             if (t.type === 'booking' && desc.startsWith('Réservation : ')) desc = `Réservation : ${desc.substring(14)}`;
                                                             else if (t.type === 'refund' && desc.startsWith('Annulation : ')) desc = `Annulation : ${desc.substring(13)}`;
                                                             return `
-                                                            <div class="d-flex justify-content-between align-items-center p-1 border-bottom">
-                                                                <div style="font-size: 0.75rem;">
+                                                            <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                                                                <div style="font-size: 0.75rem; line-height: 1.2;">
                                                                     <div class="fw-medium">${desc}</div>
-                                                                    <div class="text-muted">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}</div>
+                                                                    <div class="text-muted mt-1">${new Date(t.date).toLocaleString('fr-FR', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}</div>
                                                                 </div>
                                                                 <div class="small fw-bold ${t.amount > 0 ? 'text-success' : 'text-muted'}">${t.amount >= 999 ? 'Abonnement' : (t.amount > 0 ? '+' : '') + t.amount}</div>
                                                             </div>`;
                                                         }).join('')}
-                                                        ${creditHistory.length === 0 ? '<p class="text-muted small mb-0">Aucun mouvement</p>' : ''}
-                                                    </div>
+                                                        </div>
+                                                        ${totalPages > 1 ? `
+                                                            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                                                <span class="small text-muted" style="font-size: 0.7rem;">Page ${currentPage}/${totalPages}</span>
+                                                                <div class="d-flex gap-1">
+                                                                    <button onclick="app.setUserCreditPage(${currentPage - 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === 1 ? 'disabled' : ''}>&lt;</button>
+                                                                    <button onclick="app.setUserCreditPage(${currentPage + 1})" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.7rem;" ${currentPage === totalPages ? 'disabled' : ''}>&gt;</button>
+                                                                </div>
+                                                            </div>
+                                                        ` : ''}
+                                                        `}
+                                                        `;
+                                                    })()}
                                                 </div>
                                             </div>
                                         </div>
@@ -806,7 +1006,7 @@ export const adminView = (app) => {
                                                 <button type="button" onclick="app.setAdminTab('newsletter')" class="btn btn-emerald btn-sm py-0" style="font-size: 0.75rem;">Abonnés</button>
                                             </div>
                                         </div>
-                                        <div class="d-flex flex-column gap-2 overflow-auto pr-2" style="max-height: 400px;">
+                                        <div class="d-flex flex-column gap-2 overflow-auto pe-3" style="max-height: 400px;">
                                             ${clients.map(u => {
                                                 const isSelected = st.selectedNewsletterRecipients.includes(u.id);
                                                 const isSubscribed = Number(u.newsletter_subscribed) === 1;
@@ -849,6 +1049,14 @@ export const adminView = (app) => {
                                     <div>
                                         <label class="form-label small fw-medium mb-1">Email</label>
                                         <input type="email" id="admin-studio-email" required class="form-control" value="${st.studioEmail}">
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-medium mb-1">Numéro de SIRET</label>
+                                        <input type="text" id="admin-studio-siret" class="form-control" value="${st.studioSiret || ''}">
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-medium mb-1">N° de TVA Intracommunautaire</label>
+                                        <input type="text" id="admin-studio-tva" class="form-control" value="${st.studioTva || ''}">
                                     </div>
                                     <div>
                                         <label class="form-label small fw-medium mb-1">Moteur d'Intelligence Artificielle</label>

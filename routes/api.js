@@ -173,6 +173,8 @@ const seedDB = async () => {
         try { await pool.query(`ALTER TABLE credit_packages ADD COLUMN is_subscription BOOLEAN DEFAULT 0`); } catch (e) {}
         try { await pool.query(`ALTER TABLE users ADD COLUMN subscription_expires_at DATETIME DEFAULT NULL`); } catch (e) {}
         try { await pool.query(`ALTER TABLE bookings ADD COLUMN refund_expires_at DATETIME DEFAULT NULL`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE settings ADD COLUMN studioSiret VARCHAR(50) DEFAULT ''`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE settings ADD COLUMN studioTva VARCHAR(50) DEFAULT ''`); } catch (e) {}
         
         // Migration : Convertit les faux lots de 999 crédits en véritables dates d'abonnement
         try {
@@ -1255,6 +1257,82 @@ const handleRequest = async (req, res) => {
                     const [userRows] = await pool.query('SELECT email FROM users WHERE id = ?', [userId]);
                     const targetEmail = userRows[0]?.email || session.customer_details?.email;
                     
+                    const [settingsRows] = await pool.query('SELECT * FROM settings WHERE id = 1');
+                    const studioSettings = settingsRows[0] || {};
+
+                    const [pkgRows] = await pool.query('SELECT subtitle FROM credit_packages WHERE name = ? LIMIT 1', [packageName]);
+                    const packageSubtitle = pkgRows.length > 0 ? pkgRows[0].subtitle : '';
+
+                    // Génération dynamique de la facture PDF en pièce jointe
+                    let attachments = [];
+                    try {
+                        const PDFDocument = require('pdfkit');
+                        const pdfBuffer = await new Promise((resolve) => {
+                            const doc = new PDFDocument({ margin: 50 });
+                            const buffers = [];
+                            doc.on('data', buffers.push.bind(buffers));
+                            doc.on('end', () => resolve(Buffer.concat(buffers)));
+
+                            const priceTTC = parseInt(price) || 0;
+                            const priceHT = priceTTC > 0 ? (priceTTC / 1.2).toFixed(2) : '0.00';
+                            const tvaAmount = priceTTC > 0 ? (priceTTC - (priceTTC / 1.2)).toFixed(2) : '0.00';
+                            const invoiceNum = `FACT-${new Date().toISOString().slice(0,10).replace(/-/g, '')}-${Date.now().toString().slice(-4)}`;
+
+                            doc.fillColor('#10b981').fontSize(24).text("L'ESPACE DORE", { continued: true })
+                               .fillColor('#333333').fontSize(20).text("FACTURE", { align: 'right' });
+                            doc.moveDown();
+                            
+                            doc.fontSize(10).fillColor('#666666')
+                               .text(studioSettings.studioAddress || '')
+                               .text(`SIRET : ${studioSettings.studioSiret || '-'}`)
+                               .text(`N° TVA : ${studioSettings.studioTva || '-'}`);
+                            
+                            doc.moveUp(3);
+                            doc.fillColor('#333333').text(`N° ${invoiceNum}`, { align: 'right' })
+                               .text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, { align: 'right' });
+                            
+                            doc.moveDown(4);
+                            doc.fontSize(14).fillColor('#10b981').text("Facture a");
+                            doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor('#eeeeee').stroke();
+                            doc.moveDown(0.5);
+                            doc.fontSize(11).fillColor('#333333')
+                               .text(`${userRows[0]?.firstName || ''} ${userRows[0]?.lastName || ''}`)
+                               .text(`${targetEmail || ''}`);
+                            doc.moveDown(3);
+
+                            const tableTop = doc.y;
+                            doc.font('Helvetica-Bold');
+                            doc.text("Description", 50, tableTop);
+                            doc.text("Qte", 350, tableTop, { width: 50, align: 'center' });
+                            doc.text("P.U HT", 400, tableTop, { width: 50, align: 'right' });
+                            doc.text("TVA (20%)", 450, tableTop, { width: 50, align: 'right' });
+                            doc.text("Total TTC", 500, tableTop, { width: 50, align: 'right' });
+                            
+                            doc.moveTo(50, doc.y + 5).lineTo(550, doc.y + 5).strokeColor('#10b981').stroke();
+                            doc.moveDown(1);
+                            doc.font('Helvetica').fillColor('#333333');
+                            const rowY = doc.y;
+                            doc.text(packageName || 'Pack de cours', 50, rowY);
+                            if (packageSubtitle) {
+                                doc.fontSize(10).fillColor('#10b981').text(packageSubtitle, 50, rowY + 14);
+                            }
+                            doc.fontSize(11).fillColor('#333333');
+                            doc.text("1", 350, rowY, { width: 50, align: 'center' });
+                            doc.text(`${priceHT} €`, 400, rowY, { width: 50, align: 'right' });
+                            doc.text(`${tvaAmount} €`, 450, rowY, { width: 50, align: 'right' });
+                            doc.text(`${priceTTC.toFixed(2)} €`, 500, rowY, { width: 50, align: 'right' });
+                            
+                            const lineY = packageSubtitle ? rowY + 30 : rowY + 20;
+                            doc.moveTo(50, lineY).lineTo(550, lineY).strokeColor('#eeeeee').stroke();
+                            doc.y = lineY + 15;
+                            doc.text(`Total HT : ${priceHT} €`, { align: 'right' });
+                            doc.text(`TVA (20%) : ${tvaAmount} €`, { align: 'right' });
+                            doc.font('Helvetica-Bold').fillColor('#10b981').fontSize(14).text(`Total TTC : ${priceTTC.toFixed(2)} €`, { align: 'right' });
+                            doc.end();
+                        });
+                        if (pdfBuffer) attachments.push({ filename: `Facture_${new Date().toISOString().slice(0,10)}.pdf`, content: pdfBuffer, contentType: 'application/pdf' });
+                    } catch (pdfErr) { console.warn("⚠️ Impossible de générer le PDF. L'email partira sans pièce jointe.", pdfErr.message); }
+
                     console.log(`[WEBHOOK] Préparation de l'email pour : ${targetEmail}`);
 
                     if (!targetEmail) {
@@ -1304,7 +1382,8 @@ const handleRequest = async (req, res) => {
                             from: `"L'espace doré" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
                             to: targetEmail,
                             subject: "Confirmation de votre achat - L'espace doré",
-                            html: emailHtml
+                            html: emailHtml,
+                            attachments: attachments
                         });
                         console.log("✅ [SMTP] Email de confirmation envoyé ! ID:", info.messageId);
                     } catch (mailErr) {
@@ -1324,10 +1403,10 @@ const handleRequest = async (req, res) => {
         }
 
         if (method === 'POST' && path === '/settings') {
-            const { studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl } = req.body;
+            const { studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl, studioSiret, studioTva } = req.body;
             await pool.query(`
-                INSERT INTO settings (id, studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl)
-                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO settings (id, studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl, studioSiret, studioTva)
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE 
                     studioAddress = COALESCE(?, studioAddress), 
                     studioPhone = COALESCE(?, studioPhone), 
@@ -1336,9 +1415,11 @@ const handleRequest = async (req, res) => {
                     aiProvider = COALESCE(?, aiProvider),
                     facebookUrl = COALESCE(?, facebookUrl),
                     instagramUrl = COALESCE(?, instagramUrl),
-                    tiktokUrl = COALESCE(?, tiktokUrl)
-            `, [studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl,
-                studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl]);
+                    tiktokUrl = COALESCE(?, tiktokUrl),
+                    studioSiret = COALESCE(?, studioSiret),
+                    studioTva = COALESCE(?, studioTva)
+            `, [studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl, studioSiret, studioTva,
+                studioAddress, studioPhone, studioEmail, cancellationDelay, aiProvider, facebookUrl, instagramUrl, tiktokUrl, studioSiret, studioTva]);
             
             return send(200, { id: 1, ...req.body });
         }

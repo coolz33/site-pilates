@@ -50,9 +50,9 @@ export const legalView = (app, mode) => {
                 <p class="mb-4">
                     Le site <strong>L'espace doré</strong> est édité par la société.<br>
                     <strong>Dirigeants :</strong> Justine BIENAIMÉ et Pierre-Edouard, Vincent, Frédéric DALOT<br>
-                    <strong>Adresse du siège social :</strong> 435 ROUTE DE MARCILLY, 69380 CIVRIEUX-D'AZERGUES<br>
-                    <strong>SIRET :</strong> 92943382900017<br>
-                    <strong>N° TVA Intracommunautaire :</strong> FR27929433829<br>
+                    <strong>Adresse du siège social :</strong> ${app.state.studioAddress}<br>
+                    <strong>SIRET :</strong> ${app.state.studioSiret}<br>
+                    <strong>N° TVA Intracommunautaire :</strong> ${app.state.studioTva}<br>
                     <strong>Téléphone :</strong> ${app.state.studioPhone}<br>
                     <strong>Email :</strong> <a href="mailto:${app.state.studioEmail}" class="text-emerald">${app.state.studioEmail}</a>
                 </p>

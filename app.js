@@ -68,6 +68,8 @@ class PilatesApp {
             studioAddress: '',
             studioPhone: '',
             studioEmail: '',
+            studioSiret: '',
+            studioTva: '',
             cancellationDelay: 24,
             studioFacebook: '',
             studioInstagram: '',
@@ -105,6 +107,13 @@ class PilatesApp {
                 maxBooked: '',
                 userName: ''
             },
+            ledgerFilters: { startDate: '', endDate: '' },
+            ledgerSort: { column: 'date', direction: 'desc' },
+            ledgerPagination: { page: 1, limit: 10 },
+            userPaymentFilters: { startDate: '', endDate: '' },
+            userPaymentPagination: { page: 1, limit: 10 },
+            userCreditFilters: { startDate: '', endDate: '' },
+            userCreditPagination: { page: 1, limit: 10 },
             visiblePasswords: [],
             selectedAdminClasses: [],
             userSearchQuery: '',
@@ -220,6 +229,13 @@ class PilatesApp {
                 recurrenceEnd: ''
             };
             this.state.classForCalendar = null;
+            this.state.userPaymentFilters = { startDate: '', endDate: '' };
+            this.state.userPaymentPagination = { page: 1, limit: 10 };
+            this.state.userCreditFilters = { startDate: '', endDate: '' };
+            this.state.userCreditPagination = { page: 1, limit: 10 };
+            this.state.ledgerFilters = { startDate: '', endDate: '' };
+            this.state.ledgerSort = { column: 'date', direction: 'desc' };
+            this.state.ledgerPagination = { page: 1, limit: 10 };
             
             if (!window.opener) {
                 window.scrollTo(0, 0);
@@ -280,6 +296,8 @@ class PilatesApp {
             this.state.studioAddress = results[0].studioAddress || '';
             this.state.studioPhone = results[0].studioPhone || '';
             this.state.studioEmail = results[0].studioEmail || '';
+            this.state.studioSiret = results[0].studioSiret || '';
+            this.state.studioTva = results[0].studioTva || '';
             this.state.cancellationDelay = results[0].cancellationDelay || 24;
             this.state.aiProvider = results[0].aiProvider || 'gemini';
             this.state.studioFacebook = results[0].facebookUrl || '';
@@ -381,10 +399,103 @@ class PilatesApp {
     }
 
     /**
+     * Met à jour le filtre de date de l'historique des encaissements.
+     */
+    handleLedgerFilterChange(key, value) {
+        this.state.ledgerFilters[key] = value;
+        this.state.ledgerPagination.page = 1; // Retour à la première page
+        this.render();
+    }
+
+    /**
+     * Met à jour le tri du livre de recettes.
+     */
+    handleLedgerSort(column) {
+        if (this.state.ledgerSort.column === column) {
+            this.state.ledgerSort.direction = this.state.ledgerSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.state.ledgerSort.column = column;
+            this.state.ledgerSort.direction = 'asc';
+        }
+        this.state.ledgerPagination.page = 1;
+        this.render();
+    }
+
+    /**
+     * Change la page affichée pour l'historique des encaissements.
+     */
+    setLedgerPage(page) {
+        this.state.ledgerPagination.page = page;
+        this.render();
+    }
+
+    /**
+     * Change le nombre d'éléments affichés par page.
+     */
+    setLedgerLimit(limit) {
+        this.state.ledgerPagination.limit = limit === 'all' ? 'all' : parseInt(limit);
+        this.state.ledgerPagination.page = 1;
+        this.render();
+    }
+
+    /**
+     * Met à jour le filtre de date de l'historique des encaissements d'un utilisateur.
+     */
+    handleUserPaymentFilterChange(key, value) {
+        this.state.userPaymentFilters[key] = value;
+        this.state.userPaymentPagination.page = 1;
+        this.render();
+    }
+
+    /** Change la page affichée pour l'historique d'un utilisateur */
+    setUserPaymentPage(page) {
+        this.state.userPaymentPagination.page = page;
+        this.render();
+    }
+
+    /** Change la limite d'affichage pour l'historique d'un utilisateur */
+    setUserPaymentLimit(limit) {
+        this.state.userPaymentPagination.limit = limit === 'all' ? 'all' : parseInt(limit);
+        this.state.userPaymentPagination.page = 1;
+        this.render();
+    }
+
+    /**
+     * Met à jour le filtre de date de l'historique des mouvements de cours d'un utilisateur.
+     */
+    handleUserCreditFilterChange(key, value) {
+        this.state.userCreditFilters[key] = value;
+        this.state.userCreditPagination.page = 1;
+        this.render();
+    }
+
+    /** Change la page affichée pour l'historique des mouvements */
+    setUserCreditPage(page) {
+        this.state.userCreditPagination.page = page;
+        this.render();
+    }
+
+    /** Change la limite d'affichage pour l'historique des mouvements */
+    setUserCreditLimit(limit) {
+        this.state.userCreditPagination.limit = limit === 'all' ? 'all' : parseInt(limit);
+        this.state.userCreditPagination.page = 1;
+        this.render();
+    }
+
+    /**
      * Exporte les encaissements du livre de recettes au format Excel (.xlsx) natif.
      */
     async exportLedgerToXLSX() {
-        const ledgerPurchases = (this.state.adminLedger || []).filter(t => t.type === 'purchase');
+        let ledgerPurchases = (this.state.adminLedger || []).filter(t => t.type === 'purchase');
+        
+        const parseDate = (dStr) => { const [d, m, y] = dStr.split(' ')[0].split('/'); return `${y}-${m}-${d}`; };
+        if (this.state.ledgerFilters.startDate) {
+            ledgerPurchases = ledgerPurchases.filter(t => parseDate(t.date) >= this.state.ledgerFilters.startDate);
+        }
+        if (this.state.ledgerFilters.endDate) {
+            ledgerPurchases = ledgerPurchases.filter(t => parseDate(t.date) <= this.state.ledgerFilters.endDate);
+        }
+
         if (ledgerPurchases.length === 0) return this.showNotification("Aucune donnée à exporter.", "warning");
 
         this.showNotification("Génération du fichier Excel en cours...", "info");
@@ -475,7 +586,16 @@ class PilatesApp {
      * Exporte les encaissements du livre de recettes au format CSV lisible sous Excel.
      */
     exportLedgerToCSV() {
-        const ledgerPurchases = (this.state.adminLedger || []).filter(t => t.type === 'purchase');
+        let ledgerPurchases = (this.state.adminLedger || []).filter(t => t.type === 'purchase');
+        
+        const parseDate = (dStr) => { const [d, m, y] = dStr.split(' ')[0].split('/'); return `${y}-${m}-${d}`; };
+        if (this.state.ledgerFilters.startDate) {
+            ledgerPurchases = ledgerPurchases.filter(t => parseDate(t.date) >= this.state.ledgerFilters.startDate);
+        }
+        if (this.state.ledgerFilters.endDate) {
+            ledgerPurchases = ledgerPurchases.filter(t => parseDate(t.date) <= this.state.ledgerFilters.endDate);
+        }
+
         if (ledgerPurchases.length === 0) return this.showNotification("Aucune donnée à exporter.", "warning");
 
         // En-têtes du CSV (utilisation du point-virgule pour compatibilité Excel FR)
@@ -517,6 +637,124 @@ class PilatesApp {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    }
+
+    /**
+     * Génère et télécharge une facture PDF stylisée pour un achat donné.
+     * @param {Object} t - L'objet de transaction (achat)
+     * @param {Object} u - L'objet utilisateur (client)
+     */
+    async downloadInvoice(t, u) {
+        if (!t || !u) return;
+        this.showNotification("Génération de la facture en cours...", "info");
+
+        // Chargement dynamique de la librairie de création PDF
+        if (typeof html2pdf === 'undefined') {
+            try {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            } catch (e) {
+                return this.showNotification("Erreur lors du chargement du générateur PDF.", "error");
+            }
+        }
+
+        const priceMatch = t.description.match(/\((\d+)€\)/);
+        const priceTTC = priceMatch ? parseInt(priceMatch[1]) : 0;
+        let descWithoutPrice = t.description.replace(/\s*\(\d+€\)/, '');
+
+        const isSub = t.amount >= 999 || t.description.toLowerCase().includes('abonnement');
+        let pkg = null;
+        if (isSub) {
+            pkg = this.state.creditPackages.find(p => p.is_subscription && (priceTTC === 0 || p.price === priceTTC)) || this.state.creditPackages.find(p => p.is_subscription);
+        } else {
+            pkg = this.state.creditPackages.find(p => p.credits === t.amount && (priceTTC === 0 || p.price === priceTTC)) || this.state.creditPackages.find(p => p.credits === t.amount && !p.is_subscription);
+        }
+
+        if (pkg && pkg.subtitle) {
+            descWithoutPrice += `<br><span style="font-size: 12px; color: #10b981;">${pkg.subtitle}</span>`;
+        }
+
+        if (isSub && pkg && pkg.expires_in_days) {
+            const days = pkg.expires_in_days;
+            let durationStr = `${days} jours`;
+            if (days === 365) durationStr = '1 an';
+            else if (days >= 28 && days <= 31) durationStr = '1 mois';
+            else if (days % 30 === 0) durationStr = `${days / 30} mois`;
+            else if (days % 365 === 0) durationStr = `${days / 365} ans`;
+            
+            descWithoutPrice += `<br><span style="font-size: 12px; color: #666;">Durée : ${durationStr}</span>`;
+        }
+
+        const priceHT = priceTTC > 0 ? (priceTTC / 1.2).toFixed(2) : '0.00';
+        const tvaAmount = priceTTC > 0 ? (priceTTC - (priceTTC / 1.2)).toFixed(2) : '0.00';
+
+        // Sécurisation de la date pour Safari/iOS
+        const tDate = new Date(t.date.replace(' ', 'T'));
+        const dateStr = tDate.toLocaleDateString('fr-FR');
+        const invoiceNum = `FACT-${tDate.getFullYear()}${(tDate.getMonth()+1).toString().padStart(2,'0')}${tDate.getDate().toString().padStart(2,'0')}-${t.id}`;
+
+        const htmlContent = `
+            <div style="box-sizing: border-box; padding: 30px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; width: 700px; background: white;">
+                <!-- En-tête -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #10b981; padding-bottom: 20px; margin-bottom: 40px;">
+                    <div>
+                        <h1 style="color: #10b981; font-size: 28px; font-weight: 300; margin: 0; letter-spacing: 2px;">L'ESPACE<b style="font-weight: 700;">DORÉ</b></h1>
+                        <p style="margin: 5px 0 0; font-size: 12px; color: #666; line-height: 1.5;">
+                            ${this.state.studioAddress}<br>
+                            SIRET : ${this.state.studioSiret}<br>
+                            N° TVA : ${this.state.studioTva}
+                        </p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h2 style="font-size: 24px; font-weight: bold; margin: 0; color: #333;">FACTURE</h2>
+                        <p style="margin: 5px 0 0; font-size: 14px;"><strong>N° ${invoiceNum}</strong></p>
+                        <p style="margin: 5px 0 0; font-size: 14px;">Date : ${dateStr}</p>
+                    </div>
+                </div>
+                <!-- Informations Client -->
+                <div style="margin-bottom: 40px;">
+                    <h3 style="font-size: 16px; font-weight: bold; color: #10b981; border-bottom: 1px solid #eee; padding-bottom: 5px; text-transform: uppercase;">Facturé à</h3>
+                    <p style="margin: 10px 0 0; font-size: 14px; line-height: 1.5;">
+                        <strong>${u.firstName || ''} ${u.lastName || ''}</strong><br>
+                        ${u.email || ''}<br>
+                        ${u.address ? u.address + '<br>' : ''}
+                        ${u.zipCode || ''} ${u.city || ''}
+                    </p>
+                </div>
+                <!-- Tableau des prestations -->
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px; font-size: 14px;">
+                    <thead><tr style="background-color: #f0fdf4; color: #064e3b;"><th style="padding: 12px; text-align: left; border-bottom: 2px solid #10b981;">Description</th><th style="padding: 12px; text-align: center; border-bottom: 2px solid #10b981;">Qté</th><th style="padding: 12px; text-align: right; border-bottom: 2px solid #10b981;">P.U HT</th><th style="padding: 12px; text-align: right; border-bottom: 2px solid #10b981;">TVA (20%)</th><th style="padding: 12px; text-align: right; border-bottom: 2px solid #10b981;">Total TTC</th></tr></thead>
+                    <tbody><tr><td style="padding: 12px; border-bottom: 1px solid #eee;">${descWithoutPrice}</td><td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center;">1</td><td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">${priceHT} €</td><td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">${tvaAmount} €</td><td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;"><strong>${priceTTC.toFixed(2)} €</strong></td></tr></tbody>
+                </table>
+                <!-- Totaux -->
+                <div style="display: flex; justify-content: flex-end;">
+                    <table style="width: 300px; font-size: 14px; border-collapse: collapse;">
+                        <tr><td style="padding: 5px 12px; text-align: left;">Total HT</td><td style="padding: 5px 12px; text-align: right;">${priceHT} €</td></tr>
+                        <tr><td style="padding: 5px 12px; text-align: left;">TVA (20%)</td><td style="padding: 5px 12px; text-align: right;">${tvaAmount} €</td></tr>
+                        <tr style="font-size: 18px; font-weight: bold; color: #10b981;"><td style="padding: 10px 12px; text-align: left; border-top: 2px solid #10b981;">Total TTC</td><td style="padding: 10px 12px; text-align: right; border-top: 2px solid #10b981;">${priceTTC.toFixed(2)} €</td></tr>
+                    </table>
+                </div>
+                <!-- Pied de page légal -->
+                <div style="margin-top: 80px; padding-top: 20px; border-top: 1px solid #eee; font-size: 10px; color: #999; text-align: center; line-height: 1.4;">
+                    La facture est payable à réception. En cas de retard de paiement, une pénalité fixée à 3 fois le taux d'intérêt légal sera appliquée,<br>ainsi qu'une indemnité forfaitaire pour frais de recouvrement de 40 euros.<br>
+                    Dispensé d'escompte pour paiement anticipé.
+                </div>
+            </div>
+        `;
+
+        const opt = { margin: 10, filename: `Facture_${invoiceNum}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+        
+        // En passant directement la chaîne HTML, html2pdf l'isole parfaitement sans subir les bugs d'affichage de la page
+        html2pdf().set(opt).from(htmlContent).save().then(() => {
+            this.showNotification("Facture téléchargée avec succès !");
+        }).catch((err) => {
+            console.error("Erreur de génération PDF:", err);
+        });
     }
 
     /**
@@ -754,6 +992,10 @@ class PilatesApp {
             this.state.adminUserMessageContent = '';
             this.render();
             const details = await userService.getUserDetails(this, userId);
+            this.state.userPaymentFilters = { startDate: '', endDate: '' };
+            this.state.userPaymentPagination = { page: 1, limit: 10 };
+            this.state.userCreditFilters = { startDate: '', endDate: '' };
+            this.state.userCreditPagination = { page: 1, limit: 10 };
             if (details.message || details.error) throw new Error(details.message || details.error);
             this.state.selectedUserDetails = details;
             this.state.adminTab = 'user_details';
@@ -855,16 +1097,31 @@ class PilatesApp {
             if (this.state.adminTab === 'newsletter' && !this.state.isHtmlView) {
                 const editorContainer = document.getElementById('nl-editor');
                 if (editorContainer) {
-                    this.state.quill = new Quill('#nl-editor', { theme: 'snow', placeholder: 'Rédigez...' });
-                    if (this.state.newsletterContent) this.state.quill.root.innerHTML = this.state.newsletterContent;
-                    this.state.quill.on('text-change', () => { this.state.newsletterContent = this.state.quill.root.innerHTML; });
+                    // Forcer la réinitialisation si le DOM a été écrasé
+                    if (this.state.quill && !editorContainer.classList.contains('ql-container')) {
+                        this.state.quill = null;
+                    }
+                    if (!this.state.quill) {
+                        this.state.quill = new Quill('#nl-editor', { theme: 'snow', placeholder: 'Rédigez...' });
+                        if (this.state.newsletterContent) this.state.quill.root.innerHTML = this.state.newsletterContent;
+                        this.state.quill.on('text-change', () => { this.state.newsletterContent = this.state.quill.root.innerHTML; });
+                    }
                 }
             }
             if (this.state.adminTab === 'user_details') {
                 const userEditor = document.getElementById('user-message-editor');
-                if (userEditor && !this.state.adminUserQuill) {
-                    this.state.adminUserQuill = new Quill('#user-message-editor', { theme: 'snow' });
-                    this.state.adminUserQuill.on('text-change', () => { this.state.adminUserMessageContent = this.state.adminUserQuill.root.innerHTML; });
+                if (userEditor) {
+                    // Forcer la réinitialisation si le DOM a été écrasé (ex: lors d'un re-render des infos client)
+                    if (this.state.adminUserQuill && !userEditor.classList.contains('ql-container')) {
+                        this.state.adminUserQuill = null;
+                    }
+                    if (!this.state.adminUserQuill) {
+                        this.state.adminUserQuill = new Quill('#user-message-editor', { theme: 'snow' });
+                        if (this.state.adminUserMessageContent) {
+                            this.state.adminUserQuill.root.innerHTML = this.state.adminUserMessageContent;
+                        }
+                        this.state.adminUserQuill.on('text-change', () => { this.state.adminUserMessageContent = this.state.adminUserQuill.root.innerHTML; });
+                    }
                 }
             }
         }
