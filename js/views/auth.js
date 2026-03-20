@@ -24,7 +24,7 @@ export const authView = (app, mode) => {
     const hasResetToken = app.state.resetPasswordToken;
     const regData = app.state.registrationData || {};
     
-    const containerMaxWidthClass = (isRegister && !isVerifying) ? 'auth-container-wide' : 'auth-container';
+    const containerMaxWidthClass = 'auth-container';
 
     return `
         <div class="d-flex flex-grow-1 align-items-center justify-content-center py-5 px-3">
@@ -38,86 +38,101 @@ export const authView = (app, mode) => {
                     </p>
                 </div>
                 
-                <form id="auth-main-form" class="${isVerifying ? 'd-none' : 'd-flex flex-column gap-3'}">
+                <form id="auth-main-form" class="${isVerifying ? 'd-none' : 'd-flex flex-column gap-2'}">
                     ${isLogin ? `
-                        <div>
-                            <label for="auth-email" class="form-label small fw-medium mb-1">Email</label>
-                            <input type="email" id="auth-email" required class="form-control" />
+                        <div class="row mb-2 align-items-center">
+                            <label for="auth-email" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted text-sm-end">Email</label>
+                            <div class="col-sm-9">
+                                <input type="email" id="auth-email" required class="form-control form-control-sm" />
+                            </div>
                         </div>
-                        <div>
-                            <label for="auth-password" class="form-label small fw-medium mb-1">Mot de passe</label>
-                            <div class="position-relative">
-                                <input type="${app.state.visiblePasswords.includes('auth-password') ? 'text' : 'password'}" id="auth-password" required class="form-control pr-5" />
-                                <button type="button" onclick="app.togglePasswordVisibility('auth-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-2 text-decoration-none">
-                                    ${app.state.visiblePasswords.includes('auth-password') ? eyeSlashIcon : eyeIcon}
-                                </button>
+                        <div class="row mb-2 align-items-center">
+                            <label for="auth-password" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted text-sm-end">Mot de passe</label>
+                            <div class="col-sm-9">
+                                <div class="position-relative">
+                                    <input type="${app.state.visiblePasswords.includes('auth-password') ? 'text' : 'password'}" id="auth-password" required class="form-control form-control-sm pe-4" />
+                                    <button type="button" onclick="app.togglePasswordVisibility('auth-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-1 me-1 text-decoration-none">
+                                        ${app.state.visiblePasswords.includes('auth-password') ? eyeSlashIcon : eyeIcon}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ` : ''}
 
                     ${isRegister ? `
-                        <div class="row g-4">
-                            <!-- Colonne 1: Infos Personnelles -->
-                            <div class="col-md-6 d-flex flex-column gap-3">
-                                <div class="row g-2">
-                                    <div class="col-6">
-                                        <label for="auth-firstname" class="form-label small fw-medium mb-1">Prénom</label>
-                                        <input type="text" id="auth-firstname" value="${regData.firstName || ''}" required class="form-control" />
-                                    </div>
-                                    <div class="col-6">
-                                        <label for="auth-lastname" class="form-label small fw-medium mb-1">Nom</label>
-                                        <input type="text" id="auth-lastname" value="${regData.lastName || ''}" required class="form-control" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label for="auth-address" class="form-label small fw-medium mb-1">Adresse postale</label>
-                                    <input type="text" id="auth-address" value="${regData.address || ''}" required placeholder="123 rue de la Paix" class="form-control" />
-                                </div>
-                                <div class="row g-2">
-                                    <div class="col-4">
-                                        <label for="auth-zipcode" class="form-label small fw-medium mb-1">Code Postal</label>
-                                        <input type="text" id="auth-zipcode" value="${regData.zipCode || ''}" required placeholder="75000" class="form-control" />
-                                    </div>
-                                    <div class="col-8">
-                                        <label for="auth-city" class="form-label small fw-medium mb-1">Ville</label>
-                                        <input type="text" id="auth-city" value="${regData.city || ''}" required placeholder="Paris" class="form-control" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label for="auth-phone" class="form-label small fw-medium mb-1">Téléphone</label>
-                                    <input type="tel" id="auth-phone" value="${regData.phone || ''}" required placeholder="06 12 34 56 78" class="form-control" />
+                        <div class="d-flex flex-column gap-1">
+                            <div class="row mb-1 align-items-center">
+                                <label for="auth-firstname" class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted text-sm-end">Prénom</label>
+                                <div class="col-sm-8">
+                                    <input type="text" id="auth-firstname" value="${regData.firstName || ''}" required class="form-control form-control-sm" />
                                 </div>
                             </div>
-                            
-                            <!-- Colonne 2: Infos Compte -->
-                            <div class="col-md-6 d-flex flex-column gap-3">
-                                <div>
-                                    <label for="auth-email" class="form-label small fw-medium mb-1">Email</label>
-                                    <input type="email" id="auth-email" value="${regData.email || ''}" required class="form-control" />
+                            <div class="row mb-1 align-items-center">
+                                <label for="auth-lastname" class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted text-sm-end">Nom</label>
+                                <div class="col-sm-8">
+                                    <input type="text" id="auth-lastname" value="${regData.lastName || ''}" required class="form-control form-control-sm" />
                                 </div>
-                                <div>
-                                    <label for="auth-password" class="form-label small fw-medium mb-1">Mot de passe</label>
+                            </div>
+                            <div class="row mb-1 align-items-center">
+                                <label for="auth-address" class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted text-sm-end">Adresse</label>
+                                <div class="col-sm-8">
+                                    <input type="text" id="auth-address" value="${regData.address || ''}" required placeholder="123 rue de la Paix" class="form-control form-control-sm" />
+                                </div>
+                            </div>
+                            <div class="row mb-1 align-items-center">
+                                <label for="auth-zipcode" class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted text-sm-end">Code Postal</label>
+                                <div class="col-sm-8">
+                                    <input type="text" id="auth-zipcode" value="${regData.zipCode || ''}" required placeholder="75000" class="form-control form-control-sm" />
+                                </div>
+                            </div>
+                            <div class="row mb-1 align-items-center">
+                                <label for="auth-city" class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted text-sm-end">Ville</label>
+                                <div class="col-sm-8">
+                                    <input type="text" id="auth-city" value="${regData.city || ''}" required placeholder="Paris" class="form-control form-control-sm" />
+                                </div>
+                            </div>
+                            <div class="row mb-1 align-items-center">
+                                <label for="auth-phone" class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted text-sm-end">Téléphone</label>
+                                <div class="col-sm-8">
+                                    <input type="tel" id="auth-phone" value="${regData.phone || ''}" required placeholder="06 12 34 56 78" class="form-control form-control-sm" />
+                                </div>
+                            </div>
+                            <div class="row mb-1 align-items-center">
+                                <label for="auth-email" class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted text-sm-end">Email</label>
+                                <div class="col-sm-8">
+                                    <input type="email" id="auth-email" value="${regData.email || ''}" required class="form-control form-control-sm" />
+                                </div>
+                            </div>
+                            <div class="row mb-1 align-items-center">
+                                <label for="auth-password" class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted text-sm-end">Mot de passe</label>
+                                <div class="col-sm-8">
                                     <div class="position-relative">
-                                        <input type="${app.state.visiblePasswords.includes('auth-password') ? 'text' : 'password'}" id="auth-password" required class="form-control pr-5" />
-                                        <button type="button" onclick="app.togglePasswordVisibility('auth-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-2 text-decoration-none">
+                                        <input type="${app.state.visiblePasswords.includes('auth-password') ? 'text' : 'password'}" id="auth-password" required class="form-control form-control-sm pe-4" />
+                                        <button type="button" onclick="app.togglePasswordVisibility('auth-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-1 me-1 text-decoration-none">
                                             ${app.state.visiblePasswords.includes('auth-password') ? eyeSlashIcon : eyeIcon}
                                         </button>
                                     </div>
                                 </div>
-                                <div>
-                                    <label for="auth-confirm-password" class="form-label small fw-medium mb-1">Confirmer le mot de passe</label>
+                            </div>
+                            <div class="row mb-1 align-items-center">
+                                <label for="auth-confirm-password" class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted text-sm-end text-truncate" title="Confirmer le mot de passe">Confirmer MDP</label>
+                                <div class="col-sm-8">
                                     <div class="position-relative">
-                                        <input type="${app.state.visiblePasswords.includes('auth-confirm-password') ? 'text' : 'password'}" id="auth-confirm-password" required class="form-control pr-5" />
-                                        <button type="button" onclick="app.togglePasswordVisibility('auth-confirm-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-2 text-decoration-none">
+                                        <input type="${app.state.visiblePasswords.includes('auth-confirm-password') ? 'text' : 'password'}" id="auth-confirm-password" required class="form-control form-control-sm pe-4" />
+                                        <button type="button" onclick="app.togglePasswordVisibility('auth-confirm-password')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-1 me-1 text-decoration-none">
                                             ${app.state.visiblePasswords.includes('auth-confirm-password') ? eyeSlashIcon : eyeIcon}
                                         </button>
                                     </div>
                                 </div>
-                                <div class="form-check mt-2">
-                                    <input type="checkbox" id="auth-newsletter" ${regData.newsletter_subscribed ? 'checked' : ''} class="form-check-input">
-                                    <label for="auth-newsletter" class="form-check-label small text-muted cursor-pointer">
-                                        Je souhaite recevoir les actualités et promotions du studio.
-                                    </label>
+                            </div>
+                            <div class="row mt-1">
+                                <div class="col-sm-8 offset-sm-4">
+                                    <div class="form-check mt-1">
+                                        <input type="checkbox" id="auth-newsletter" ${regData.newsletter_subscribed ? 'checked' : ''} class="form-check-input mt-1">
+                                        <label for="auth-newsletter" class="form-check-label small text-muted cursor-pointer" style="line-height: 1.3;">
+                                            Je souhaite recevoir les actualités du studio.
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -125,33 +140,39 @@ export const authView = (app, mode) => {
 
                     ${isResetPassword ? `
                         ${hasResetToken ? `
-                            <div>
-                                <label for="reset-password-new" class="form-label small fw-medium mb-1">Nouveau mot de passe</label>
-                                <div class="position-relative">
-                                    <input type="${app.state.visiblePasswords.includes('reset-password-new') ? 'text' : 'password'}" id="reset-password-new" required class="form-control pr-5" />
-                                    <button type="button" onclick="app.togglePasswordVisibility('reset-password-new')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-2 text-decoration-none">
-                                        ${app.state.visiblePasswords.includes('reset-password-new') ? eyeSlashIcon : eyeIcon}
-                                    </button>
+                            <div class="row mb-2 align-items-center">
+                                <label for="reset-password-new" class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted text-sm-end text-truncate">Nouveau MDP</label>
+                                <div class="col-sm-8">
+                                    <div class="position-relative">
+                                        <input type="${app.state.visiblePasswords.includes('reset-password-new') ? 'text' : 'password'}" id="reset-password-new" required class="form-control form-control-sm pe-4" />
+                                        <button type="button" onclick="app.togglePasswordVisibility('reset-password-new')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-1 me-1 text-decoration-none">
+                                            ${app.state.visiblePasswords.includes('reset-password-new') ? eyeSlashIcon : eyeIcon}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <label for="reset-password-confirm" class="form-label small fw-medium mb-1">Confirmer le nouveau mot de passe</label>
-                                <div class="position-relative">
-                                    <input type="${app.state.visiblePasswords.includes('reset-password-confirm') ? 'text' : 'password'}" id="reset-password-confirm" required class="form-control pr-5" />
-                                    <button type="button" onclick="app.togglePasswordVisibility('reset-password-confirm')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-2 text-decoration-none">
-                                        ${app.state.visiblePasswords.includes('reset-password-confirm') ? eyeSlashIcon : eyeIcon}
-                                    </button>
+                            <div class="row mb-2 align-items-center">
+                                <label for="reset-password-confirm" class="col-sm-4 col-form-label col-form-label-sm fw-medium text-muted text-sm-end text-truncate">Confirmer MDP</label>
+                                <div class="col-sm-8">
+                                    <div class="position-relative">
+                                        <input type="${app.state.visiblePasswords.includes('reset-password-confirm') ? 'text' : 'password'}" id="reset-password-confirm" required class="form-control form-control-sm pe-4" />
+                                        <button type="button" onclick="app.togglePasswordVisibility('reset-password-confirm')" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y p-1 me-1 text-decoration-none">
+                                            ${app.state.visiblePasswords.includes('reset-password-confirm') ? eyeSlashIcon : eyeIcon}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ` : `<!-- Formulaire pour demander un lien de réinitialisation (email seulement) -->
-                            <div>
-                                <label for="auth-email" class="form-label small fw-medium mb-1">Votre email</label>
-                                <input type="email" id="auth-email" required class="form-control" />
+                            <div class="row mb-2 align-items-center">
+                                <label for="auth-email" class="col-sm-3 col-form-label col-form-label-sm fw-medium text-muted text-sm-end">Votre email</label>
+                                <div class="col-sm-9">
+                                    <input type="email" id="auth-email" required class="form-control form-control-sm" />
+                                </div>
                             </div>
                         `}
                     ` : ''}
                     
-                    <button type="submit" class="btn btn-auth w-100 py-2 mt-4 fw-medium">
+                    <button type="submit" class="btn btn-auth w-100 py-2 mt-3 fw-medium">
                         ${isLogin ? 'Se connecter' : (isResetPassword ? (hasResetToken ? 'Changer mon mot de passe' : 'Envoyer le lien de réinitialisation') : "Valider l'inscription")}
                     </button>
                 </form>

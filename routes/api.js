@@ -282,6 +282,46 @@ const seedDB = async () => {
 seedDB();
 
 /**
+ * Envoie un email d'annulation aux inscrits lorsqu'un ou plusieurs cours sont supprimés.
+ */
+const sendCancellationEmails = async (classIds) => {
+    if (!classIds || classIds.length === 0) return;
+    try {
+        const [bookings] = await pool.query(`
+            SELECT c.title, DATE_FORMAT(c.date, '%d/%m/%Y') as dateStr, c.time, u.email, u.firstName
+            FROM bookings b
+            JOIN classes c ON b.class_id = c.id
+            JOIN users u ON b.user_id = u.id
+            WHERE c.id IN (?)
+        `, [classIds]);
+
+        if (bookings.length === 0) return;
+
+        const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST,
+            port: parseInt(process.env.SMTP_PORT),
+            secure: process.env.SMTP_PORT == 465,
+            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+            tls: { rejectUnauthorized: false }
+        });
+
+        for (const b of bookings) {
+            const html = `
+                <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px; max-width: 600px; margin: auto;">
+                    <h2 style="color: #991b1b;">Annulation de cours</h2>
+                    <p>Bonjour ${b.firstName},</p>
+                    <p>Nous sommes au regret de vous informer que le cours <strong>${b.title}</strong> prévu le <strong>${b.dateStr} à ${b.time}</strong> a malheureusement dû être annulé par notre équipe.</p>
+                    <p>Si une réservation avait été décomptée, votre solde de cours a été ou sera mis à jour prochainement.</p>
+                    <p>Nous vous prions de nous excuser pour la gêne occasionnée.</p>
+                    <p>L'équipe L'espace doré.</p>
+                </div>
+            `;
+            await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: b.email, subject: "Annulation de votre cours - L'espace doré", html: html }).catch(() => {});
+        }
+    } catch (err) { console.error("[API] Erreur annulation email:", err); }
+};
+
+/**
  * Point d'entrée principal pour le traitement des requêtes HTTP.
  * @param {http.IncomingMessage} req - Objet de requête Node.js.
  * @param {http.ServerResponse} res - Objet de réponse Node.js.
@@ -590,7 +630,8 @@ const handleRequest = async (req, res) => {
                 host: process.env.SMTP_HOST,
                 port: parseInt(process.env.SMTP_PORT),
                 secure: process.env.SMTP_PORT == 465,
-                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+                tls: { rejectUnauthorized: false }
             });
 
             try {
@@ -703,6 +744,35 @@ const handleRequest = async (req, res) => {
             await pool.query('DELETE FROM email_verifications WHERE email = ?', [email]);
 
             const [newUser] = await pool.query('SELECT id, firstName, lastName, name, email, role, address, phone, zipCode, city, credits_balance, newsletter_subscribed FROM users WHERE id = ?', [result.insertId]);
+
+            try {
+                const transporter = nodemailer.createTransport({
+                    host: process.env.SMTP_HOST,
+                    port: parseInt(process.env.SMTP_PORT),
+                    secure: process.env.SMTP_PORT == 465,
+                    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+                    tls: { rejectUnauthorized: false }
+                });
+                await transporter.sendMail({
+                    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+                    to: email,
+                    subject: "Bienvenue chez L'espace doré !",
+                    html: `
+                        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e7e5e4; border-radius: 12px; max-width: 600px; margin: auto;">
+                            <h2 style="color: #065f46;">Bienvenue ${firstName} !</h2>
+                            <p>Votre compte a bien été créé avec succès.</p>
+                            <p>Vous pouvez dès à présent vous connecter sur notre site pour consulter le planning et réserver vos prochaines séances de Pilates.</p>
+                            <p style="text-align: center; margin: 30px 0;">
+                                <a href="http://${req.headers.host}/planning" style="background-color: #065f46; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                                    Voir le planning
+                                </a>
+                            </p>
+                            <p>À très bientôt au studio,<br>L'équipe L'espace doré.</p>
+                        </div>
+                    `
+                });
+            } catch (mailErr) { console.error("[API] Erreur email bienvenue:", mailErr); }
+
             return send(200, { success: true, user: newUser[0] });
         }
 
@@ -878,6 +948,7 @@ const handleRequest = async (req, res) => {
         if (method === 'DELETE' && path === '/classes/bulk') {
             const { ids } = req.body;
             if (!ids || !ids.length) return send(400, { success: false, message: 'Aucun cours sélectionné' });
+            await sendCancellationEmails(ids);
             await pool.query('DELETE FROM classes WHERE id IN (?)', [[...ids]]);
             return send(200, { success: true, message: 'Séances supprimées' });
         }
@@ -885,13 +956,18 @@ const handleRequest = async (req, res) => {
         const deleteSeriesMatch = path.match(/^\/classes\/series\/(.+)$/);
         if (method === 'DELETE' && deleteSeriesMatch) {
             const rid = decodeURIComponent(deleteSeriesMatch[1]);
+            const [classes] = await pool.query('SELECT id FROM classes WHERE recurrence_id = ?', [rid]);
+            const classIds = classes.map(c => c.id);
+            if (classIds.length > 0) await sendCancellationEmails(classIds);
             await pool.query('DELETE FROM classes WHERE recurrence_id = ?', [rid]);
             return send(200, { success: true, message: 'Série de cours supprimée' });
         }
 
         const deleteClassMatch = path.match(/^\/classes\/(\d+)$/);
         if (method === 'DELETE' && deleteClassMatch) {
-            await pool.query('DELETE FROM classes WHERE id = ?', [deleteClassMatch[1]]);
+            const classId = deleteClassMatch[1];
+            await sendCancellationEmails([classId]);
+            await pool.query('DELETE FROM classes WHERE id = ?', [classId]);
             return send(200, { message: 'Cours supprimé' });
         }
 

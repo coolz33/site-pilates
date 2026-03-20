@@ -12,6 +12,7 @@ import { userService } from './js/services/userService.js';
 import { newsletterService } from './js/services/newsletterService.js';
 import { homeView } from './js/views/home.js';
 import { aboutView } from './js/views/about.js';
+import { studioView } from './js/views/studio.js';
 import { profileView } from './js/views/profile.js';
 import { creditsView } from './js/views/credits.js';
 import { contactView } from './js/views/contact.js';
@@ -1100,8 +1101,24 @@ class PilatesApp {
         this.state.resendCodeTimer = 60;
         this.state.resendCodeInterval = setInterval(() => {
             this.state.resendCodeTimer--;
-            if (this.state.resendCodeTimer <= 0) clearInterval(this.state.resendCodeInterval);
-            this.render();
+                
+                const resendButtonTextElement = document.getElementById('resend-code-text');
+                const resendButton = document.getElementById('resend-code-btn');
+
+                if (resendButtonTextElement && resendButton) {
+                    if (this.state.resendCodeTimer > 0) {
+                        resendButtonTextElement.textContent = `Renvoyer le code (${this.state.resendCodeTimer}s)`;
+                        resendButton.disabled = true;
+                    } else {
+                        resendButtonTextElement.textContent = 'Renvoyer le code';
+                        resendButton.disabled = false;
+                    }
+                }
+                
+                if (this.state.resendCodeTimer <= 0) {
+                    clearInterval(this.state.resendCodeInterval);
+                    this.state.resendCodeInterval = null;
+                }
         }, 1000);
         try {
             await authService.sendVerificationCode(this, this.state.registrationData.email);
@@ -1224,6 +1241,7 @@ class PilatesApp {
             const viewMap = {
                 accueil: homeView,
                 'a-propos': aboutView,
+                'le-studio': studioView,
                 profil: profileView,
                 tarifs: creditsView,
                 contact: contactView,
