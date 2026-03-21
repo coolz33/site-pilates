@@ -5,7 +5,7 @@
 
 export const studioView = (app) => `
     <div class="pt-4 pb-5 animate-fade-in flex-grow-1">
-        <div class="container" style="max-width: 1200px;">
+        <div class="container max-w-1200">
             <div class="text-center mb-5 mt-2">
                 <h1 class="fs-2 fw-light mb-2">Notre Studio</h1>
                 <p class="text-muted">Un lieu conçu pour votre bien-être et votre pratique.</p>
@@ -16,11 +16,11 @@ export const studioView = (app) => `
                 <div class="col-md-6 order-2 order-md-1">
                     <div class="pe-md-4">
                         <h2 class="fs-3 fw-medium text-emerald mb-4">Un écrin de douceur</h2>
-                        <p class="text-muted" style="line-height: 1.8;">
+                        <p class="text-muted line-height-1-8">
                             Bienvenue dans notre espace dédié à la méthode Pilates. Nous avons pensé chaque détail pour vous offrir un cadre apaisant, lumineux et chaleureux. 
                             Dès votre arrivée, laissez le stress à la porte et plongez dans une bulle de sérénité.
                         </p>
-                        <p class="text-muted" style="line-height: 1.8;">
+                        <p class="text-muted line-height-1-8">
                             Notre matériel haut de gamme et nos espaces épurés vous permettront de vous concentrer pleinement sur vous-même, votre respiration et vos mouvements.
                         </p>
                     </div>
@@ -28,7 +28,7 @@ export const studioView = (app) => `
                 <div class="col-md-6 order-1 order-md-2">
                     <div class="rounded-4 overflow-hidden shadow-sm">
                         <!-- Ajustez le 'src' avec le nom de vos images. Le 'onerror' sert de secours -->
-                        <img src="assets/img/studio1.jpg" onerror="this.src='https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=800&q=80'" alt="Le studio" class="img-fluid w-100 object-fit-cover hover-zoom" style="height: 400px;">
+                        <img src="assets/img/studio1.jpg" onerror="this.src='https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=800&q=80'" alt="Le studio" class="img-fluid w-100 object-fit-cover hover-zoom h-400px">
                     </div>
                 </div>
             </div>
@@ -37,12 +37,12 @@ export const studioView = (app) => `
             <div class="row g-4 mb-5">
                 <div class="col-md-4">
                     <div class="rounded-4 overflow-hidden shadow-sm h-100">
-                        <img src="assets/img/studio2.jpg" onerror="this.src='https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?auto=format&fit=crop&w=600&q=80'" alt="Détail du studio" class="img-fluid w-100 object-fit-cover hover-zoom" style="height: 300px;">
+                        <img src="assets/img/studio2.jpg" onerror="this.src='https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?auto=format&fit=crop&w=600&q=80'" alt="Détail du studio" class="img-fluid w-100 object-fit-cover hover-zoom h-300px">
                     </div>
                 </div>
                 <div class="col-md-8">
                     <div class="rounded-4 overflow-hidden shadow-sm h-100">
-                        <img src="assets/img/studio3.jpg" onerror="this.src='https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=1000&q=80'" alt="Salle de pratique" class="img-fluid w-100 object-fit-cover hover-zoom" style="height: 300px;">
+                        <img src="assets/img/studio3.jpg" onerror="this.src='https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=1000&q=80'" alt="Salle de pratique" class="img-fluid w-100 object-fit-cover hover-zoom h-300px">
                     </div>
                 </div>
             </div>
@@ -51,7 +51,7 @@ export const studioView = (app) => `
             <div class="row g-4">
                 <div class="col-md-6">
                     <div class="rounded-4 overflow-hidden shadow-sm h-100">
-                        <img src="assets/img/studio4.jpg" onerror="this.src='https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=800&q=80'" alt="Équipement Pilates" class="img-fluid w-100 object-fit-cover hover-zoom" style="height: 350px;">
+                        <img src="assets/img/studio4.jpg" onerror="this.src='https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=800&q=80'" alt="Équipement Pilates" class="img-fluid w-100 object-fit-cover hover-zoom h-350px">
                     </div>
                 </div>
                 <div class="col-md-6 d-flex align-items-center">

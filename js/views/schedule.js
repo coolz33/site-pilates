@@ -61,9 +61,9 @@ export const scheduleView = (app) => {
 
                 return `
                     <div class="schedule-card ${cardStateClass} mb-2 shadow-sm">
-                        <div class="fw-semibold mb-1 lh-sm ${isPast && !isBooked ? 'text-muted' : ''}" style="font-size: 0.85rem;">${c.time} - ${c.title}</div>
-                        <div class="opacity-75 mb-1 ${isPast && !isBooked ? 'text-muted' : ''}" style="font-size: 0.75rem;">${c.duration} min | ${c.bookedUsers.length}/${c.capacity} pers.</div>
-                        <button onclick="app.initiateBooking(${c.id})" ${buttonDisabled} class="btn btn-sm w-100 fw-medium rounded-pill py-1 ${buttonClasses}" style="font-size: 0.75rem;">
+                        <div class="fw-semibold mb-1 lh-sm fs-0-85rem ${isPast && !isBooked ? 'text-muted' : ''}">${c.time} - ${c.title}</div>
+                        <div class="opacity-75 mb-1 fs-0-75rem ${isPast && !isBooked ? 'text-muted' : ''}">${c.duration} min | ${c.bookedUsers.length}/${c.capacity} pers.</div>
+                        <button onclick="app.initiateBooking(${c.id})" ${buttonDisabled} class="btn btn-sm w-100 fw-medium rounded-pill py-1 fs-0-75rem ${buttonClasses}">
                             ${buttonText}
                         </button>
                         
@@ -86,17 +86,17 @@ export const scheduleView = (app) => {
     }).join('');
 
     return `
-        <div class="pt-4 pb-5 animate-fade-in flex-grow-1 w-100 mx-auto" style="max-width: 1536px;">
+        <div class="pt-4 pb-5 animate-fade-in flex-grow-1 w-100 mx-auto max-w-1536">
             <div class="container-fluid px-3 px-md-4">
                 
                 <!-- Section Assistant IA -->
-                <div class="custom-card p-2 p-md-3 mb-4 mx-auto" style="max-width: 900px;">
+                <div class="custom-card p-2 p-md-3 mb-4 mx-auto max-w-900">
                     <div class="d-flex flex-column flex-md-row align-items-md-center gap-2">
-                        <h2 class="fw-medium mb-0 d-flex align-items-center gap-2 text-nowrap" style="font-size: 0.9rem;">
+                        <h2 class="fw-medium mb-0 d-flex align-items-center gap-2 text-nowrap fs-0-9rem">
                             <span class="text-emerald">${icons.sparkles}</span> Quel cours pour moi ?
                         </h2>
                         <input type="text" id="ai-prompt" placeholder="Ex: Je cherche un cours dynamique pour le dos..." class="form-control form-control-sm rounded-pill px-3 py-1">
-                        <button onclick="app.askAi()" class="btn btn-emerald rounded-pill px-3 py-1 d-flex align-items-center justify-content-center gap-2 btn-sm" style="min-width: 110px;">
+                        <button onclick="app.askAi()" class="btn btn-emerald rounded-pill px-3 py-1 d-flex align-items-center justify-content-center gap-2 btn-sm min-w-110">
                             ${st.isAiLoading ? '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ...' : 'Demander'}
                         </button>
                     </div>
@@ -104,16 +104,17 @@ export const scheduleView = (app) => {
                 </div>
 
                 <!-- En-tête Navigation Planning -->
-                <div class="d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-start mb-4 mx-auto gap-3" style="max-width: 1400px;">
+                <div class="d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-start mb-4 mx-auto gap-3 max-w-1400">
                     <h1 class="fs-2 fw-medium text-capitalize mb-0 text-emerald">Planning - ${monthName}</h1>
-                    <div class="d-flex gap-2">
-                        <button onclick="app.changeWeek(-1)" class="nav-round-btn" style="width: 2rem; height: 2rem; font-size: 0.875rem;">←</button>
-                        <button onclick="app.changeWeek(1)" class="nav-round-btn" style="width: 2rem; height: 2rem; font-size: 0.875rem;">→</button>
+                    <!-- Navigation Semaine -->
+                    <div class="d-flex align-items-center gap-2 bg-white rounded-pill p-1 shadow-sm border border-stone-200">
+                        <button onclick="app.changeWeek(-1)" class="nav-round-btn w-2rem h-2rem fs-0-875rem">←</button>
+                        <button onclick="app.changeWeek(1)" class="nav-round-btn w-2rem h-2rem fs-0-875rem">→</button>
                     </div>
                 </div>
 
                 <!-- Grille du calendrier (7 colonnes via CSS) -->
-                <div class="row g-2 g-md-3 mx-auto" style="max-width: 1400px;">
+                <div class="row g-2 g-md-3 mx-auto max-w-1400">
                     ${daysHtml}
                 </div>
                 

@@ -1,4 +1,4 @@
-/* --- Variables de couleurs (Inspirées de Tailwind Emerald & Stone) --- */
+/* --- Variables de couleurs (Émeraude & Pierre) --- */
 :root {
     --stone-50: #fafaf9;
     --stone-100: #f5f5f4;
@@ -798,6 +798,52 @@ select:focus,
     flex-grow: 1; /* Permet à l'élément de prendre l'espace disponible dans un conteneur flex */
     flex-shrink: 1; /* Permet à l'élément de se réduire si nécessaire */
     min-width: 0; /* Permet à l'élément de se réduire si nécessaire */
+}
+
+/* Utilitaires pour remplacer les styles inline (Externalisation du CSS) */
+/* Max-widths */
+.max-w-1200 { max-width: 1200px; }
+.max-w-1400 { max-width: 1400px; }
+.max-w-1536 { max-width: 1536px; }
+.max-w-900 { max-width: 900px; }
+.max-w-600 { max-width: 600px; }
+.max-w-110 { max-width: 110px; }
+
+/* Min-widths */
+.min-w-110 { min-width: 110px; }
+.min-w-160 { min-width: 160px; }
+
+/* Widths */
+.w-50px { width: 50px; }
+.w-85px { width: 85px; }
+.w-90px { width: 90px; }
+.w-120px { width: 120px; }
+.w-125px { width: 125px; }
+.w-2rem { width: 2rem; }
+.w-2-5rem { width: 2.5rem; }
+
+/* Heights */
+.h-26px { height: 26px; }
+.h-300px { height: 300px; }
+.h-350px { height: 350px; }
+.h-400px { height: 400px; }
+.h-2rem { height: 2rem; }
+.h-2-5rem { height: 2.5rem; }
+
+/* Font sizes */
+.fs-0-65rem { font-size: 0.65rem; }
+.fs-0-75rem { font-size: 0.75rem; }
+.fs-0-8rem { font-size: 0.8rem; }
+.fs-0-85rem { font-size: 0.85rem; }
+.fs-0-875rem { font-size: 0.875rem; }
+.fs-0-9rem { font-size: 0.9rem; }
+
+/* Other utils */
+.line-height-1-8 { line-height: 1.8; }
+.cursor-help { cursor: help; }
+.mt-n2px { margin-top: -2px; }
+.text-emerald-200-important { color: var(--emerald-200) !important; }
+.truncate-single-line {
     display: block; /* Nécessaire pour que overflow: hidden fonctionne */
 }
 

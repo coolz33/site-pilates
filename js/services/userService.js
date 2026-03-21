@@ -223,6 +223,50 @@ export const userService = {
         return await res.json();
     },
 
+    async viewUser(app, userId) {
+        try {
+            app.state.isAdminAiLoading = true;
+            app.state.adminUserQuill = null;
+            app.state.adminUserMessageContent = '';
+            app.render();
+            const details = await this.getUserDetails(app, userId);
+            app.state.userPaymentFilters = { startDate: '', endDate: '' };
+            app.state.userPaymentPagination = { page: 1, limit: 10 };
+            app.state.userCreditFilters = { startDate: '', endDate: '' };
+            app.state.userCreditPagination = { page: 1, limit: 10 };
+            if (details.message || details.error) throw new Error(details.message || details.error);
+            app.state.selectedUserDetails = details;
+            app.state.adminTab = 'user_details';
+        } catch (err) {
+            app.showNotification("Impossible de charger les détails.", "error");
+        } finally {
+            app.state.isAdminAiLoading = false;
+            app.render();
+        }
+    },
+
+    async deleteAccount(app, userId, isAdmin = false) {
+        const msg1 = isAdmin ? "Voulez-vous vraiment supprimer ce compte client ?" : "Êtes-vous sûr de vouloir supprimer votre compte ?";
+        const confirmed1 = await app.confirmDialog(msg1 + "\n\nCette action est irréversible.", { type: 'danger', confirmText: 'Supprimer' });
+        if (!confirmed1) return;
+        
+        const confirmed2 = await app.confirmDialog("DERNIER AVERTISSEMENT : Toutes les données (cours, réservations, historique) seront définitivement effacées du serveur.\n\nConfirmer la suppression ?", { type: 'danger', confirmText: 'Supprimer définitivement' });
+        if (!confirmed2) return;
+
+        try {
+            const res = await fetch(`${API_URL}/users/${userId}`, { method: 'DELETE' });
+            if (res.ok) {
+                app.showNotification("Le compte a été supprimé définitivement.");
+                if (!isAdmin) app.logout();
+                else {
+                    app.state.selectedUserDetails = null;
+                    app.state.adminTab = 'users';
+                    app.init();
+                }
+            }
+        } catch (err) { app.showNotification("Erreur lors de la suppression.", "error"); }
+    },
+
     async adjustUserCredits(app, e, userId) {
         e.preventDefault();
         const amount = parseInt(e.target.amount.value);

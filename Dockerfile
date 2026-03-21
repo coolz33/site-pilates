@@ -3,7 +3,6 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-# On ne met PAS de ligne RUN npx tailwindcss ici !
 RUN npm prune --production
 ENV PORT=5051
 ENV NODE_ENV=production

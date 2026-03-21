@@ -1,1 +1,0 @@
-// Fichier à supprimer : Tailwind n'est plus du tout utilisé dans ce projet.

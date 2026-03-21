@@ -1074,65 +1074,11 @@ class PilatesApp {
     async updateAllPackages(e) { await userService.updateAllPackages(this, e); }
     async createPackage(e) { await userService.createPackage(this, e); }
 
-    async deleteAccount(userId, isAdmin = false) {
-        const msg1 = isAdmin ? "Voulez-vous vraiment supprimer ce compte client ?" : "Êtes-vous sûr de vouloir supprimer votre compte ?";
-        const confirmed1 = await this.confirmDialog(msg1 + "\n\nCette action est irréversible.", { type: 'danger', confirmText: 'Supprimer' });
-        if (!confirmed1) return;
-        
-        const confirmed2 = await this.confirmDialog("DERNIER AVERTISSEMENT : Toutes les données (cours, réservations, historique) seront définitivement effacées du serveur.\n\nConfirmer la suppression ?", { type: 'danger', confirmText: 'Supprimer définitivement' });
-        if (!confirmed2) return;
+    async deleteAccount(userId, isAdmin = false) { await userService.deleteAccount(this, userId, isAdmin); }
 
-        try {
-            const res = await fetch(`${API_URL}/users/${userId}`, { method: 'DELETE' });
-            if (res.ok) {
-                this.showNotification("Le compte a été supprimé définitivement.");
-                if (!isAdmin) this.logout();
-                else {
-                    this.state.selectedUserDetails = null;
-                    this.state.adminTab = 'users';
-                    this.init();
-                }
-            }
-        } catch (err) { this.showNotification("Erreur lors de la suppression.", "error"); }
-    }
+    async resendVerificationCode() { await authService.resendVerificationCode(this); }
 
-    async resendVerificationCode() {
-        if (this.state.resendCodeTimer > 0 || !this.state.registrationData?.email) return;
-        this.state.resendCodeTimer = 60;
-        this.state.resendCodeInterval = setInterval(() => {
-            this.state.resendCodeTimer--;
-                
-                const resendButtonTextElement = document.getElementById('resend-code-text');
-                const resendButton = document.getElementById('resend-code-btn');
-
-                if (resendButtonTextElement && resendButton) {
-                    if (this.state.resendCodeTimer > 0) {
-                        resendButtonTextElement.textContent = `Renvoyer le code (${this.state.resendCodeTimer}s)`;
-                        resendButton.disabled = true;
-                    } else {
-                        resendButtonTextElement.textContent = 'Renvoyer le code';
-                        resendButton.disabled = false;
-                    }
-                }
-                
-                if (this.state.resendCodeTimer <= 0) {
-                    clearInterval(this.state.resendCodeInterval);
-                    this.state.resendCodeInterval = null;
-                }
-        }, 1000);
-        try {
-            await authService.sendVerificationCode(this, this.state.registrationData.email);
-            this.showNotification("Nouveau code envoyé !");
-        } catch (err) { this.showNotification("Erreur lors du renvoi.", "error"); }
-    }
-
-    cancelRegistrationVerification() {
-        this.state.isVerifyingEmail = false;
-        clearInterval(this.state.resendCodeInterval);
-        this.state.resendCodeTimer = 0;
-        this.render();
-        this.showNotification("Vérification annulée.", "error");
-    }
+    cancelRegistrationVerification() { authService.cancelRegistrationVerification(this); }
 
     renderAuthView() {
         const mainContainer = document.getElementById('main');
@@ -1143,27 +1089,7 @@ class PilatesApp {
         }
     }
 
-    async viewUser(userId) {
-        try {
-            this.state.isAdminAiLoading = true;
-            this.state.adminUserQuill = null;
-            this.state.adminUserMessageContent = '';
-            this.render();
-            const details = await userService.getUserDetails(this, userId);
-            this.state.userPaymentFilters = { startDate: '', endDate: '' };
-            this.state.userPaymentPagination = { page: 1, limit: 10 };
-            this.state.userCreditFilters = { startDate: '', endDate: '' };
-            this.state.userCreditPagination = { page: 1, limit: 10 };
-            if (details.message || details.error) throw new Error(details.message || details.error);
-            this.state.selectedUserDetails = details;
-            this.state.adminTab = 'user_details';
-        } catch (err) {
-            this.showNotification("Impossible de charger les détails.", "error");
-        } finally {
-            this.state.isAdminAiLoading = false;
-            this.render();
-        }
-    }
+    async viewUser(userId) { await userService.viewUser(this, userId); }
 
     async adjustUserCredits(e, userId) { await userService.adjustUserCredits(this, e, userId); }
     async promptRemoveSpecificCredits(userId, maxCredits, batchIds) { await userService.promptRemoveSpecificCredits(this, userId, maxCredits, batchIds); }
@@ -1181,33 +1107,7 @@ class PilatesApp {
     async adminDeleteClass(id) { await classService.adminDeleteClass(this, id); }
     async editClassCapacity(id, capacity) { await classService.editClassCapacity(this, id, capacity); }
     async adminBulkDeleteClasses() { await classService.adminBulkDeleteClasses(this); }
-    async generateAdminDescription() {
-        const title = this.state.adminTemplateForm?.title?.trim();
-        
-        if (!title) {
-            this.showNotification("Veuillez d'abord saisir un titre pour le modèle.", "warning");
-            return;
-        }
-        this.showNotification("Génération IA en cours...", "info");
-        try {
-            const prompt = `Génère une description riche mais en une seule phrase (maximum 35 mots) pour un modèle de cours de Pilates intitulé "${title}". Décris brièvement le contenu et les bienfaits principaux de la séance. Le ton doit être professionnel, bienveillant et invitant. Ne renvoie que le texte de la description, sans guillemets ni introduction.`;
-            const res = await fetch(`${API_URL}/ai/consult`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, userId: this.state.currentUser?.id })
-            });
-            const data = await res.json();
-            if (data.success && data.answer) {
-                if (!this.state.adminTemplateForm) this.state.adminTemplateForm = {};
-                this.state.adminTemplateForm.description = data.answer.trim();
-                this.showNotification("Description générée avec succès !");
-            } else {
-                this.showNotification("L'IA n'a pas pu générer la description.", "error");
-            }
-        } catch (err) {
-            this.showNotification("Erreur de connexion à l'IA.", "error");
-        }
-    }
+    async generateAdminDescription() { await aiService.generateAdminDescription(this); }
     async submitAddClass(e) { await classService.submitAddClass(this, e); }
     applyTemplate() { classService.applyTemplate(this); }
     editTemplate(id) { classService.editTemplate(this, id); }

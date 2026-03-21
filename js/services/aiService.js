@@ -30,21 +30,29 @@ export const aiService = {
     },
 
     async generateAdminDescription(app) {
-        const title = document.getElementById('template-title').value;
+        const title = app.state.adminTemplateForm?.title?.trim();
+        
         if (!title) {
-            app.showNotification("Saisissez un titre.", 'error');
+            app.showNotification("Veuillez d'abord saisir un titre pour le modèle.", "warning");
             return;
         }
-
-        const btn = document.getElementById('btn-generate-desc');
-        btn.innerHTML = 'Génération...';
-        btn.disabled = true;
-
-        const prompt = `Agis comme le gérant d'un studio de Pilates moderne. Rédige une description très courte (1 ou 2 phrases maximum) pour un cours qui s'appelle "${title}". Le ton doit être professionnel, apaisant et donner envie de s'inscrire. Ne mets pas de guillemets.`;
-        const desc = await callGemini(prompt);
-
-        document.getElementById('template-desc').value = desc;
-        btn.innerHTML = "✨ Suggérer avec l'IA";
-        btn.disabled = false;
+        app.showNotification("Génération IA en cours...", "info");
+        
+        try {
+            const prompt = `Génère une description riche mais en une seule phrase (maximum 35 mots) pour un modèle de cours de Pilates intitulé "${title}". Décris brièvement le contenu et les bienfaits principaux de la séance. Le ton doit être professionnel, bienveillant et invitant. Ne renvoie que le texte de la description, sans guillemets ni introduction.`;
+            
+            const desc = await callGemini(prompt, app.state.currentUser?.id);
+            
+            if (desc && !desc.startsWith("Erreur") && !desc.startsWith("Désolé")) {
+                if (!app.state.adminTemplateForm) app.state.adminTemplateForm = {};
+                app.state.adminTemplateForm.description = desc.trim();
+                app.showNotification("Description générée avec succès !");
+            } else {
+                app.showNotification("L'IA n'a pas pu générer la description.", "error");
+            }
+        } catch (err) {
+            app.showNotification("Erreur de connexion à l'IA.", "error");
+        }
+        app.render();
     }
 };
