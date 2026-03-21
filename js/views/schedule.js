@@ -107,9 +107,9 @@ export const scheduleView = (app) => {
                 <div class="d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-start mb-4 mx-auto gap-3 max-w-1400">
                     <h1 class="fs-2 fw-medium text-capitalize mb-0 text-emerald">Planning - ${monthName}</h1>
                     <!-- Navigation Semaine -->
-                    <div class="d-flex align-items-center gap-2 bg-white rounded-pill p-1 shadow-sm border border-stone-200">
-                        <button onclick="app.changeWeek(-1)" class="nav-round-btn w-2rem h-2rem fs-0-875rem">←</button>
-                        <button onclick="app.changeWeek(1)" class="nav-round-btn w-2rem h-2rem fs-0-875rem">→</button>
+                    <div class="d-flex align-items-center gap-2 bg-light rounded-pill p-1 border border-stone-200">
+                        <button onclick="app.changeWeek(-1)" class="nav-round-btn w-2rem h-2rem fs-0-875rem d-flex align-items-center justify-content-center">${icons.chevronLeft}</button>
+                        <button onclick="app.changeWeek(1)" class="nav-round-btn w-2rem h-2rem fs-0-875rem d-flex align-items-center justify-content-center">${icons.chevronRight}</button>
                     </div>
                 </div>
 

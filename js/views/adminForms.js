@@ -204,7 +204,7 @@ export const renderPackagesManager = (st) => `
                         <textarea name="description" placeholder="Notes..." class="form-control form-control-sm border bg-white" style="height: 65px; font-size: 0.75rem; overflow-y: auto;"></textarea>
                     </div>
                 </div>
-                <div class="text-end mt-2">
+                <div class="text-start mt-2">
                     <button type="submit" class="btn btn-emerald btn-sm px-4 fw-medium" style="font-size: 0.75rem;">Ajouter le pack</button>
                 </div>
             </form>
