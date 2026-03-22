@@ -20,7 +20,7 @@ L'objectif principal était de fournir une expérience utilisateur fluide, rapid
 
 ## 🌐 Démo en Ligne
 
-Vous pouvez tester l'application directement en ligne (cliquez sur le lien ci-dessous) :
+Vous pouvez tester l'application directement en ligne depuis mon NAS (cliquez sur le lien ci-dessous) :
 
 - **URL :** [https://demo.pilates.coolz.fr/](https://demo.pilates.coolz.fr/)
 - **Accès Administrateur / Test :**
