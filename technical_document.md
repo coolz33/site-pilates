@@ -51,7 +51,6 @@ Les Vues génèrent et retournent la chaîne de caractères HTML injectée dans 
 - **`components.js`** : Gère l'interface partagée entre toutes les pages (Navbar globale, Footer global, Modales interactives, Toasts de notification d'erreurs/succès).
 
 #### 2.2.3. Séparation poussée : Les sous-vues
-Pour éviter des fichiers monolithes de plusieurs milliers de lignes difficiles à maintenir, les vues complexes ont été réfactoriées en sous-composants abstraits :
 - **Le Profil Utilisateur (`profile.js`)** : 
   - `profile.js` gère la navigation (onglets) et le conteneur principal.
   - `profileSubviews.js` contient les fonctions lourdes responsables de générer le HTML de chaque onglet : informations personnelles (`renderProfileInfosTab`), historique des réservations (`renderProfileSessionsTab`), et historique de paiements/crédits (`renderProfilePaymentsTab`).
@@ -72,7 +71,4 @@ Le Backend sécurise et persiste l'application.
 
 ---
 
-## 4. Principes de Développement & Recommandations
-1. **DRY (Don't Repeat Yourself)** : Lors du développement de nouvelles fonctionnalités (par exemple, un nouveau tableau), référez-vous au fichier `utils.js` pour les composants de pagination et de tri. Pour de nouveaux boutons, utilisez les classes préexistantes (`btn-emerald`, `btn-outline-success`).
-2. **Externalisation du CSS** : Presque aucun fichier HTML/JS ne doit contenir d'attribut `style="..."`. L'intégralité du design doit être piloté par des classes utilitaires intégrées dans la feuille `style.css` (`fs-0-85rem`, `ml-3`, `max-w-1200`, etc.).
-3. **Composants JS Purs** : Étant en Vanilla JS, pensez toujours à assainir (Sanitize) l'input JSON provenant de variables avant d'utiliser des injections littérales de template dans du code HTML `` `<div>${user.name}</div>` `` pour éviter la vulnérabilité Cross-Site Scripting (XSS).
+
