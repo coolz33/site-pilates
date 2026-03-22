@@ -18,6 +18,17 @@ L'objectif principal était de fournir une expérience utilisateur fluide, rapid
 
 ---
 
+## 🌐 Démo en Ligne
+
+Vous pouvez tester l'application directement en ligne (cliquez sur le lien ci-dessous) :
+
+- **URL :** [https://demo.pilates.coolz.fr/](https://demo.pilates.coolz.fr/)
+- **Accès Administrateur / Test :**
+  - **Email :** `admin@pilates.fr`
+  - **Mot de passe :** `admin`
+
+---
+
 ## ⚡ Fonctionnalités Clés
 
 - 🔐 **Authentification Sécurisée :** Système de création de compte et de connexion protégé avec hashage de mot de passe (`bcryptjs`).
