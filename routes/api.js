@@ -1602,9 +1602,25 @@ const handleRequest = async (req, res) => {
                             doc.moveTo(50, lineY).lineTo(545, lineY).strokeColor('#eeeeee').lineWidth(0.5).stroke();
                             doc.y = lineY + 15;
                             
-                            doc.text(`Total HT : ${priceHT} €`, { align: 'right' });
-                            doc.text(`TVA (20%) : ${tvaAmount} €`, { align: 'right' });
-                            doc.font('Helvetica-Bold').fillColor('#10b981').fontSize(14).text(`Total TTC : ${priceTTC.toFixed(2)} €`, { align: 'right' });
+                            const totalX = 350;
+                            const totalWidth = 195;
+                            const subTotalY = doc.y;
+                            
+                            doc.fontSize(10).fillColor('#666666');
+                            doc.text("Total HT", totalX, subTotalY);
+                            doc.text(`${priceHT} €`, totalX, subTotalY, { width: totalWidth, align: 'right' });
+                            
+                            doc.y += 15;
+                            doc.text("TVA (20%)", totalX, doc.y);
+                            doc.text(`${tvaAmount} €`, totalX, doc.y, { width: totalWidth, align: 'right' });
+                            
+                            doc.y += 10;
+                            doc.moveTo(totalX, doc.y).lineTo(545, doc.y).strokeColor('#10b981').lineWidth(1.5).stroke();
+                            
+                            doc.y += 10;
+                            doc.font('Helvetica-Bold').fillColor('#10b981').fontSize(14);
+                            doc.text("Total TTC", totalX, doc.y);
+                            doc.text(`${priceTTC.toFixed(2)} €`, totalX, doc.y, { width: totalWidth, align: 'right' });
                             doc.end();
                         });
                         if (pdfBuffer) attachments.push({ filename: `Facture_${new Date().toISOString().slice(0,10)}.pdf`, content: pdfBuffer, contentType: 'application/pdf' });
