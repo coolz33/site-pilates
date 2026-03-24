@@ -1573,12 +1573,12 @@ const handleRequest = async (req, res) => {
                             const tableTop = doc.y;
                             doc.font('Helvetica-Bold');
                             doc.text("Description", 50, tableTop);
-                            doc.text("Qte", 350, tableTop, { width: 50, align: 'center' });
-                            doc.text("P.U HT", 400, tableTop, { width: 50, align: 'right' });
-                            doc.text("TVA (20%)", 450, tableTop, { width: 50, align: 'right' });
-                            doc.text("Total TTC", 500, tableTop, { width: 50, align: 'right' });
+                            doc.text("Qte", 310, tableTop, { width: 40, align: 'center' });
+                            doc.text("P.U HT", 350, tableTop, { width: 55, align: 'right' });
+                            doc.text("TVA (20%)", 405, tableTop, { width: 70, align: 'right' });
+                            doc.text("Total TTC", 475, tableTop, { width: 70, align: 'right' });
                             
-                            doc.moveTo(50, doc.y + 5).lineTo(550, doc.y + 5).strokeColor('#10b981').stroke();
+                            doc.moveTo(50, doc.y + 5).lineTo(545, doc.y + 5).strokeColor('#10b981').stroke();
                             doc.moveDown(1);
                             doc.font('Helvetica').fillColor('#333333');
                             const rowY = doc.y;
@@ -1587,13 +1587,13 @@ const handleRequest = async (req, res) => {
                                 doc.fontSize(10).fillColor('#10b981').text(packageSubtitle, 50, rowY + 14);
                             }
                             doc.fontSize(11).fillColor('#333333');
-                            doc.text("1", 350, rowY, { width: 50, align: 'center' });
-                            doc.text(`${priceHT} €`, 400, rowY, { width: 50, align: 'right' });
-                            doc.text(`${tvaAmount} €`, 450, rowY, { width: 50, align: 'right' });
-                            doc.text(`${priceTTC.toFixed(2)} €`, 500, rowY, { width: 50, align: 'right' });
+                            doc.text("1", 310, rowY, { width: 40, align: 'center' });
+                            doc.text(`${priceHT} €`, 350, rowY, { width: 55, align: 'right' });
+                            doc.text(`${tvaAmount} €`, 405, rowY, { width: 70, align: 'right' });
+                            doc.text(`${priceTTC.toFixed(2)} €`, 475, rowY, { width: 70, align: 'right' });
                             
                             const lineY = packageSubtitle ? rowY + 30 : rowY + 20;
-                            doc.moveTo(50, lineY).lineTo(550, lineY).strokeColor('#eeeeee').stroke();
+                            doc.moveTo(50, lineY).lineTo(545, lineY).strokeColor('#eeeeee').stroke();
                             doc.y = lineY + 15;
                             doc.text(`Total HT : ${priceHT} €`, { align: 'right' });
                             doc.text(`TVA (20%) : ${tvaAmount} €`, { align: 'right' });
