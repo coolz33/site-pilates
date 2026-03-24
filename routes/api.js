@@ -1571,30 +1571,37 @@ const handleRequest = async (req, res) => {
                             doc.moveDown(3);
 
                             const tableTop = doc.y;
-                            doc.font('Helvetica-Bold');
-                            doc.text("Description", 50, tableTop);
-                            doc.text("Qte", 310, tableTop, { width: 40, align: 'center' });
-                            doc.text("P.U HT", 350, tableTop, { width: 55, align: 'right' });
-                            doc.text("TVA (20%)", 405, tableTop, { width: 70, align: 'right' });
-                            doc.text("Total TTC", 475, tableTop, { width: 70, align: 'right' });
                             
-                            doc.moveTo(50, doc.y + 5).lineTo(545, doc.y + 5).strokeColor('#10b981').stroke();
-                            doc.moveDown(1);
-                            doc.font('Helvetica').fillColor('#333333');
+                            // Fond pour l'en-tête du tableau
+                            doc.rect(50, tableTop - 5, 495, 20).fill('#f0fdf4');
+                            
+                            doc.fillColor('#064e3b').font('Helvetica-Bold').fontSize(10);
+                            doc.text("Description", 60, tableTop);
+                            doc.text("Qte", 300, tableTop, { width: 30, align: 'center' });
+                            doc.text("P.U HT", 330, tableTop, { width: 60, align: 'right' });
+                            doc.text("TVA (20%)", 390, tableTop, { width: 80, align: 'right' });
+                            doc.text("Total TTC", 470, tableTop, { width: 75, align: 'right' });
+                            
+                            doc.moveTo(50, tableTop + 15).lineTo(545, tableTop + 15).strokeColor('#10b981').lineWidth(1.5).stroke();
+                            doc.moveDown(1.5);
+                            
+                            doc.font('Helvetica').fontSize(11).fillColor('#333333');
                             const rowY = doc.y;
-                            doc.text(packageName || 'Pack de cours', 50, rowY);
+                            doc.text(packageName || 'Pack de cours', 60, rowY, { width: 240 });
                             if (packageSubtitle) {
-                                doc.fontSize(10).fillColor('#10b981').text(packageSubtitle, 50, rowY + 14);
+                                doc.fontSize(9).fillColor('#10b981').text(packageSubtitle, 60, rowY + 13);
                             }
+                            
                             doc.fontSize(11).fillColor('#333333');
-                            doc.text("1", 310, rowY, { width: 40, align: 'center' });
-                            doc.text(`${priceHT} €`, 350, rowY, { width: 55, align: 'right' });
-                            doc.text(`${tvaAmount} €`, 405, rowY, { width: 70, align: 'right' });
-                            doc.text(`${priceTTC.toFixed(2)} €`, 475, rowY, { width: 70, align: 'right' });
+                            doc.text("1", 300, rowY, { width: 30, align: 'center' });
+                            doc.text(`${priceHT} €`, 330, rowY, { width: 60, align: 'right' });
+                            doc.text(`${tvaAmount} €`, 390, rowY, { width: 80, align: 'right' });
+                            doc.text(`${priceTTC.toFixed(2)} €`, 470, rowY, { width: 75, align: 'right' });
                             
                             const lineY = packageSubtitle ? rowY + 30 : rowY + 20;
-                            doc.moveTo(50, lineY).lineTo(545, lineY).strokeColor('#eeeeee').stroke();
+                            doc.moveTo(50, lineY).lineTo(545, lineY).strokeColor('#eeeeee').lineWidth(0.5).stroke();
                             doc.y = lineY + 15;
+                            
                             doc.text(`Total HT : ${priceHT} €`, { align: 'right' });
                             doc.text(`TVA (20%) : ${tvaAmount} €`, { align: 'right' });
                             doc.font('Helvetica-Bold').fillColor('#10b981').fontSize(14).text(`Total TTC : ${priceTTC.toFixed(2)} €`, { align: 'right' });
