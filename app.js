@@ -63,6 +63,7 @@ class PilatesApp {
             resendCodeTimer: 0,
             resendCodeInterval: null,
             registrationData: null,
+            registrationCode: '',
             resetPasswordToken: null,
             courseTemplates: [],
             creditPackages: [],
@@ -1100,7 +1101,14 @@ class PilatesApp {
         const mainContainer = document.getElementById('main');
         const v = this.state.view;
         if (mainContainer && (v === 'connexion' || v === 'inscription' || v === 'reset-password')) {
-            mainContainer.innerHTML = authView(this, v);
+            let html = authView(this, v);
+            
+            // Évite de rejouer les animations si on est déjà sur la même vue (ex: après une notification)
+            if (v === this.lastView) {
+                html = html.replace(/animate-(fade-in|slide-up|bounce|pulse)/g, ' ');
+            }
+            
+            mainContainer.innerHTML = html;
             authService.attachAuthEvents(this, v);
         }
     }

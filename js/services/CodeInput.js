@@ -33,20 +33,28 @@ class CodeInput extends HTMLElement {
                     array[index + 1].focus();
                 }
                 this.updateValue();
+                this.checkComplete(); // Vérifie si le code est complet
             });
 
             // Gestion du copier-coller
             input.addEventListener('paste', (e) => {
                 e.preventDefault();
                 const data = (e.clipboardData || window.clipboardData).getData('text');
-                const digits = data.replace(/\D/g, '').split(''); // Filtrer uniquement les chiffres
+                const digits = data.replace(/\D/g, '').split('').slice(0, array.length - index); // Limite au nombre de champs restants
                 
                 digits.forEach((char, i) => {
-                    if (array[index + i]) {
-                        array[index + i].value = char;
+                    const targetInput = array[index + i];
+                    if (targetInput) {
+                        targetInput.value = char;
                     }
                 });
                 this.updateValue();
+                
+                // Focus le dernier champ rempli ou le suivant
+                const nextToFocus = Math.min(index + digits.length, array.length - 1);
+                array[nextToFocus].focus();
+                
+                this.checkComplete(); // Vérifie si le code est complet après le collage
             });
             // Retourne au champ précédent lors de la suppression (Backspace)
             input.addEventListener('keydown', (e) => {
@@ -55,6 +63,20 @@ class CodeInput extends HTMLElement {
                 }
             });
         });
+    }
+
+    // Médote utilitaire pour envoyer un événement personnalisé quand tout est rempli
+    checkComplete() {
+        const val = this.value;
+        if (val.length === 6) {
+            // Délai pour s'assurer que l'attribut value a bien été mis à jour via updateValue()
+            setTimeout(() => {
+                this.dispatchEvent(new CustomEvent('complete', { 
+                    detail: { value: val },
+                    bubbles: true 
+                }));
+            }, 50);
+        }
     }
 
     // Met à jour la valeur combinée de l'élément personnalisé

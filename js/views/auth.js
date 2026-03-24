@@ -37,6 +37,12 @@ export const authView = (app, mode) => {
                         ${isLogin ? 'Accédez à votre espace pour réserver.' : (isVerifying ? 'Un code vous a été envoyé par mail.' : (isResetPassword ? (hasResetToken ? 'Saisissez votre nouveau mot de passe.' : 'Saisissez votre email pour réinitialiser votre mot de passe.') : 'Rejoignez L\'espace doré.'))}
                     </p>
                 </div>
+
+                ${app.state.notification.visible ? `
+                    <div class="alert alert-${app.state.notification.type === 'error' ? 'danger' : 'success'} animate-shake alert-dismissible fade show small py-2 text-center" role="alert">
+                        ${app.state.notification.message}
+                    </div>
+                ` : ''}
                 
                 <form id="auth-main-form" class="${isVerifying ? 'd-none' : 'd-flex flex-column gap-2'}">
                     ${isLogin ? `
@@ -181,7 +187,7 @@ export const authView = (app, mode) => {
                 <form id="auth-code-verification-form" class="${isRegister && isVerifying ? 'd-flex flex-column gap-3' : 'd-none'}">
                     <div class="verification-box p-4 text-center animate-fade-in mb-3">
                         <label for="auth-code-input" class="d-block small fw-bold text-emerald-dark text-uppercase tracking-wider mb-3">Saisissez le code reçu</label>
-                        <code-input id="auth-code-input" name="code" size="6" legend=""></code-input>
+                        <code-input id="auth-code-input" name="code" size="6" legend="" value="${app.state.registrationCode || ''}"></code-input>
                         <p class="small text-emerald mt-3 mb-0 fst-italic">Vérifiez vos courriers indésirables (spams)</p>
                         
                         <button type="button" onclick="app.resendVerificationCode()" id="resend-code-btn" class="btn btn-outline-success w-100 mt-3 py-2 btn-sm fw-medium" ${app.state.resendCodeTimer > 0 ? 'disabled' : ''}>

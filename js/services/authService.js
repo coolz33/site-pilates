@@ -79,15 +79,18 @@ export const authService = {
     async handleRegistrationStep1(app, form, email, password) {
         console.log("➡️ Executing Step 1: Sending verification code for registration.");
         
-        // Récupération des données du formulaire
-        const firstName = form.querySelector('#auth-firstname').value;
-        const lastName = form.querySelector('#auth-lastname').value;
-        const address = form.querySelector('#auth-address').value;
-        const phone = form.querySelector('#auth-phone').value;
-        const zipCode = form.querySelector('#auth-zipcode').value;
-        const city = form.querySelector('#auth-city').value;
+        // Récupération des données du formulaire avec nettoyage (trim)
+        const firstName = form.querySelector('#auth-firstname').value.trim();
+        const lastName = form.querySelector('#auth-lastname').value.trim();
+        const address = form.querySelector('#auth-address').value.trim();
+        const phone = form.querySelector('#auth-phone').value.trim();
+        const zipCode = form.querySelector('#auth-zipcode').value.trim();
+        const city = form.querySelector('#auth-city').value.trim();
         const confirmPassword = form.querySelector('#auth-confirm-password').value;
         const newsletter_subscribed = form.querySelector('#auth-newsletter')?.checked ? 1 : 0;
+        
+        // Normalisation de l'email
+        email = email.trim().toLowerCase();
 
         // Validations front-end
         if (!app.validateEmail(email)) return app.showNotification("Email invalide.", 'error');
@@ -146,9 +149,11 @@ export const authService = {
         console.log("➡️ Executing Step 2: Finalizing registration with code.");
         
         const codeInput = form.querySelector('#auth-code-input');
-        const code = codeInput ? codeInput.value : '';
+        const code = codeInput ? codeInput.value.trim() : '';
         
-        if (!code) return app.showNotification("Veuillez saisir le code reçu.", 'error');
+        if (!code || code.length < 6) return app.showNotification("Veuillez saisir les 6 chiffres du code.", 'error');
+
+        console.log(`[AUTH] Finalizing registration for ${app.state.registrationData?.email} with code ${code}`);
 
         try {
             // Création du compte avec les données sauvegardées + le code
@@ -157,28 +162,39 @@ export const authService = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...app.state.registrationData, code })
             });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                console.error("❌ Registration failed:", errorData.message);
+                return app.showNotification(errorData.message || 'Code invalide ou erreur inscription.', 'error');
+            }
+
             const data = await res.json();
             
             if (data.success) { 
+                console.log("✅ Registration successful. Redirecting...");
+                
                 // Inscription réussie : on connecte l'utilisateur
                 app.state.currentUser = data.user;
                 localStorage.setItem('pilates_user', JSON.stringify(data.user));
                 if (data.token) localStorage.setItem('pilates_token', data.token);
                 
-                // Nettoyage de l'état d'inscription
+                // Nettoyage COMPLET de l'état d'inscription
                 app.state.isVerifyingEmail = false;
+                app.state.registrationData = null;
+                app.state.registrationCode = '';
                 clearInterval(app.state.resendCodeInterval);
                 app.state.resendCodeTimer = 0;
-                app.state.registrationData = null;
                 
-                app.init();
+                // Re-charge l'app pour avoir toutes les données fraîches
+                await app.init();
                 app.navigate('planning');
             } else {
-                console.error("❌ Failed to register:", data.message);
-                app.showNotification(data.message || 'Code invalide ou erreur inscription.', 'error');
+                app.showNotification(data.message || 'Le code saisi est incorrect.', 'error');
             }
         } catch (err) { 
-            app.showNotification("Erreur inscription.", 'error'); 
+            console.error("❌ Critical registration error:", err);
+            app.showNotification("Une erreur technique est survenue.", 'error'); 
         }
     },
 
@@ -255,9 +271,28 @@ export const authService = {
         
         if (!form) return;
 
-        // Astuce : Remplacer le formulaire par son clone pour retirer tous lesanciens event listeners
+        // Astuce : Remplacer le formulaire par son clone pour retirer tous les anciens event listeners
         const newForm = form.cloneNode(true);
         form.parentNode.replaceChild(newForm, form);
+
+        // Écoute l'auto-validation du composant CodeInput après clonage
+        const codeInput = newForm.querySelector('code-input');
+        if (codeInput) {
+            // Sauvegarde le code dans l'état au fur et à mesure pour ne pas le perdre lors du re-render
+            codeInput.addEventListener('input', (e) => {
+                app.state.registrationCode = codeInput.value;
+            });
+
+            codeInput.addEventListener('complete', () => {
+                console.log("⚡ Auto-validating code...");
+                const submitBtn = newForm.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.classList.add('btn-auth-loading');
+                }
+                // Déclenche l'événement submit sur le nouveau formulaire
+                newForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            });
+        }
 
         // Ajout du listener de soumission (Login, Register ou Reset Password)
         newForm.addEventListener('submit', async (e) => {

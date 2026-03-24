@@ -622,7 +622,13 @@ const handleRequest = async (req, res) => {
             if (!users.length) return send(404, { message: 'Utilisateur non trouvé' });
 
             // Réutilisation de la configuration SMTP (simplifiée ici)
-            const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: parseInt(process.env.SMTP_PORT), secure: process.env.SMTP_PORT == 465, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+            const transporter = nodemailer.createTransport({ 
+                host: process.env.SMTP_HOST, 
+                port: parseInt(process.env.SMTP_PORT), 
+                secure: process.env.SMTP_PORT == 465, 
+                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+                tls: { rejectUnauthorized: false }
+            });
             await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: users[0].email, subject: subject, html: message });
 
             return send(200, { success: true });
@@ -744,23 +750,26 @@ const handleRequest = async (req, res) => {
 
         if (method === 'POST' && path === '/send-verification-code') {
             console.log(`[API] DEBUG: Matched POST /send-verification-code route.`); // Debug log
-            const { email } = req.body;
+            let { email } = req.body;
+            if (email) email = email.trim().toLowerCase();
+
             const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
             if (existing.length > 0) return send(400, { success: false, message: 'Cet email est déjà utilisé' });
 
             const code = Math.floor(100000 + Math.random() * 900000).toString();
-            const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // Expire dans 15 min
+            console.log(`[API] Generated verification code for ${email}: ${code}`);
 
             await pool.query(
-                'INSERT INTO email_verifications (email, code, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE code = VALUES(code), expires_at = VALUES(expires_at)',
-                [email, code, expiresAt]
+                'INSERT INTO email_verifications (email, code, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE)) ON DUPLICATE KEY UPDATE code = VALUES(code), expires_at = DATE_ADD(NOW(), INTERVAL 15 MINUTE)',
+                [email, code]
             );
 
             const transporter = nodemailer.createTransport({
                 host: process.env.SMTP_HOST,
                 port: parseInt(process.env.SMTP_PORT),
                 secure: process.env.SMTP_PORT == 465,
-                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+                tls: { rejectUnauthorized: false }
             });
 
             try {
@@ -790,6 +799,9 @@ const handleRequest = async (req, res) => {
             console.log(`[API] DEBUG: Matched POST /register route.`); // Debug log
             let { firstName, lastName, email, password, address, phone, zipCode, city, newsletter_subscribed, code } = req.body;
 
+            if (email) email = email.trim().toLowerCase();
+            if (code) code = code.toString().trim();
+
             // Sanitisation contre XSS
             firstName = escapeHtml(firstName);
             lastName = escapeHtml(lastName);
@@ -798,7 +810,12 @@ const handleRequest = async (req, res) => {
 
             // Vérification du code
             const [verification] = await pool.query('SELECT * FROM email_verifications WHERE email = ? AND code = ? AND expires_at > NOW()', [email, code]);
-            if (verification.length === 0) return send(400, { success: false, message: 'Code de vérification invalide ou expiré' });
+            if (verification.length === 0) {
+                // Diagnostic log
+                const [anyVerif] = await pool.query('SELECT *, NOW() as current_time FROM email_verifications WHERE email = ?', [email]);
+                console.warn(`[API] Verification FAILED for ${email}. Found in DB:`, anyVerif);
+                return send(400, { success: false, message: 'Code de vérification invalide ou expiré' });
+            }
 
             const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
             if (existing.length > 0) return send(400, { success: false, message: 'Cet email est déjà utilisé' });
