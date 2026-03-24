@@ -8,6 +8,7 @@ export const authService = {
     logout(app) {
         app.state.currentUser = null;
         localStorage.removeItem('pilates_user');
+        localStorage.removeItem('pilates_token');
         app.navigate('accueil');
     },
 
@@ -57,6 +58,7 @@ export const authService = {
                 app.state.currentUser = data.user;
                 // Stockage de la session dans le cache du navigateur
                 localStorage.setItem('pilates_user', JSON.stringify(data.user));
+                if (data.token) localStorage.setItem('pilates_token', data.token);
                 app.init(); // Réinitialise l'app avec les nouveaux droits
                 app.navigate('planning'); // Redirection vers le planning
             } else {
@@ -161,6 +163,7 @@ export const authService = {
                 // Inscription réussie : on connecte l'utilisateur
                 app.state.currentUser = data.user;
                 localStorage.setItem('pilates_user', JSON.stringify(data.user));
+                if (data.token) localStorage.setItem('pilates_token', data.token);
                 
                 // Nettoyage de l'état d'inscription
                 app.state.isVerifyingEmail = false;

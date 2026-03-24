@@ -8,6 +8,23 @@ const pool = require('../database');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'pilates_super_secret_key_2026';
+
+/**
+ * Nettoie une chaîne de caractères pour éviter les injections XSS
+ * @param {string} str - La chaîne à nettoyer
+ * @returns {string} La chaîne sécurisée
+ */
+const escapeHtml = (str) => {
+    if (!str) return str;
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+};
 
 /**
  * Fonction de nettoyage : Vérifie si l'utilisateur possède des cours ayant dépassé leur date d'expiration.
@@ -347,6 +364,50 @@ const handleRequest = async (req, res) => {
         res.end(JSON.stringify(data));
     };
 
+    // --- VERIFICATION JWT GLOBALE ---
+    const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/send-verification-code', '/classes', '/course-templates', '/credit-packages', '/settings', '/webhook/stripe', '/newsletter/unsubscribe'];
+    let reqUser = null;
+
+    if (!publicPaths.includes(path) && !(method === 'POST' && path === '/checkout/create-session')) {
+        const authHeader = req.headers['authorization'];
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return send(401, { success: false, message: 'Accès non autorisé : Token manquant' });
+        }
+        const token = authHeader.split(' ')[1];
+        try {
+            reqUser = jwt.verify(token, JWT_SECRET);
+            
+            // Validation des rôles
+            const isAdminRoute = path === '/users' || path === '/transactions' || path === '/credit-packages/bulk' || path === '/classes/bulk' ||
+                path.match(/^\/users\/\d+\/(details|role|subscription|batches|remove-credits|remove-batch-credits|batches\/\d+|message)$/) ||
+                (method !== 'GET' && path.match(/^\/(course-templates|credit-packages|settings)/)) ||
+                (method !== 'GET' && path.match(/^\/classes\/(\d+|series\/.+)$/) && method === 'DELETE') ||
+                (method !== 'GET' && path === '/classes') || (method === 'POST' && path === '/newsletter/send');
+
+            if (isAdminRoute && reqUser.role !== 'admin') {
+                return send(403, { success: false, message: 'Accès interdit : Administrateur requis' });
+            }
+
+            // Protection des données personnelles de l'utilisateur
+            const userMatch = path.match(/^\/users\/(\d+)\/?$/);
+            if (userMatch && reqUser.role !== 'admin' && parseInt(userMatch[1]) !== reqUser.id) {
+                return send(403, { success: false, message: 'Accès interdit' });
+            }
+
+            // Protection anti-IDOR globale (empêche booking / modification pour un autre utilisateur)
+            if (reqUser.role !== 'admin') {
+                if (req.body && req.body.userId && parseInt(req.body.userId) !== reqUser.id) {
+                    return send(403, { success: false, message: 'Action non autorisée sur ce compte' });
+                }
+                if (req.body && req.body.id && path === '/users/profile' && parseInt(req.body.id) !== reqUser.id) {
+                    return send(403, { success: false, message: 'Modification du profil interdite' });
+                }
+            }
+        } catch (e) {
+            return send(401, { success: false, message: 'Accès non autorisé : Token invalide' });
+        }
+    }
+
     try {
         // --- ROUTES USERS ---
         if (method === 'GET' && path === '/users') {
@@ -600,7 +661,8 @@ const handleRequest = async (req, res) => {
                         FROM user_batches 
                         WHERE user_id = ? AND credits > 0 
                         ORDER BY expires_at IS NULL, expires_at ASC`, [user.id]);
-                    return send(200, { success: true, user: { ...userWithoutPassword, activeBatches } });
+                    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+                    return send(200, { success: true, user: { ...userWithoutPassword, activeBatches }, token });
                 } else {
                     return send(401, { success: false, message: 'Identifiants invalides' });
                 }
@@ -726,7 +788,13 @@ const handleRequest = async (req, res) => {
 
         if (method === 'POST' && path === '/register') {
             console.log(`[API] DEBUG: Matched POST /register route.`); // Debug log
-            const { firstName, lastName, email, password, address, phone, zipCode, city, newsletter_subscribed, code } = req.body;
+            let { firstName, lastName, email, password, address, phone, zipCode, city, newsletter_subscribed, code } = req.body;
+
+            // Sanitisation contre XSS
+            firstName = escapeHtml(firstName);
+            lastName = escapeHtml(lastName);
+            address = escapeHtml(address);
+            city = escapeHtml(city);
 
             // Vérification du code
             const [verification] = await pool.query('SELECT * FROM email_verifications WHERE email = ? AND code = ? AND expires_at > NOW()', [email, code]);
@@ -773,11 +841,20 @@ const handleRequest = async (req, res) => {
                 });
             } catch (mailErr) { console.error("[API] Erreur email bienvenue:", mailErr); }
 
-            return send(200, { success: true, user: newUser[0] });
+            const userToSend = newUser[0];
+            const token = jwt.sign({ id: userToSend.id, role: userToSend.role }, JWT_SECRET, { expiresIn: '7d' });
+            return send(200, { success: true, user: userToSend, token });
         }
 
         if (method === 'PUT' && path === '/users/profile') {
-            const { id, firstName, lastName, email, password, address, phone, zipCode, city, newsletter_subscribed } = req.body;
+            let { id, firstName, lastName, email, password, address, phone, zipCode, city, newsletter_subscribed } = req.body;
+            
+            // Sanitisation contre XSS
+            firstName = escapeHtml(firstName);
+            lastName = escapeHtml(lastName);
+            address = escapeHtml(address);
+            city = escapeHtml(city);
+
             const name = `${firstName} ${lastName}`;
             
             let query = 'UPDATE users SET firstName=?, lastName=?, name=?, email=?, address=?, phone=?, zipCode=?, city=?, newsletter_subscribed=?';

@@ -171,6 +171,22 @@ class PilatesApp {
                 }, 500);
             }
             try {
+                const url = args[0] || '';
+                // On ajoute le token uniquement si l'URL pointe vers notre API
+                if (url.toString().includes('/api') || url.toString().includes('localhost') || !url.toString().startsWith('http')) {
+                    const token = localStorage.getItem('pilates_token');
+                    if (token) {
+                        const opts = args[1] || {};
+                        opts.headers = opts.headers || {};
+                        // On évite d'écraser si Content-Type est déjà un Headers (rare ici, mais prudent)
+                        if (opts.headers instanceof Headers) {
+                            opts.headers.append('Authorization', `Bearer ${token}`);
+                        } else {
+                            opts.headers['Authorization'] = `Bearer ${token}`;
+                        }
+                        args[1] = opts;
+                    }
+                }
                 return await originalFetch(...args);
             } finally {
                 this.activeRequests = Math.max(0, this.activeRequests - 1);
