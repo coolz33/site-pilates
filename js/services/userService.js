@@ -269,7 +269,8 @@ export const userService = {
 
     async adjustUserCredits(app, e, userId) {
         e.preventDefault();
-        const amount = parseInt(e.target.amount.value);
+        const isSubscription = e.target.isSubscription.checked;
+        const amount = isSubscription ? 0 : parseInt(e.target.amount.value || 0);
         const transactionType = e.target.transactionType.value;
         const paymentMethod = e.target.paymentMethod ? e.target.paymentMethod.value : null;
         const price = e.target.price ? parseInt(e.target.price.value) : 0;
@@ -293,14 +294,14 @@ export const userService = {
         const res = await fetch(`${API_URL}/users/${userId}/batches`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount, expires_in_days, transactionType, paymentMethod, price })
+            body: JSON.stringify({ amount, expires_in_days, transactionType, paymentMethod, price, isSubscription })
         });
 
         if (res.ok) {
-            app.showNotification('Cours ajoutés avec succès !', 'success', e);
+            app.showNotification(isSubscription ? 'Abonnement activé avec succès !' : 'Cours ajoutés avec succès !', 'success', e);
             app.viewUser(userId); // Rafraîchir la vue
         } else {
-            app.showNotification("Erreur lors de l'ajout des cours.", "error", e);
+            app.showNotification(isSubscription ? "Erreur lors de l'activation." : "Erreur lors de l'ajout des cours.", "error", e);
         }
     },
 

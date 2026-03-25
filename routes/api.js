@@ -518,30 +518,40 @@ const handleRequest = async (req, res) => {
         const batchAddMatch = path.match(/^\/users\/(\d+)\/batches$/);
         if (method === 'POST' && batchAddMatch) {
             const userId = batchAddMatch[1];
-            const { amount, expires_in_days, transactionType, paymentMethod, price } = req.body;
+            const { amount, expires_in_days, transactionType, paymentMethod, price, isSubscription } = req.body;
             await cleanupExpiredBatches(userId);
             
             let expiresAtStr = null;
-            if (expires_in_days && parseInt(expires_in_days) > 0) {
+            const days = (expires_in_days && parseInt(expires_in_days) > 0) ? parseInt(expires_in_days) : (isSubscription ? 365 : 0);
+            
+            if (days > 0) {
                 const d = new Date();
-                d.setDate(d.getDate() + parseInt(expires_in_days));
+                d.setDate(d.getDate() + days);
                 expiresAtStr = d.toISOString().slice(0, 19).replace('T', ' ');
             }
 
             let type = 'adjustment';
-            let description = 'Ajout manuel de cours (Admin)';
+            let description = isSubscription ? 'Activation manuelle de l\'abonnement (Admin)' : 'Ajout manuel de cours (Admin)';
             
             if (transactionType === 'purchase') {
                 type = 'purchase';
                 const pMethod = paymentMethod || 'Autre moyen';
                 const pPrice = price || 0;
-                description = `Achat de cours par ${pMethod} (${pPrice}€)`;
+                description = isSubscription 
+                    ? `Achat d'un abonnement par ${pMethod} (${pPrice}€)`
+                    : `Achat de cours par ${pMethod} (${pPrice}€)`;
             }
             
             await pool.query('START TRANSACTION');
-            await pool.query('UPDATE users SET credits_balance = GREATEST(0, COALESCE(credits_balance, 0) + ?) WHERE id = ?', [parseInt(amount), userId]);
-            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, type, parseInt(amount), description]);
-            await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, ?)', [userId, parseInt(amount), expiresAtStr]);
+            if (isSubscription) {
+                // Pour un abonnement, on met à jour l'utilisateur directement
+                await pool.query('UPDATE users SET is_subscribed = 1, subscription_expires_at = ? WHERE id = ?', [expiresAtStr, userId]);
+                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, type, 0, description]);
+            } else {
+                await pool.query('UPDATE users SET credits_balance = GREATEST(0, COALESCE(credits_balance, 0) + ?) WHERE id = ?', [parseInt(amount), userId]);
+                await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, type, parseInt(amount), description]);
+                await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, ?)', [userId, parseInt(amount), expiresAtStr]);
+            }
             await pool.query('COMMIT');
             
             await cleanupExpiredBatches(userId);

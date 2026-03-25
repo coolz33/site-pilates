@@ -426,6 +426,15 @@ export const renderUserDetailsTab = (app, st) => {
                         </div>
 
                         <div class="d-flex flex-wrap align-items-center gap-3 pt-2 border-top">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="form-check mb-0 d-flex align-items-center gap-2">
+                                    <input type="checkbox" name="isSubscription" id="admin-is-sub" class="form-check-input mt-0 cursor-pointer" onchange="const f = this.closest('form'); const q = f.querySelector('[name=amount]'); q.required = !this.checked; q.disabled = this.checked; q.closest('div').classList.toggle('opacity-50', this.checked); f.querySelector('.btn-submit-text').textContent = this.checked ? 'Activer l\\'abonnement' : 'Ajouter les cours'; if(this.checked) q.value = '';">
+                                    <label class="form-check-label small fw-medium text-stone-600 mb-0 cursor-pointer text-nowrap" for="admin-is-sub">Abonnement ?</label>
+                                </div>
+                            </div>
+
+                            <div class="vr mx-1 opacity-25" style="height: 20px;"></div>
+
                             <div>
                                 <label class="fw-medium small mb-1 d-block">Quantité :</label>
                                 <input type="number" name="amount" placeholder="Qté" required min="1" class="form-control form-control-sm text-center" style="width: 60px;">
@@ -444,7 +453,7 @@ export const renderUserDetailsTab = (app, st) => {
                                     <option value="years">années</option>
                                 </select>
                             </div>
-                            <button type="submit" class="btn btn-emerald btn-sm ms-auto px-4 mt-3">Ajouter les cours</button>
+                            <button type="submit" class="btn btn-emerald btn-sm ms-auto px-4 mt-3"><span class="btn-submit-text">Ajouter les cours</span></button>
                         </div>
                     </div>
                 </form>
