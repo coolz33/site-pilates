@@ -26,9 +26,7 @@ Vous pouvez tester l'application directement en ligne depuis mon NAS (cliquez su
 - **Accès Administrateur / Test :**
   - **Email :** `admin@pilates.fr`
   - **Mot de passe :** `admin`
-
-Pour la carte bleue de test : 4242 4242 4242 4242
-les dates (futures) que vous le souhaitez et le code de sécurité à 3 chiffres de votre choix.
+  - **Carte de test :** `4242 4242 4242 4242` (Date future, code CVC au choix)
 ---
 
 ## ⚡ Fonctionnalités Clés
