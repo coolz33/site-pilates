@@ -889,6 +889,12 @@ select:focus,
     overflow: hidden;
 }
 
+/* Utilitaires de couleurs pour les notifications */
+.bg-emerald-500 { background-color: var(--emerald-500) !important; }
+.bg-red-500 { background-color: #ef4444 !important; }
+.bg-blue-500 { background-color: #3b82f6 !important; }
+.bg-orange-500 { background-color: #f97316 !important; }
+
 /* --- Amélioration des info-bulles et fenêtres du planning --- */
 /* La largeur est gérée par max-width, width: fit-content et min-width pour s'adapter au contenu tout en garantissant une taille minimale */
 .planning-tooltip, .planning-modal-content { /* Appliqué à l'infobulle du planning et au modal de confirmation */

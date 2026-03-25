@@ -290,13 +290,18 @@ export const userService = {
             }
         }
 
-        await fetch(`${API_URL}/users/${userId}/batches`, {
+        const res = await fetch(`${API_URL}/users/${userId}/batches`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount, expires_in_days, transactionType, paymentMethod, price })
         });
-        app.showNotification('Cours ajoutés avec succès !');
-        app.viewUser(userId); // Rafraîchir la vue
+
+        if (res.ok) {
+            app.showNotification('Cours ajoutés avec succès !');
+            app.viewUser(userId); // Rafraîchir la vue
+        } else {
+            app.showNotification("Erreur lors de l'ajout des cours.", "error");
+        }
     },
 
     async promptRemoveSpecificCredits(app, userId, maxCredits, batchIds) {

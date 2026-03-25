@@ -21,7 +21,7 @@ import { legalView } from './js/views/legal.js';
 import { scheduleView } from './js/views/schedule.js';
 import { paymentSuccessView } from './js/views/paymentSuccess.js';
 import { adminView } from './js/views/admin.js';
-import { renderNavbar, renderFooter, renderPaymentModal, renderCalendarModal, renderConfirmModal } from './js/views/components.js';
+import { renderNavbar, renderFooter, renderPaymentModal, renderCalendarModal, renderConfirmModal, renderNotification } from './js/views/components.js';
 
 /**
  * @class PilatesApp
@@ -1187,6 +1187,7 @@ class PilatesApp {
         renderPaymentModal(this, mainContainer);
         renderCalendarModal(this);
         renderConfirmModal(this);
+        renderNotification(this);
         this.renderCookieBanner();
 
         if (activeElementId) {

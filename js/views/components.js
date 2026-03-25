@@ -177,8 +177,46 @@ export const renderFooter = (app) => {
  * @param {PilatesApp} app - L'instance principale de l'application.
  * @returns {string} Chaîne vide
  */
-export const getNotificationHtml = (app) => {
-    return '';
+/**
+ * Génère et injecte une notification (toast) dans le DOM.
+ * @param {PilatesApp} app - L'instance principale de l'application.
+ */
+export const renderNotification = (app) => {
+    const st = app.state.notification;
+    let container = document.getElementById('notification-toast');
+    
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notification-toast';
+        document.body.appendChild(container);
+    }
+
+    if (!st.visible) {
+        container.innerHTML = '';
+        container.className = '';
+        return;
+    }
+
+    const typeDetails = {
+        success: { icon: icons.check || '✓', bg: 'bg-emerald-500', text: 'text-white' },
+        error: { icon: icons.close || '✕', bg: 'bg-red-500', text: 'text-white' },
+        info: { icon: icons.sparkles || 'ℹ', bg: 'bg-blue-500', text: 'text-white' },
+        warning: { icon: icons.alert || '⚠️', bg: 'bg-orange-500', text: 'text-white' }
+    };
+
+    const config = typeDetails[st.type] || typeDetails.success;
+
+    container.className = 'position-fixed bottom-0 start-50 translate-middle-x mb-4 animate-fade-in';
+    container.style.zIndex = '9999';
+    container.innerHTML = `
+        <div class="custom-card shadow-lg border-0 d-flex align-items-center gap-3 px-4 py-3 ${config.bg} ${config.text}" style="border-radius: 1rem; min-width: 300px;">
+            <div class="fs-5">${config.icon}</div>
+            <div class="fw-medium small">${st.message}</div>
+            <button onclick="app.state.notification.visible = false; app.render();" class="btn btn-link p-0 ms-auto text-white opacity-75 hover-opacity-100">
+                ${icons.close || '✕'}
+            </button>
+        </div>
+    `;
 };
 
 /**
