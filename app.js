@@ -58,7 +58,7 @@ class PilatesApp {
             editingTemplateId: null,
             showCalendarModal: false,
             classForCalendar: null,
-            notification: { message: '', type: 'success', visible: false },
+            notification: { message: '', type: 'success', visible: false, position: null },
             isVerifyingEmail: false,
             resendCodeTimer: 0,
             resendCodeInterval: null,
@@ -929,13 +929,41 @@ class PilatesApp {
      * @param {string} message - Le message à afficher.
      * @param {string} [type='success'] - 'success', 'error', 'info', 'warning'.
      */
-    showNotification(message, type = 'success') {
-        this.state.notification = { message, type, visible: true };
-        this.render();
+    /**
+     * Affiche une notification (toast).
+     * @param {string} message - Le texte à afficher.
+     * @param {string} type - 'success', 'error', 'info', 'warning'.
+     * @param {HTMLElement|Event} target - L'élément ou l'événement pour positionner le toast au-dessus.
+     */
+    showNotification(message, type = 'success', target = null) {
+        let position = null;
+        if (target) {
+            let el = null;
+            if (target instanceof HTMLElement) el = target;
+            else if (target.submitter) el = target.submitter;
+            else if (target.target && target.target instanceof HTMLElement) el = target.target;
+
+            if (el && typeof el.getBoundingClientRect === 'function') {
+                const rect = el.getBoundingClientRect();
+                position = {
+                    x: rect.left + rect.width / 2,
+                    y: rect.top - 10
+                };
+            }
+        }
+        this.state.notification = { message, type, visible: true, position };
         
-        setTimeout(() => {
+        // On ne fait pas un render() complet pour ne pas faire sauter l'interface (scroll, focus)
+        // On met à jour uniquement le composant de notification
+        renderNotification(this);
+        
+        // On nettoie l'ancien timer s'il existait
+        if (this.notificationTimer) clearTimeout(this.notificationTimer);
+        
+        this.notificationTimer = setTimeout(() => {
             this.state.notification.visible = false;
-            this.render();
+            renderNotification(this);
+            this.notificationTimer = null;
         }, 3000);
     }
 
@@ -1120,15 +1148,15 @@ class PilatesApp {
     async removeSpecificCredits(userId, amount, batchIds) { await userService.removeSpecificCredits(this, userId, amount, batchIds); }
     async sendUserMessage(e, userId) { await userService.sendUserMessage(this, e, userId); }
     async toggleUserRole(userId, currentRole) { await userService.toggleUserRole(this, userId, currentRole); }
-    async toggleSubscription(userId, currentStatus) { await userService.toggleSubscription(this, userId, currentStatus); }
+    async toggleSubscription(e, userId, currentStatus) { await userService.toggleSubscription(this, e, userId, currentStatus); }
     async askAi() { await aiService.askAi(this); }
     handleUserSearch(query) {
         this.state.userSearchQuery = query;
         this.render();
     }
     async deleteClass(id) { await classService.cancelBookingByUser(this, id); }
-    async adminCancelBookingForUser(classId, userId) { await classService.adminCancelBookingForUser(this, classId, userId); }
-    async adminDeleteClass(id) { await classService.adminDeleteClass(this, id); }
+    async adminCancelBookingForUser(e, classId, userId) { await classService.adminCancelBookingForUser(this, e, classId, userId); }
+    async adminDeleteClass(e, id) { await classService.adminDeleteClass(this, e, id); }
     async editClassCapacity(id, capacity) { await classService.editClassCapacity(this, id, capacity); }
     async adminBulkDeleteClasses() { await classService.adminBulkDeleteClasses(this); }
     async generateAdminDescription() { await aiService.generateAdminDescription(this); }

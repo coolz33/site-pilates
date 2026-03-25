@@ -210,7 +210,7 @@ export const adminView = (app) => {
                                                                 ` : ''}
                                                             </td>
                                                             <td class="py-1 px-2 text-end text-nowrap">
-                                                                <button onclick="app.adminDeleteClass(${c.id})" class="btn btn-link text-danger p-0" title="Supprimer">
+                                                                <button onclick="app.adminDeleteClass(event, ${c.id})" class="btn btn-link text-danger p-0" title="Supprimer">
                                                                     ${icons.trash}
                                                                 </button>
                                                             </td>

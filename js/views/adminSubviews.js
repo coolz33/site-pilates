@@ -353,7 +353,7 @@ export const renderUserDetailsTab = (app, st) => {
                     
                     <div class="d-flex align-items-center gap-2 mt-3">
                         <div class="position-relative has-tooltip">
-                            <button onclick="app.toggleSubscription(${user.id}, ${user.is_subscribed})" class="btn btn-sm ${user.is_subscribed ? 'btn-warning text-dark' : 'btn-outline-warning text-dark'} rounded-circle d-flex align-items-center justify-content-center p-0" style="width: 32px; height: 32px; transition: all 0.2s;">
+                            <button onclick="app.toggleSubscription(event, ${user.id}, ${user.is_subscribed})" class="btn btn-sm ${user.is_subscribed ? 'btn-warning text-dark' : 'btn-outline-warning text-dark'} rounded-circle d-flex align-items-center justify-content-center p-0" style="width: 32px; height: 32px; transition: all 0.2s;">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                             </button>
                             <div class="planning-tooltip schedule-tooltip icon-tooltip shadow-lg text-center">
@@ -459,7 +459,7 @@ export const renderUserDetailsTab = (app, st) => {
                         ${futureBookings.map(b => `
                             <div class="d-flex align-items-center justify-content-between p-1 px-2 rounded-3 bg-emerald-light text-emerald-dark small">
                                 <span>📅 ${new Date(b.date).toLocaleDateString()} à ${b.time} - ${b.title}</span>
-                                <button onclick="app.adminCancelBookingForUser(${b.class_id}, ${user.id})" class="btn btn-link text-danger p-0" title="Annuler cette réservation">
+                                <button onclick="app.adminCancelBookingForUser(event, ${b.class_id}, ${user.id})" class="btn btn-link text-danger p-0" title="Annuler cette réservation">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
                                 </button>
                             </div>

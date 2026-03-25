@@ -190,7 +190,7 @@ export const classService = {
     },
 
     // Suppression par l'admin (Planning)
-    async adminDeleteClass(app, id) {
+    async adminDeleteClass(app, e, id) {
         const cls = app.state.classes.find(c => c.id === id);
         if (!cls) return;
 
@@ -204,7 +204,7 @@ export const classService = {
                 const confirmAll = await app.confirmDialog("Confirmez-vous la suppression de TOUTES les séances de cette série ?", { type: 'danger' });
                 if (confirmAll) {
                     await fetch(`${API_URL}/classes/series/${cls.recurrence_id}`, { method: 'DELETE' });
-                    app.showNotification("La série de cours a été supprimée.");
+                    app.showNotification("La série de cours a été supprimée.", "success", e);
                     app.init();
                 }
                 return;
@@ -214,7 +214,7 @@ export const classService = {
         const confirmSingle = await app.confirmDialog(cls.recurrence_id ? "Supprimer uniquement cette séance ?" : "Voulez-vous vraiment supprimer ce cours ?", { type: 'danger' });
         if (confirmSingle) {
             await fetch(`${API_URL}/classes/${id}`, { method: 'DELETE' });
-            app.showNotification("Séance supprimée.");
+            app.showNotification("Séance supprimée.", "success", e);
             app.init();
         }
     },
@@ -334,7 +334,7 @@ export const classService = {
                     body: JSON.stringify({ ...baseClass, date, recurrence_id: recurrenceId })
                 });
             }
-            app.showNotification(datesToCreate.length > 1 ? `${datesToCreate.length} séances ajoutées.` : "Séance ajoutée.");
+            app.showNotification(datesToCreate.length > 1 ? `${datesToCreate.length} séances ajoutées.` : "Séance ajoutée.", "success", e);
             app.state.isAdminRecurring = false; // Réinitialiser après succès
         } catch (err) {
             app.showNotification("Erreur lors de la création.", "error");
@@ -436,7 +436,7 @@ export const classService = {
     },
 
     // Annulation par l'administrateur (depuis le détail client)
-    async adminCancelBookingForUser(app, classId, targetUserId) {
+    async adminCancelBookingForUser(app, e, classId, targetUserId) {
         const confirmed = await app.confirmDialog("Voulez-vous vraiment annuler cette réservation pour ce client ?\n\nS'il n'est pas abonné, son cours lui sera recrédité.", { type: 'danger' });
         if (!confirmed) return;
         try {
@@ -447,7 +447,7 @@ export const classService = {
             });
             const data = await res.json();
             if (data.success) {
-                app.showNotification("Réservation annulée avec succès.");
+                app.showNotification("Réservation annulée avec succès.", "success", e);
                 // Re-charger les détails du client pour mettre à jour la liste des réservations et le solde de crédits
                 await app.viewUser(targetUserId); 
             } else {

@@ -297,10 +297,10 @@ export const userService = {
         });
 
         if (res.ok) {
-            app.showNotification('Cours ajoutés avec succès !');
+            app.showNotification('Cours ajoutés avec succès !', 'success', e);
             app.viewUser(userId); // Rafraîchir la vue
         } else {
-            app.showNotification("Erreur lors de l'ajout des cours.", "error");
+            app.showNotification("Erreur lors de l'ajout des cours.", "error", e);
         }
     },
 
@@ -354,7 +354,7 @@ export const userService = {
         await app.viewUser(userId);
     },
 
-    async toggleSubscription(app, userId, currentStatus) {
+    async toggleSubscription(app, e, userId, currentStatus) {
         const newStatus = currentStatus ? 0 : 1;
         const confirmMsg = newStatus 
             ? "Activer l'abonnement pour cet utilisateur (limite d'1 cours par semaine) ?" 
@@ -369,7 +369,7 @@ export const userService = {
             body: JSON.stringify({ is_subscribed: newStatus })
         });
         
-        app.showNotification(newStatus ? "Abonnement activé." : "Abonnement désactivé.");
+        app.showNotification(newStatus ? "Abonnement activé." : "Abonnement désactivé.", "success", e);
         app.viewUser(userId);
     },
 

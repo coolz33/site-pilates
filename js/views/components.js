@@ -206,14 +206,26 @@ export const renderNotification = (app) => {
 
     const config = typeDetails[st.type] || typeDetails.success;
 
-    container.className = 'position-fixed bottom-0 start-50 translate-middle-x mb-4 animate-fade-in';
     container.style.zIndex = '9999';
+    if (st.position) {
+        container.className = 'position-fixed translate-middle-x animate-toast-in';
+        container.style.left = `${st.position.x}px`;
+        container.style.top = `${st.position.y}px`;
+        container.style.bottom = 'auto';
+        // Le transform est géré par l'animation animate-toast-in
+    } else {
+        container.className = 'position-fixed bottom-0 start-50 translate-middle-x mb-4 animate-fade-in';
+        container.style.left = '';
+        container.style.top = '';
+        container.style.bottom = '';
+        container.style.transform = '';
+    }
     container.innerHTML = `
-        <div class="custom-card shadow-lg border-0 d-flex align-items-center gap-3 px-4 py-3 ${config.bg} ${config.text}" style="border-radius: 1rem; min-width: 300px;">
-            <div class="fs-5">${config.icon}</div>
-            <div class="fw-medium small">${st.message}</div>
-            <button onclick="app.state.notification.visible = false; app.render();" class="btn btn-link p-0 ms-auto text-white opacity-75 hover-opacity-100">
-                ${icons.close || '✕'}
+        <div class="custom-card shadow-lg border-0 d-flex align-items-center gap-3 px-4 py-2 ${config.bg} ${config.text} text-nowrap" style="border-radius: 2rem; min-width: 200px; border: 1px solid rgba(255,255,255,0.2) !important;">
+            <div class="fs-6">${config.icon}</div>
+            <div class="fw-medium small" style="font-size: 0.8rem;">${st.message}</div>
+            <button onclick="app.state.notification.visible = false; app.render();" class="btn btn-link p-0 ms-auto text-white opacity-75 hover-opacity-100 border-0" style="vertical-align: middle;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
         </div>
     `;
