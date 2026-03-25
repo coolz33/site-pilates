@@ -1,5 +1,4 @@
 import { icons } from '../icons.js';
-import { getNotificationHtml } from './components.js';
 import { generatePaginationHtml, generateLimitSelectorHtml } from '../utils.js';
 import { renderAddClassForm, renderCancellationDelayForm, renderPackagesManager, renderNewsletterForm, renderStudioSettings } from './adminForms.js';
 import { renderLedgerTab, renderUserDetailsTab, renderTemplatesTab, renderUsersTab } from './adminSubviews.js';
