@@ -518,7 +518,7 @@ const handleRequest = async (req, res) => {
         const batchAddMatch = path.match(/^\/users\/(\d+)\/batches$/);
         if (method === 'POST' && batchAddMatch) {
             const userId = batchAddMatch[1];
-            const { amount, expires_in_days } = req.body;
+            const { amount, expires_in_days, transactionType, paymentMethod, price } = req.body;
             await cleanupExpiredBatches(userId);
             
             let expiresAtStr = null;
@@ -527,10 +527,20 @@ const handleRequest = async (req, res) => {
                 d.setDate(d.getDate() + parseInt(expires_in_days));
                 expiresAtStr = d.toISOString().slice(0, 19).replace('T', ' ');
             }
+
+            let type = 'adjustment';
+            let description = 'Ajout manuel de cours (Admin)';
+            
+            if (transactionType === 'purchase') {
+                type = 'purchase';
+                const pMethod = paymentMethod || 'Autre moyen';
+                const pPrice = price || 0;
+                description = `Achat de cours par ${pMethod} (${pPrice}€)`;
+            }
             
             await pool.query('START TRANSACTION');
             await pool.query('UPDATE users SET credits_balance = GREATEST(0, COALESCE(credits_balance, 0) + ?) WHERE id = ?', [parseInt(amount), userId]);
-            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, 'adjustment', parseInt(amount), 'Ajout manuel de cours (Admin)']);
+            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES (?, ?, ?, ?)', [userId, type, parseInt(amount), description]);
             await pool.query('INSERT INTO user_batches (user_id, credits, expires_at) VALUES (?, ?, ?)', [userId, parseInt(amount), expiresAtStr]);
             await pool.query('COMMIT');
             

@@ -398,24 +398,54 @@ export const renderUserDetailsTab = (app, st) => {
                 </div>
 
                 <form onsubmit="app.adjustUserCredits(event, ${user.id})" class="p-3 bg-light border rounded-3 mt-3">
-                    <div class="d-flex flex-wrap align-items-center gap-3">
-                        <label class="fw-medium small mb-0 text-nowrap">Ajouter des cours :</label>
-                        <input type="number" name="amount" placeholder="Qté" required min="1" class="form-control form-control-sm text-center px-1" style="width: 60px;">
-                        
-                        <div class="form-check mb-0 ms-1 d-flex align-items-center gap-2">
-                            <input type="checkbox" id="admin-exp-cb" class="form-check-input mt-0 cursor-pointer" onchange="document.getElementById('admin-exp-div').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('admin-exp-input').value = '0';">
-                            <label class="form-check-label small text-muted cursor-pointer text-nowrap" style="padding-top: 2px;" for="admin-exp-cb">A une expiration ?</label>
+                    <div class="d-flex flex-column gap-3">
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <div style="min-width: 150px;">
+                                <label class="fw-medium small mb-1 d-block">Type d'ajout :</label>
+                                <select name="transactionType" class="form-select form-select-sm" onchange="const form = this.closest('form'); const isPurchase = this.value === 'purchase'; form.querySelector('.payment-details').classList.toggle('d-none', !isPurchase); if(isPurchase) { form.querySelector('[name=price]').required = true; } else { form.querySelector('[name=price]').required = false; }">
+                                    <option value="adjustment">🎁 Cadeau / Manuel</option>
+                                    <option value="purchase">💰 Paiement (Hors Stripe)</option>
+                                </select>
+                            </div>
+
+                            <div class="payment-details d-none d-flex flex-wrap align-items-center gap-3">
+                                <div>
+                                    <label class="fw-medium small mb-1 d-block">Moyen :</label>
+                                    <select name="paymentMethod" class="form-select form-select-sm">
+                                        <option value="Espèces">Espèces</option>
+                                        <option value="Chèque">Chèque</option>
+                                        <option value="Virement">Virement</option>
+                                        <option value="Autre">Autre</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="fw-medium small mb-1 d-block">Prix payé (€) :</label>
+                                    <input type="number" name="price" placeholder="Ex: 150" class="form-control form-control-sm text-center" style="width: 80px;">
+                                </div>
+                            </div>
                         </div>
-                        <div class="d-none d-flex align-items-center gap-2" id="admin-exp-div">
-                            <label class="small text-muted mb-0">Expire dans :</label>
-                            <input type="number" id="admin-exp-input" name="expires_in_value" value="0" min="0" class="form-control form-control-sm text-center" style="width: 70px;">
-                            <select name="expires_in_unit" class="form-select form-select-sm text-muted small" style="width: auto; padding-right: 2rem; cursor: pointer;">
-                                <option value="days">jours</option>
-                                <option value="months">mois</option>
-                                <option value="years">années</option>
-                            </select>
+
+                        <div class="d-flex flex-wrap align-items-center gap-3 pt-2 border-top">
+                            <div>
+                                <label class="fw-medium small mb-1 d-block">Quantité :</label>
+                                <input type="number" name="amount" placeholder="Qté" required min="1" class="form-control form-control-sm text-center" style="width: 60px;">
+                            </div>
+                            
+                            <div class="form-check mb-0 mt-3 d-flex align-items-center gap-2">
+                                <input type="checkbox" id="admin-exp-cb" class="form-check-input mt-0 cursor-pointer" onchange="document.getElementById('admin-exp-div').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('admin-exp-input').value = '0';">
+                                <label class="form-check-label small text-muted cursor-pointer text-nowrap" style="padding-top: 2px;" for="admin-exp-cb">A une expiration ?</label>
+                            </div>
+                            <div class="d-none d-flex align-items-center gap-2 mt-3" id="admin-exp-div">
+                                <label class="small text-muted mb-0">Expire dans :</label>
+                                <input type="number" id="admin-exp-input" name="expires_in_value" value="0" min="0" class="form-control form-control-sm text-center" style="width: 70px;">
+                                <select name="expires_in_unit" class="form-select form-select-sm text-muted small" style="width: auto; padding-right: 2rem; cursor: pointer;">
+                                    <option value="days">jours</option>
+                                    <option value="months">mois</option>
+                                    <option value="years">années</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-emerald btn-sm ms-auto px-4 mt-3">Ajouter les cours</button>
                         </div>
-                        <button type="submit" class="btn btn-emerald btn-sm ms-auto px-4">Ajouter</button>
                     </div>
                 </form>
             </div>

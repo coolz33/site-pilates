@@ -270,6 +270,9 @@ export const userService = {
     async adjustUserCredits(app, e, userId) {
         e.preventDefault();
         const amount = parseInt(e.target.amount.value);
+        const transactionType = e.target.transactionType.value;
+        const paymentMethod = e.target.paymentMethod ? e.target.paymentMethod.value : null;
+        const price = e.target.price ? parseInt(e.target.price.value) : 0;
         let expires_in_days = 0;
 
         if (e.target.expires_in_value) {
@@ -290,7 +293,7 @@ export const userService = {
         await fetch(`${API_URL}/users/${userId}/batches`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount, expires_in_days })
+            body: JSON.stringify({ amount, expires_in_days, transactionType, paymentMethod, price })
         });
         app.showNotification('Cours ajoutés avec succès !');
         app.viewUser(userId); // Rafraîchir la vue
