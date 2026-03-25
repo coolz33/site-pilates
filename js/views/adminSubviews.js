@@ -435,8 +435,8 @@ export const renderUserDetailsTab = (app, st) => {
 
                             <div class="vr mx-1 opacity-25" style="height: 20px;"></div>
 
-                            <div>
-                                <label class="fw-medium small mb-1 d-block">Quantité :</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="fw-medium small mb-0 text-nowrap">Quantité :</label>
                                 <input type="number" name="amount" placeholder="Qté" required min="1" class="form-control form-control-sm text-center" style="width: 60px;">
                             </div>
                             
