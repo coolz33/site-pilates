@@ -125,14 +125,13 @@ export const classService = {
                     localStorage.setItem('pilates_user', JSON.stringify(data.user)); // Mettre à jour le local storage
                 }
                 
-                // Préparation silencieuse de l'interface suivante
+                // Reset de l'état du modal
                 app.state.showPaymentModal = false;
                 app.state.selectedClassForPayment = null;
-                app.state.classForCalendar = cls;
-                app.state.showCalendarModal = true;
-                
-                // Déclenche le rafraîchissement global une seule et unique fois
-                app.showNotification("Réservation confirmée !");
+
+                // Déclenche le rafraîchissement global
+                app.showNotification("Réservation confirmée !", "success", e);
+                app.init(); // Rafraîchit les données et ferme le modal
             } else {
                 console.error("[classService] Le backend a signalé un échec (data.success est false):", data.message);
                 app.state.modalMessage = { type: 'error', text: data.message };
@@ -151,6 +150,7 @@ export const classService = {
     cancelPayment(app) {
         app.state.showPaymentModal = false;
         app.state.selectedClassForPayment = null;
+        app.state.showCalendarModal = false; // Sécurité pour s'assurer que le calendrier n'apparaît pas
         app.render();
     },
 
