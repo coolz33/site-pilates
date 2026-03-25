@@ -131,7 +131,12 @@ export const classService = {
 
                 // Déclenche le rafraîchissement global
                 app.showNotification("Réservation confirmée !", "success", e);
-                app.init(); // Rafraîchit les données et ferme le modal
+                await app.init(); // Rafraîchit les données du planning
+
+                // Affiche ensuite l'ajout au calendrier
+                app.state.classForCalendar = cls;
+                app.state.showCalendarModal = true;
+                app.render(); // Pour déclencher spécifiquement l'ouverture du modal calendrier
             } else {
                 console.error("[classService] Le backend a signalé un échec (data.success est false):", data.message);
                 app.state.modalMessage = { type: 'error', text: data.message };
