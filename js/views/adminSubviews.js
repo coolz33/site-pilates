@@ -440,11 +440,11 @@ export const renderUserDetailsTab = (app, st) => {
                                 <input type="number" name="amount" placeholder="Qté" required min="1" class="form-control form-control-sm text-center" style="width: 60px;">
                             </div>
                             
-                            <div class="form-check mb-0 mt-3 d-flex align-items-center gap-2">
+                            <div class="form-check mb-0 d-flex align-items-center gap-2">
                                 <input type="checkbox" id="admin-exp-cb" class="form-check-input mt-0 cursor-pointer" onchange="document.getElementById('admin-exp-div').classList.toggle('d-none', !this.checked); if(!this.checked) document.getElementById('admin-exp-input').value = '0';">
-                                <label class="form-check-label small text-muted cursor-pointer text-nowrap" style="padding-top: 2px;" for="admin-exp-cb">A une expiration ?</label>
+                                <label class="form-check-label small text-muted cursor-pointer text-nowrap" for="admin-exp-cb">A une expiration ?</label>
                             </div>
-                            <div class="d-none d-flex align-items-center gap-2 mt-3" id="admin-exp-div">
+                            <div class="d-none d-flex align-items-center gap-2" id="admin-exp-div">
                                 <label class="small text-muted mb-0">Expire dans :</label>
                                 <input type="number" id="admin-exp-input" name="expires_in_value" value="0" min="0" class="form-control form-control-sm text-center" style="width: 70px;">
                                 <select name="expires_in_unit" class="form-select form-select-sm text-muted small" style="width: auto; padding-right: 2rem; cursor: pointer;">
@@ -453,7 +453,7 @@ export const renderUserDetailsTab = (app, st) => {
                                     <option value="years">années</option>
                                 </select>
                             </div>
-                            <button type="submit" class="btn btn-emerald btn-sm ms-auto px-4 mt-3"><span class="btn-submit-text">Ajouter les cours</span></button>
+                            <button type="submit" class="btn btn-emerald btn-sm ms-auto px-4"><span class="btn-submit-text">Ajouter les cours</span></button>
                         </div>
                     </div>
                 </form>
