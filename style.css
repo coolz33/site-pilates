@@ -333,14 +333,27 @@ html.dark {
 /* États de la carte de séance */
 .card-booked { background-color: var(--emerald-700); color: white; border-color: var(--emerald-700); }
 .card-past { background-color: var(--stone-100); color: var(--stone-500); border-color: var(--stone-100); }
+.card-past-booked { 
+    background-color: var(--stone-100); 
+    color: var(--stone-600); 
+    border: 1.5px solid var(--emerald-500) !important; 
+    opacity: 0.8;
+}
 .dark .card-past { background-color: var(--stone-800); color: var(--stone-400); border-color: var(--stone-700); }
+.dark .card-past-booked { 
+    background-color: var(--stone-800); 
+    border: 1.5px solid var(--emerald-600) !important;
+    color: var(--stone-400); 
+}
 .card-available { background-color: white; border-color: var(--stone-100); }
 .dark .card-available { background-color: var(--stone-800); border-color: var(--stone-700); }
 
 /* Boutons internes aux cartes */
 .btn-booked { background-color: var(--emerald-900) !important; color: #ffffff !important; cursor: default; border: none; }
 .btn-past { background-color: var(--stone-200) !important; color: var(--stone-500) !important; cursor: not-allowed; border: none; }
+.btn-past-booked { background-color: var(--stone-200) !important; color: var(--stone-500) !important; cursor: default; border: none; }
 .dark .btn-past { background-color: var(--stone-700) !important; color: var(--stone-400) !important; }
+.dark .btn-past-booked { background-color: var(--stone-700) !important; color: var(--stone-400) !important; }
 .btn-full { background-color: #fee2e2 !important; color: #991b1b !important; cursor: not-allowed; opacity: 0.75; border: none; }
 .dark .btn-full { background-color: rgba(127, 29, 29, 0.5) !important; color: #fca5a5 !important; }
 .btn-available { background-color: var(--emerald-50) !important; color: var(--emerald-800) !important; border: none; transition: background-color 0.2s; }

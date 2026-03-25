@@ -40,11 +40,13 @@ export const scheduleView = (app) => {
                 const isFull = c.bookedUsers.length >= c.capacity;
 
                 let buttonText, buttonClasses, buttonDisabled = '';
-                let cardStateClass = isBooked ? 'card-booked' : (isPast ? 'card-past' : 'card-available');
+                let cardStateClass = isPast 
+                    ? (isBooked ? 'card-past-booked' : 'card-past') 
+                    : (isBooked ? 'card-booked' : 'card-available');
 
                 if (isBooked) {
-                    buttonText = 'Inscrit';
-                    buttonClasses = 'btn-booked';
+                    buttonText = isPast ? 'Fait' : 'Inscrit';
+                    buttonClasses = isPast ? 'btn-past-booked' : 'btn-booked';
                     buttonDisabled = 'disabled';
                 } else if (isPast) {
                     buttonText = 'Terminé';
