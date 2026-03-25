@@ -34,7 +34,7 @@ html.dark {
 }
 
 .custom-body {
-    background-color: var(--stone-50);
+    background-color: var(--stone-100); /* Fond légèrement plus gris pour détacher les cartes blanches */
     color: var(--stone-800);
     font-family: system-ui, -apple-system, sans-serif;
     padding-top: 5rem; /* Compense la barre de navigation fixe */
@@ -45,8 +45,8 @@ html.dark {
 .admin-card {
     background-color: #fff;
     border-radius: 1.5rem; /* 3xl */
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    border: 1px solid var(--stone-100);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--stone-200);
     padding: 1.5rem;
 }
 .dark .admin-card {
@@ -126,9 +126,10 @@ html.dark {
 
 /* --- Composants Sémantiques Navbar --- */
 .custom-navbar {
-    background-color: rgba(245, 245, 244, 0.95); /* stone-100 avec flou transparent */
+    background-color: white;
     backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--stone-200);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     z-index: 1030;
 }
 .dark .custom-navbar {
@@ -180,13 +181,15 @@ html.dark {
 
 /* --- Composants Sémantiques Footer --- */
 .custom-footer {
-    background-color: white;
+    background-color: var(--stone-100);
     border-top: 1px solid var(--stone-200);
     color: var(--stone-600);
+    margin-top: auto;
 }
+
 .dark .custom-footer {
-    background-color: var(--stone-900);
-    border-top-color: var(--stone-800);
+    background-color: var(--stone-950);
+    border-top-color: var(--stone-700);
     color: var(--stone-400);
 }
 .icon-circle {
@@ -302,9 +305,10 @@ html.dark {
 .dark .custom-feature-section { background-color: rgba(41, 37, 36, 0.3); }
 
 .custom-feature-card {
-    background-color: var(--stone-50);
-    border: 1px solid var(--stone-100);
+    background-color: white;
+    border: 1px solid var(--stone-200);
     border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 .dark .custom-feature-card { background-color: var(--stone-800); border-color: var(--stone-700); }
 
@@ -315,8 +319,8 @@ html.dark {
 .custom-card {
     background-color: white;
     border-radius: 1.5rem; /* 3xl */
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    border: 1px solid var(--stone-100);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--stone-200);
 }
 .dark .custom-card { background-color: var(--stone-800); border-color: var(--stone-700); }
 
@@ -332,12 +336,19 @@ html.dark {
 
 /* États de la carte de séance */
 .card-booked { background-color: var(--emerald-700); color: white; border-color: var(--emerald-700); }
-.card-past { background-color: var(--stone-100); color: var(--stone-500); border-color: var(--stone-100); }
+.card-past { 
+    background-color: white; 
+    color: var(--stone-500); 
+    border-color: var(--stone-200); 
+    opacity: 0.7;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
 .card-past-booked { 
-    background-color: var(--stone-100); 
+    background-color: white; 
     color: var(--stone-600); 
     border: 1.5px solid var(--emerald-500) !important; 
-    opacity: 0.8;
+    opacity: 0.85;
+    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.05);
 }
 .dark .card-past { background-color: var(--stone-800); color: var(--stone-400); border-color: var(--stone-700); }
 .dark .card-past-booked { 
@@ -440,10 +451,11 @@ html.dark {
 .dark .price-header { background-color: var(--emerald-800); }
 
 .price-body {
-    background-color: var(--stone-50);
-    border: 1px solid var(--stone-500);
+    background-color: white;
+    border: 1px solid var(--stone-200);
     border-radius: 40px;
     padding: 40px 20px 20px; /* Espace en haut pour le titre */
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
     flex-grow: 1;
     display: flex;
     flex-direction: column;
