@@ -96,6 +96,28 @@ const server = http.createServer((req, res) => {
             const relativePath = pathname === '/' ? 'index.html' : decodeURIComponent(pathname.slice(1));
             const filePath = path.join(__dirname, relativePath);
 
+            // SÉCURITÉ : Liste des fichiers et dossiers strictement interdits au public
+            const forbiddenNames = [
+                '.env', 'package.json', 'package-lock.json', 'server.js', 
+                'database.js', 'Dockerfile', 'docker-compose.yml', 'node_modules', 
+                'routes', 'technical_document.md', 'user_manual.md', 'README.md', 
+                '.git', '.gitignore', '.dockerignore'
+            ];
+
+            const fileName = path.basename(filePath).toLowerCase();
+            const isDotFile = fileName.startsWith('.');
+            const isForbidden = forbiddenNames.some(forbidden => 
+                fileName === forbidden.toLowerCase() || 
+                relativePath.toLowerCase().startsWith(forbidden.toLowerCase() + '/')
+            );
+
+            if (isDotFile || isForbidden) {
+                console.warn(`[SECURITY] Tentative d'accès bloquée : ${relativePath}`);
+                res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify({ message: 'Accès interdit : ce fichier est protégé.' }));
+                return;
+            }
+
             const extname = String(path.extname(filePath)).toLowerCase();
             const mimeTypes = {
                 '.html': 'text/html',
